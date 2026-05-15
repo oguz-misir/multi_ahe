@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>m_ahe_robot_interface</name>
+  <version>0.1.0</version>
+  <description>
+    Robot interface nodes for AHE-MRTA.
+    Handles robot status publishing (RobotStatusSummary), listens to OptimizedTaskQueue,
+    interfaces with Nav2 NavigateToPose action, reports LocalExecutionFeedback,
+    and manages per-robot state machine (idle, navigating, stuck, failed, reached).
+  </description>
+  <maintainer email="dr.oguz.misir@gmail.com">AHE-MRTA Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>action_msgs</depend>
+  <depend>m_ahe_mrta_msgs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

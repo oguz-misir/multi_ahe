@@ -1,0 +1,29 @@
+# ROS 2 build artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Raw experiment data (büyük, yeniden üretilebilir)
+results/raw/
+
+# Büyük işlenmiş CSV'ler (yeniden üretilebilir)
+results/processed/
+
+# Gazebo log
+gazebo_validation.log
+start_gazebo_validation.sh
+
+# Geçici dosyalar
+*.log
+*.tmp
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

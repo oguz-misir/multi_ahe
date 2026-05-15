@@ -1,0 +1,10 @@
+std_msgs/Header header
+string robot_id
+string current_task_id
+float32 task_progress
+float32 local_delay
+uint8 congestion_indicator
+uint8 goal_reachability
+float32 navigation_effort
+bool temporary_failure
+bool request_replan

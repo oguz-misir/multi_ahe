@@ -1,0 +1,8 @@
+string task_id
+geometry_msgs/PoseStamped target_pose
+uint8 priority_level
+float32 expected_arrival_time
+float32 service_time
+float32 local_cost
+bool is_critical
+bool allow_skip

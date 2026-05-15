@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>m_ahe_task_allocator</name>
+  <version>0.1.0</version>
+  <description>
+    Task allocation node for AHE-MRTA.
+    Computes the weighted cost matrix using AHE allocation weights, assigns tasks to robots,
+    performs robot-level task sequence optimization (adaptive insertion heuristic),
+    and publishes OptimizedTaskQueue to each robot.
+    Also contains baseline allocator implementations:
+    greedy_nearest, static_weighted, deadline_aware, and later BiG-MRTA,
+    RoSTAM-EA, Consensus-DBTA (from comparison methods MD file, Phase 9).
+  </description>
+  <maintainer email="dr.oguz.misir@gmail.com">AHE-MRTA Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>m_ahe_mrta_msgs</depend>
+  <depend>m_ahe_ecosystem_manager</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
