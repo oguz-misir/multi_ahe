@@ -79,7 +79,15 @@
       "Bash(git init *)",
       "Bash(git config *)",
       "Bash(git branch *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(git -C /home/oguz/multi_ahe remote -v)",
+      "Bash(git -C /home/oguz/multi_ahe log --oneline -5)",
+      "Bash(git -C /home/oguz/multi_ahe status)",
+      "Bash(gh repo *)",
+      "Bash(git *)"
     ]
   }
 }
