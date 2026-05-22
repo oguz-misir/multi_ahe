@@ -1,0 +1,10 @@
+std_msgs/Header header
+string robot_id
+geometry_msgs/PoseStamped current_pose
+string current_task_id
+uint8 availability_state
+uint8 battery_state
+uint8 navigation_state
+bool failure_flag
+bool task_completed
+string completed_task_id

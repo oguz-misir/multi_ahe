@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>m_ahe_ecosystem_manager</name>
+  <version>0.1.0</version>
+  <description>
+    Ecosystem manager node for AHE-MRTA.
+    Computes the context vector, maintains dominance vector, cooperation matrix,
+    and suppression matrix for all 7 strategy agents.
+    Generates allocation weights via softmax(M * D(t)).
+    Logs EcosystemState for offline analysis only -- never sends ecosystem
+    internal state to robot agents.
+    Strategy agents: Spatial Opportunist, Criticality Guardian, Temporal Regulator,
+    Resource Distributor, Energy Conservator, Stability Controller, Recovery Coordinator.
+  </description>
+  <maintainer email="dr.oguz.misir@gmail.com">AHE-MRTA Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>m_ahe_mrta_msgs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

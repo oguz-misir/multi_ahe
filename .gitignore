@@ -1,0 +1,42 @@
+# ROS2 build artifacts
+build/
+install/
+log/
+
+# Experiment results (raw data — büyük dosyalar)
+results/raw/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+*.so
+
+# Gazebo / ROS runtime
+*.lock
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+nohup.out
+
+# Python venv
+.venv/
+venv/
+
+# Claude Code session
+.claude/

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>m_ahe_recovery_manager</name>
+  <version>0.1.0</version>
+  <description>
+    Recovery manager node for AHE-MRTA.
+    Monitors robot failures, unreachable goals, deadline risk, battery criticality,
+    and congestion-induced delays. Publishes AllocationEvent messages and
+    triggers event-triggered replanning via /system/replan_trigger.
+    Replanning triggers: robot failure, goal unreachable, battery critical,
+    deadline risk threshold exceeded, allocation instability threshold exceeded.
+  </description>
+  <maintainer email="dr.oguz.misir@gmail.com">AHE-MRTA Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>m_ahe_mrta_msgs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
