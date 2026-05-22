@@ -1,0 +1,306 @@
+"""
+Phase 5 launch file — Gazebo (N robots) + Nav2 stack for each robot (v3).
+
+Nav2 params are generated at launch time from nav2_params.yaml by substituting
+the robot namespace, so a single template drives all N stacks.
+
+TF chain per robot (N = 1..robot_count):
+  robot_N/map  (static TF at spawn offset — replaces AMCL for sim)
+    → robot_N/odom  (Gazebo diff_drive, odom starts at 0,0 relative to spawn)
+      → robot_N/base_link  (odom_to_tf)
+        → robot_N/base_scan  (robot_state_publisher)
+          → robot_N/base_scan/lidar_sensor  (static TF, identity)
+
+AMCL is intentionally omitted. In Gazebo, the diff_drive plugin provides
+perfect odometry (no encoder noise). A static map→odom TF at the spawn
+offset gives exact ground-truth localization, which is appropriate for
+multi-robot task-allocation simulation experiments.
+
+Launch arguments
+----------------
+robot_count : number of robots (default 3, max 15)
+gz_gui      : Launch Gazebo with GUI window (default false / headless)
+"""
+
+import os
+import sys
+import tempfile
+
+import yaml
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+    SetEnvironmentVariable,
+)
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+# Allow importing the sibling helpers module without a python package install
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from multi_robot_helpers import compute_spawn_positions, robot_namespaces  # noqa: E402
+
+
+NAV2_NODES = [
+    'map_server',
+    'controller_server', 'planner_server',
+    'behavior_server', 'bt_navigator',
+]
+
+
+def _make_behavior_override(robot_ns: str) -> str:
+    """Generate a minimal params file that uses /** to force correct frames on behavior_server.
+
+    The main params file uses /robot_N/behavior_server as the key, but in Jazzy
+    that key format may not match the node FQN reliably.  A /** wildcard in a
+    second params file (loaded last) always wins.
+    """
+    data = {
+        '/**': {
+            'ros__parameters': {
+                'global_frame': f'{robot_ns}/odom',
+                'robot_base_frame': f'{robot_ns}/base_link',
+                'local_frame': f'{robot_ns}/odom',
+            }
+        }
+    }
+    tmp = tempfile.NamedTemporaryFile(
+        mode='w', suffix='.yaml',
+        prefix=f'bs_override_{robot_ns}_',
+        delete=False,
+    )
+    yaml.dump(data, tmp)
+    tmp.close()
+    return tmp.name
+
+
+def _make_nav2_params(template_path: str, robot_ns: str, map_yaml: str,
+                       spawn_x: float, spawn_y: float) -> str:
+    """Generate a per-robot Nav2 params file from the shared template.
+
+    Rewrites every top-level node key to its fully qualified ROS2 path so
+    ROS2 Jazzy namespace matching works (e.g. 'amcl' → '/robot_1/amcl').
+    AMCL initial_pose is set to the actual SDF spawn position so the
+    particle filter doesn't diverge.
+    """
+    with open(template_path) as f:
+        content = f.read().replace('robot_1', robot_ns)
+    data = yaml.safe_load(content)
+
+    qualified = {}
+    for key, value in data.items():
+        if key in ('local_costmap', 'global_costmap'):
+            inner = value.get(key, {})
+            qualified[f'/{robot_ns}/{key}/{key}'] = inner
+        else:
+            qualified[f'/{robot_ns}/{key}'] = value
+
+    qualified[f'/{robot_ns}/map_server']['ros__parameters']['yaml_filename'] = map_yaml
+
+    amcl_params = qualified[f'/{robot_ns}/amcl']['ros__parameters']
+    amcl_params['initial_pose']['x'] = float(spawn_x)
+    amcl_params['initial_pose']['y'] = float(spawn_y)
+
+    tmp = tempfile.NamedTemporaryFile(
+        mode='w', suffix='.yaml',
+        prefix=f'nav2_{robot_ns}_',
+        delete=False,
+    )
+    yaml.dump(qualified, tmp)
+    tmp.close()
+    return tmp.name
+
+
+def _nav2_nodes(robot_ns: str, params_file: str, robot_description: str, map_yaml: str,
+                spawn_x: float = 0.0, spawn_y: float = 0.0) -> list:
+    """Return the full Nav2 node list for one robot namespace."""
+    p = params_file
+    bs_override = _make_behavior_override(robot_ns)
+
+    tf_remap = [('/tf', f'/{robot_ns}/tf'), ('/tf_static', f'/{robot_ns}/tf_static')]
+
+    rsp = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        namespace=robot_ns,
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'robot_description': robot_description,
+            'frame_prefix': f'{robot_ns}/',
+        }],
+        remappings=tf_remap,
+    )
+
+    static_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name=f'static_tf_lidar_{robot_ns}',
+        output='screen',
+        arguments=[
+            '0', '0', '0', '0', '0', '0',
+            f'{robot_ns}/base_scan',
+            f'{robot_ns}/base_scan/lidar_sensor',
+        ],
+        remappings=tf_remap,
+    )
+
+    world_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name=f'static_tf_world_{robot_ns}',
+        output='screen',
+        arguments=['0', '0', '0', '0', '0', '0', 'world', f'{robot_ns}/map'],
+        remappings=tf_remap,
+    )
+
+    # map→odom: identity transform.
+    # Gazebo Harmonic diff_drive initializes odometry at the model's world pose
+    # (absolute coordinates), so odom frame = world frame = map frame.
+    # No offset needed; replacing AMCL with this static publisher gives exact
+    # ground-truth localization for simulation experiments.
+    map_odom_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name=f'static_tf_map_odom_{robot_ns}',
+        output='screen',
+        arguments=[
+            '0', '0', '0',
+            '0', '0', '0',
+            f'{robot_ns}/map', f'{robot_ns}/odom',
+        ],
+        remappings=tf_remap,
+    )
+
+    map_server = Node(
+        package='nav2_map_server',
+        executable='map_server',
+        namespace=robot_ns,
+        name='map_server',
+        output='screen',
+        parameters=[p, {'yaml_filename': map_yaml}],
+        remappings=tf_remap,
+    )
+
+    controller = Node(
+        package='nav2_controller',
+        executable='controller_server',
+        namespace=robot_ns,
+        name='controller_server',
+        output='screen',
+        parameters=[p, {
+            'FollowPath.plugin': 'nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController',
+        }],
+        remappings=tf_remap,
+    )
+
+    planner = Node(
+        package='nav2_planner',
+        executable='planner_server',
+        namespace=robot_ns,
+        name='planner_server',
+        output='screen',
+        parameters=[p],
+        remappings=tf_remap,
+    )
+
+    behavior = Node(
+        package='nav2_behaviors',
+        executable='behavior_server',
+        namespace=robot_ns,
+        name='behavior_server',
+        output='screen',
+        parameters=[p, bs_override],
+        remappings=tf_remap,
+    )
+
+    odom_to_tf = Node(
+        package='m_ahe_mrta_bringup',
+        executable='odom_to_tf',
+        namespace=robot_ns,
+        name='odom_to_tf',
+        output='screen',
+        parameters=[{'use_sim_time': True}],
+        remappings=tf_remap,
+    )
+
+    bt_navigator = Node(
+        package='nav2_bt_navigator',
+        executable='bt_navigator',
+        namespace=robot_ns,
+        name='bt_navigator',
+        output='screen',
+        parameters=[p],
+        remappings=tf_remap,
+    )
+
+    lifecycle = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        namespace=robot_ns,
+        name='lifecycle_manager_nav',
+        output='screen',
+        parameters=[p, {
+            'use_sim_time': True,
+            'autostart': True,
+            'node_names': NAV2_NODES,
+        }],
+        remappings=tf_remap,
+    )
+
+    return [rsp, static_tf, world_tf, map_odom_tf, map_server, controller,
+            planner, behavior, bt_navigator, lifecycle, odom_to_tf]
+
+
+def _launch_setup(context, *_args, **_kwargs):
+    nav2_cfg = get_package_share_directory('m_ahe_nav2_config')
+    bringup = get_package_share_directory('m_ahe_mrta_bringup')
+
+    map_yaml = os.path.join(nav2_cfg, 'maps', 'obstacle_map.yaml')
+    template = os.path.join(nav2_cfg, 'params', 'nav2_params.yaml')
+    urdf_file = os.path.join(nav2_cfg, 'urdf', 'waffle_pi.urdf')
+
+    with open(urdf_file) as f:
+        robot_description = f.read()
+
+    robot_count = int(context.launch_configurations.get('robot_count', '3'))
+    positions = compute_spawn_positions(robot_count)
+    namespaces = robot_namespaces(robot_count)
+
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(bringup, 'launch', 'multi_robot_gazebo.launch.py')
+        ),
+        launch_arguments={
+            'gz_gui': LaunchConfiguration('gz_gui'),
+            'robot_count': str(robot_count),
+        }.items(),
+    )
+
+    all_nodes = [gazebo]
+    for robot_ns, (sx, sy) in zip(namespaces, positions):
+        params_file = _make_nav2_params(template, robot_ns, map_yaml, sx, sy)
+        all_nodes.extend(_nav2_nodes(robot_ns, params_file, robot_description, map_yaml,
+                                     spawn_x=sx, spawn_y=sy))
+    return all_nodes
+
+
+def generate_launch_description() -> LaunchDescription:
+    robot_count_arg = DeclareLaunchArgument(
+        'robot_count', default_value='3',
+        description='Number of robots to spawn (1..15)')
+    gz_gui_arg = DeclareLaunchArgument(
+        'gz_gui', default_value='false',
+        description='Launch Gazebo with GUI window')
+
+    sw_render = [
+        SetEnvironmentVariable('GALLIUM_DRIVER', 'llvmpipe'),
+    ]
+
+    return LaunchDescription(
+        [robot_count_arg, gz_gui_arg] + sw_render + [OpaqueFunction(function=_launch_setup)]
+    )

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>m_ahe_nav2_config</name>
+  <version>0.1.0</version>
+  <description>
+    Nav2 parameter configuration files for AHE-MRTA multi-robot experiments.
+    Provides per-robot Nav2 parameter YAML files for TurtleBot3 Waffle Pi.
+    Nav2 parameters are kept identical across all methods to ensure fair comparison.
+    Supports 3-robot (MVP) and 5-robot (paper-scale) configurations.
+  </description>
+  <maintainer email="dr.oguz.misir@gmail.com">AHE-MRTA Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

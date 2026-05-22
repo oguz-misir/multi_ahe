@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>m_ahe_mrta_bringup</name>
+  <version>0.1.0</version>
+  <description>
+    Launch files and bringup scripts for the AHE-MRTA system.
+    Provides launch files for single-robot and multi-robot Gazebo/Nav2 scenarios,
+    AHE system bring-up, baseline experiment runs, and full demo.
+  </description>
+  <maintainer email="dr.oguz.misir@gmail.com">AHE-MRTA Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>m_ahe_mrta_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>nav2_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

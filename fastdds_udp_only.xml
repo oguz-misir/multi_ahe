@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FastDDS profile: disable SHM transport, use UDPv4 only.
+     Prevents port-lock conflicts when 46+ ROS2 processes start simultaneously.
+     Set FASTRTPS_DEFAULT_PROFILES_FILE=/path/to/this/file before launching. -->
+<dds>
+    <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+        <transport_descriptors>
+            <transport_descriptor>
+                <transport_id>udpv4_only</transport_id>
+                <type>UDPv4</type>
+            </transport_descriptor>
+        </transport_descriptors>
+        <participant profile_name="default_participant_profile" is_default_profile="true">
+            <rtps>
+                <useBuiltinTransports>false</useBuiltinTransports>
+                <userTransports>
+                    <transport_id>udpv4_only</transport_id>
+                </userTransports>
+            </rtps>
+        </participant>
+    </profiles>
+</dds>
