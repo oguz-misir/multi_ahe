@@ -41,51 +41,44 @@ DOUBLE_COL_W = 7.0   # inches
 
 # ── Fixed method order (proposed method last, highlighted) ──────────────────────
 METHOD_ORDER = [
-    "greedy_nearest",
-    "deadline_aware",
-    "auction_based",
-    "static_weighted",
     "big_mrta",
     "rostam_ea",
     "consensus_dbta",
-    "ahe_no_dominance",
-    "ahe_no_cooperation_suppression",
-    "ahe_no_event_replanning",
-    "ahe_fixed_context",
-    "full_ahe_mrta",
+    "ahe_mrta_v3_no_bipartite",
+    "ahe_mrta_v3_no_dense_init",
+    "ahe_mrta_v3_no_recovery",
+    "ahe_mrta_v3_fixed_weights",
+    "ahe_mrta_v3",
 ]
 
 METHOD_LABELS = {
-    "greedy_nearest":               "Greedy",
-    "deadline_aware":               "EDF",
-    "auction_based":                "Auction",
-    "static_weighted":              "SW",
     "big_mrta":                     "BiG-MRTA",
     "rostam_ea":                    "RoSTAM-EA",
     "consensus_dbta":               "Cons-DBTA",
-    "ahe_no_dominance":             "AHE-NoD",
-    "ahe_no_cooperation_suppression": "AHE-NoCS",
-    "ahe_no_event_replanning":      "AHE-NoER",
-    "ahe_fixed_context":            "AHE-FC",
-    "full_ahe_mrta":                "AHE-MRTA*",
+    "ahe_mrta_v3_no_bipartite":     "AHE-NoBP",
+    "ahe_mrta_v3_no_dense_init":    "AHE-NoDI",
+    "ahe_mrta_v3_no_recovery":      "AHE-NoRec",
+    "ahe_mrta_v3_fixed_weights":    "AHE-FW",
+    "ahe_mrta_v3":                  "AHE-MRTA*",
 }
 
-PROPOSED = "full_ahe_mrta"
+PROPOSED = "ahe_mrta_v3"
 
-# Main comparison: proposed vs 3 baselines (4 methods total)
+# G1 — Main comparison: 3 baselines + proposed
 BASELINE_COMPARISON_SET = [
-    "static_weighted",
     "big_mrta",
     "rostam_ea",
-    "full_ahe_mrta",   # proposed — always last, highlighted red
+    "consensus_dbta",
+    "ahe_mrta_v3",   # proposed — always last, highlighted red
 ]
 
-# Ablation: full AHE vs 3 ablated variants
+# G2 — Ablation: 4 ablated variants + proposed reference
 ABLATION_SET = [
-    "ahe_no_dominance",
-    "ahe_no_event_replanning",
-    "ahe_fixed_context",
-    "full_ahe_mrta",   # reference — always last
+    "ahe_mrta_v3_no_bipartite",
+    "ahe_mrta_v3_no_dense_init",
+    "ahe_mrta_v3_no_recovery",
+    "ahe_mrta_v3_fixed_weights",
+    "ahe_mrta_v3",   # reference — always last
 ]
 
 HEURISTIC_COLS = ["d_0", "d_1", "d_2", "d_3", "d_4", "d_5", "d_6"]
