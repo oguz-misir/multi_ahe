@@ -28,20 +28,26 @@ warnings.filterwarnings("ignore")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-PROPOSED = "full_ahe_mrta"
-G2_BASELINES = ["big_mrta", "rostam_ea", "static_weighted", "consensus_dbta"]
-G3_BASELINES = ["big_mrta", "static_weighted"]
-G4_ABLATIONS = ["ahe_no_dominance", "ahe_no_event_replanning", "ahe_fixed_context"]
+PROPOSED = "ahe_mrta_v3"
+G1_BASELINES = ["big_mrta", "rostam_ea", "consensus_dbta"]
+G2_BASELINES = G1_BASELINES   # robot_failure + mixed_stress
+G3_BASELINES = ["big_mrta", "rostam_ea", "consensus_dbta"]  # deadline_pressure
+G4_ABLATIONS = [
+    "ahe_mrta_v3_no_bipartite",
+    "ahe_mrta_v3_no_dense_init",
+    "ahe_mrta_v3_no_recovery",
+    "ahe_mrta_v3_fixed_weights",
+]
 
 METHOD_LABELS = {
-    "full_ahe_mrta":           "AHE-MRTA*",
-    "big_mrta":                "BiG-MRTA",
-    "rostam_ea":               "RoSTAM-EA",
-    "static_weighted":         "SW",
-    "consensus_dbta":          "Cons-DBTA",
-    "ahe_no_dominance":        "AHE-NoD",
-    "ahe_no_event_replanning": "AHE-NoER",
-    "ahe_fixed_context":       "AHE-FC",
+    "ahe_mrta_v3":                  "AHE-MRTA*",
+    "big_mrta":                     "BiG-MRTA",
+    "rostam_ea":                    "RoSTAM-EA",
+    "consensus_dbta":               "Cons-DBTA",
+    "ahe_mrta_v3_no_bipartite":     "AHE-NoBP",
+    "ahe_mrta_v3_no_dense_init":    "AHE-NoDI",
+    "ahe_mrta_v3_no_recovery":      "AHE-NoRec",
+    "ahe_mrta_v3_fixed_weights":    "AHE-FW",
 }
 
 # (column, display_name, higher_is_better)
