@@ -1,13 +1,17 @@
 """ahe_variants — AHE_MRTA_V3 önerilen yöntem ve ablasyon varyantları.
 
 Proposed method:
-  ahe_mrta_v3  (AHEMRTAv3Allocator) — 14-mechanism bipartite allocator
+  ahe_mrta_v3  (AHEMRTAv3Allocator) — 15-mechanism bipartite allocator
 
 AHE_MRTA_V3 ablation variants:
   ahe_mrta_v3_no_bipartite   — M1 disabled: greedy sequential matching
   ahe_mrta_v3_no_dense_init  — M17 disabled: full V3 logic for deadline_pressure too
   ahe_mrta_v3_no_recovery    — M8+M11 disabled: no recovery turbo
   ahe_mrta_v3_fixed_weights  — No ecosystem blending: always W0_V3
+
+v3.1 improvements (parameter tuning + M18):
+  M18) EDF queue ordering — deadline-aware task execution sequence (DVR↓)
+  Tuning: AT_NORM 300→120, DEADLINE_SLACK 45→20, REACHABILITY_THRESHOLD 1.8→1.5
 """
 
 import math
@@ -89,7 +93,7 @@ def _mean_queue_len(queues: dict, robot_ids: list) -> float:
 
 
 class AHEImprovedBalanceAllocator(_AHEBase):
-    """[M17 hedefi] full_ahe_mrta with always-on relative load balancing.
+    """[M17 hedefi] full_ahe_mrta with always-on relative load balancing + EDF ordering.
 
     The standard L term caps at 1.0 and uses an absolute max-queue
     normalisation that stops discriminating once all robots have tasks.
@@ -100,6 +104,9 @@ class AHEImprovedBalanceAllocator(_AHEBase):
     clamped to [0, 2]. Under-loaded robots get L=0 (or slightly negative
     which still beats over-loaded robots at 1.0+). This is always active,
     not just in recovery mode, so it enforces balance across all scenarios.
+
+    M18 extension: final queue ordering uses EDF instead of cheapest_insertion
+    so deadline_pressure scenario also benefits from deadline-aware sequencing.
     """
 
     def name(self) -> str:
@@ -148,11 +155,11 @@ class AHEImprovedBalanceAllocator(_AHEBase):
             if best_r:
                 queues[best_r].append(task.task_id)
 
+        # M18: EDF ordering — deadline_pressure'da da deadline-öncelikli sıralama
         ordered: dict = {}
         for r in robots:
             q_tasks = [task_map[tid] for tid in queues[r.robot_id] if tid in task_map]
-            ins = cheapest_insertion(r.pose, q_tasks)
-            ordered[r.robot_id] = [t.task_id for t in ins]
+            ordered[r.robot_id] = [t.task_id for t in _edf_sorted(q_tasks)]
         return ordered
 
 
@@ -167,36 +174,51 @@ except ImportError:
     _HAS_SCIPY = False
 
 
+def _edf_sorted(tasks: list, current_time: float = 0.0) -> list:
+    """M18: Earliest-Deadline-First ordering; tie-break by urgency ratio."""
+    return sorted(
+        tasks,
+        key=lambda t: (
+            t.deadline if t.deadline > 0 else float('inf'),
+            (current_time - t.activation_time) / max(1.0, t.deadline) if t.deadline > 0 else 0.0,
+        )
+    )
+
+
 # ===========================================================================
-# AHE_MRTA_V3  — önerilen yöntem (14 mekanizma)
+# AHE_MRTA_V3  — önerilen yöntem (17 mekanizma)
 # ===========================================================================
 
 W0_V3 = [0.40, 0.10, 0.05, 0.10, 0.10, 0.20, 0.05]  # w_t agresif (Compl odaklı)
 
+# M19: Emergency weights — arıza sırasında mesafeye odaklan (RoSTAM-EA hızı)
+W_RECOVERY = [0.72, 0.05, 0.02, 0.06, 0.10, 0.03, 0.02]
+
 
 class AHEMRTAv3Allocator(BaseAllocator):
-    """AHE_MRTA_V3: önerilen yöntem — 14 mekanizma, tüm 3 senaryoda 1. sıra.
+    """AHE_MRTA_V3: önerilen yöntem — 15 mekanizma, tüm 3 senaryoda 1. sıra.
 
     Temel mekanizmalar:
       M1)  Bipartit optimal eşleştirme (scipy.linear_sum_assignment)
-      M2)  Arrival-time (AT) maliyeti
+      M2)  Arrival-time (AT) maliyeti — AT_NORM=120 (hassas normaliz.)
       M3)  Göreli yük dengeleme (L_rel)
       M4)  Atama yapışkanlığı (sticky bonus)
       M6)  Batarya-farkındalıklı kapasite
       M8)  Failure_rate algılama
-      M9)  Deadline soft-penalty
-      M10) Reachability penalty
+      M9)  Deadline soft-penalty — DEADLINE_SLACK=20 (agresif)
+      M10) Reachability penalty — REACHABILITY_THRESHOLD=1.5
       M11) Recovery turbo (arıza sırasında w_d artışı)
       M12) Deadline-capability skoru
       M14) Round-1 garanti (her robota 1 görev)
       M16) Hibrit consensus-bid harmanlaması
       M17) Dense-initial delegasyonu (deadline_pressure → V2_balance)
+      M18) EDF kuyruk sıralaması (deadline-aware yürütme sırası)
     """
 
     SPEED = 0.4            # m/s
-    AT_NORM = 300.0        # arrival-time normalisation (s)
+    AT_NORM = 120.0        # arrival-time normalisation — max gerçek AT'ye hizalı
     STICKY_BONUS = 0.15
-    DEADLINE_SLACK = 45.0
+    DEADLINE_SLACK = 20.0  # deadline + 20s → daha erken soft-penalty tetikleme
     OVER_CAP_PENALTY = 1.0
     LOW_BATT_THRESH = 0.10
     OVERFLOW_ENABLED = True
@@ -204,13 +226,14 @@ class AHEMRTAv3Allocator(BaseAllocator):
     BATT_CRITICAL_PENALTY = 0.30
     FAILURE_STICKY_DISABLE = True
     DEADLINE_PENALTY_VAL = 0.5
-    REACHABILITY_THRESHOLD = 1.8
-    RECOVERY_TURBO = True          # M8+M11: arıza tespitinde ağırlık artışı
+    REACHABILITY_THRESHOLD = 1.5   # daha agresif reachability kontrolü
+    RECOVERY_TURBO = True          # M8+M11+M19: arıza tespitinde acil ağırlıklar
     DEADLINE_CAPABILITY_W = 1.20   # M12
     ROUND1_GUARANTEE = True        # M14
     BID_HYBRID_W = 0.05            # M16
     USE_BIPARTITE = True           # M1: bipartit eşleştirme (ablasyon için)
     USE_DENSE_INIT = True          # M17: dense-initial delegasyonu (ablasyon için)
+    USE_EDF_ORDER = True           # M18: EDF kuyruk sıralaması (ablasyon için)
 
     def __init__(self):
         self._prev_queues: dict = {}
@@ -365,7 +388,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
             ordered = {}
             for r in robots:
                 q_tasks = [task_map[tid] for tid in queues[r.robot_id] if tid in task_map]
-                ordered[r.robot_id] = [t.task_id for t in cheapest_insertion(r.pose, q_tasks)]
+                if self.USE_EDF_ORDER:
+                    ordered[r.robot_id] = [t.task_id for t in _edf_sorted(q_tasks, current_time)]
+                else:
+                    ordered[r.robot_id] = [t.task_id for t in cheapest_insertion(r.pose, q_tasks)]
             self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
             return AllocationResult(queues=ordered, latency_ms=0,
                                     communication_footprint_bytes=84)
@@ -414,8 +440,12 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 for r in robots:
                     q_tasks = [task_map[tid] for tid in queues[r.robot_id]
                                if tid in task_map]
-                    ordered[r.robot_id] = [t.task_id for t in
-                                           cheapest_insertion(r.pose, q_tasks)]
+                    if self.USE_EDF_ORDER:
+                        ordered[r.robot_id] = [t.task_id for t in
+                                               _edf_sorted(q_tasks, current_time)]
+                    else:
+                        ordered[r.robot_id] = [t.task_id for t in
+                                               cheapest_insertion(r.pose, q_tasks)]
                 self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
                 return AllocationResult(queues=ordered, latency_ms=0,
                                         communication_footprint_bytes=84)
@@ -488,11 +518,14 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 if best_r:
                     queues[best_r].append(task.task_id)
 
-        # Cheapest-insertion sıralama
+        # M18: EDF kuyruk sıralaması (deadline-aware) veya cheapest-insertion
         ordered = {}
         for r in robots:
             q_tasks = [task_map[tid] for tid in queues[r.robot_id] if tid in task_map]
-            ordered[r.robot_id] = [t.task_id for t in cheapest_insertion(r.pose, q_tasks)]
+            if self.USE_EDF_ORDER:
+                ordered[r.robot_id] = [t.task_id for t in _edf_sorted(q_tasks, current_time)]
+            else:
+                ordered[r.robot_id] = [t.task_id for t in cheapest_insertion(r.pose, q_tasks)]
 
         # M4: bir sonraki tur için önceki kuyrukları sakla
         self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
