@@ -17,6 +17,9 @@
 set -eo pipefail
 REPO="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO"
+# Ortak yük koruması + temizlik + DONE ledger yardımcıları
+source "$REPO/scripts/exp_lib.sh"
+EXPECTED_TOTAL="${EXPECTED_TOTAL:-60}"
 
 # ── Varsayılanlar ─────────────────────────────────────────────────────────────
 DRY_RUN=0
@@ -61,11 +64,14 @@ if [[ -z "$STARTUP_DELAY" ]] || [[ "$STARTUP_DELAY" == "75.0" ]]; then
     case "$ROBOT_COUNT" in
         3)  STARTUP_DELAY=120.0; TIMEOUT_SEC=1200 ;;
         5)  STARTUP_DELAY=120.0; TIMEOUT_SEC=1200 ;;
-        10) STARTUP_DELAY=150.0; TIMEOUT_SEC=1260 ;;
+        10) STARTUP_DELAY=360.0; TIMEOUT_SEC=1800 ;;
         20) STARTUP_DELAY=180.0; TIMEOUT_SEC=1380 ;;
         *)  STARTUP_DELAY=90.0;  TIMEOUT_SEC=960  ;;
     esac
 fi
+# gazebo_startup_delay_sec param'ı DOUBLE olmalı (ana_method §7.4) — tamsayı
+# verilirse ".0" ekleyerek float'a zorla (InvalidParameterTypeException önler).
+[[ "$STARTUP_DELAY" == *.* ]] || STARTUP_DELAY="${STARTUP_DELAY}.0"
 
 SCALE_TAG="r${ROBOT_COUNT}t${TASK_COUNT}"
 mkdir -p "$RESULTS_DIR"
@@ -273,6 +279,8 @@ run_one() {
         return 0
     fi
 
+    # Yük koruması: load eşiğin altına inip artık süreçler temizlenene kadar bekle
+    load_guard
     kill_all_ros_gz
 
     # Video kaydı: yalnızca --record-video bayrağı + bu seed eşleşiyorsa
@@ -314,6 +322,8 @@ run_one() {
 
     if [ -f "$done_file" ]; then
         echo "   ✓ DONE ✓"
+        # Tamamlanan deneyi kalıcı ledger + MEMORY özetine işle
+        record_done "$eid" "$RESULTS_DIR" "$EXPECTED_TOTAL" || true
     else
         echo "   ⚠ DONE yok — log inceleyin: $log_file"
     fi

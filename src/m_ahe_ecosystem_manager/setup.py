@@ -20,7 +20,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'ecosystem_test_pub = m_ahe_ecosystem_manager.ecosystem_test_pub:main',
             'ecosystem_manager_node = m_ahe_ecosystem_manager.ecosystem_manager_node:main',
         ],
     },

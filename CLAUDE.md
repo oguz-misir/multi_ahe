@@ -26,12 +26,21 @@ sleep 5
 
 ---
 
-## Deney Koşturma
+## Deney Koşturma (çökme-güvenli)
 
 - Gazebo deneyleri **tek tek** — paralel deney yok.
-- Batch runner (v3): `nohup bash run_paper_experiments_v3.sh >> results/raw/gazebo_v3/paper_run_v3.log 2>&1 &`
-- DONE dosyaları: `results/raw/gazebo_v3/exp_<scenario>_<strategy>_<scale>_seed<NN>/DONE`
-- Simülatör testleri (Gazebo yok): `source install/setup.bash && python3 scripts/simulate_and_tune.py --seeds 300 --scenario all --no-ablation`
+- **Çökme-güvenli sürücü (tercih edilen):**
+  `nohup bash run_until_complete.sh > results/until_complete.log 2>&1 &`
+  - DONE olan deneyleri atlar → **kaldığı yerden devam eder** (donma/çökme/reboot sonrası).
+  - Her deney öncesi `load_guard` (yük + zombie koruması, `scripts/exp_lib.sh`).
+  - Her DONE → `results/PROGRESS.md` + MEMORY ledger (`experiment_progress.md`) güncellenir.
+  - `.batch_active` bayrağı sürerken `@reboot` cron batch'i otomatik sürdürür; bitince silinir.
+  - Her 30 dk ETA raporu: `results/status_report.log` + `results/PROGRESS_STATUS.md` (cron).
+  - Tek tur runner: `bash run_experiments_robust.sh` (ölçek: `--robots N --tasks M`).
+- DONE dosyaları: `results/raw/gazebo/exp_<scenario>_<strategy>_<scale>_seed<NN>/DONE`
+- Yük koruması eşiği: `MAX_LOAD` (varsayılan 10; 16 çekirdek). Manuel temizlik için
+  `source scripts/exp_lib.sh && cleanup_ros_gz`.
+- Simülatör testleri (Gazebo yok): `source install/setup.bash && python3 scripts/simulate_and_tune.py --seeds 100 --scenario all`
 
 ## Gerekli Düğümler (3 robot)
 

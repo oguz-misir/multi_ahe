@@ -63,8 +63,11 @@ controller_server:
     controller_plugins: ["FollowPath"]
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+      # A3 (congestion-aware): faster stuck detection in crowded arena.
+      # Lower radius + shorter allowance → Nav2 declares no-progress sooner,
+      # so the robot interface stuck detector and recovery paradigm kick in earlier.
+      required_movement_radius: 0.3
+      movement_time_allowance: 5.0
     general_goal_checker:
       stateful: true
       plugin: "nav2_controller::SimpleGoalChecker"
@@ -78,16 +81,18 @@ controller_server:
       max_lookahead_dist: 0.9
       lookahead_time: 1.5
       rotate_to_heading_angular_vel: 1.8
-      transform_tolerance: 1.0
+      transform_tolerance: 5.0
       use_velocity_scaled_lookahead_dist: false
       min_approach_linear_velocity: 0.05
       approach_velocity_scaling_dist: 0.6
       use_collision_detection: true
       max_allowed_time_to_collision_up_to_carrot: 1.0
       use_regulated_linear_velocity_scaling: true
-      use_cost_regulated_linear_velocity_scaling: false
+      # A1 (congestion-aware): slow down near costmap obstacles / other robots
+      # instead of stopping or colliding in narrow corridors.
+      use_cost_regulated_linear_velocity_scaling: true
       regulated_linear_scaling_min_radius: 0.9
-      regulated_linear_scaling_min_speed: 0.25
+      regulated_linear_scaling_min_speed: 0.05
       use_rotate_to_heading: true
       allow_reversing: false
       rotate_to_heading_min_angle: 0.785
@@ -98,8 +103,9 @@ local_costmap:
   local_costmap:
     ros__parameters:
       use_sim_time: true
-      update_frequency: 3.0
-      publish_frequency: 1.0
+      transform_tolerance: 5.0
+      update_frequency: 10.0
+      publish_frequency: 2.0
       global_frame: robot_1/odom
       robot_base_frame: robot_1/base_link
       rolling_window: true
@@ -111,7 +117,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.30
+        inflation_radius: 0.40
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: true
@@ -138,6 +144,7 @@ global_costmap:
   global_costmap:
     ros__parameters:
       use_sim_time: true
+      transform_tolerance: 5.0
       update_frequency: 1.0
       publish_frequency: 1.0
       global_frame: robot_1/map

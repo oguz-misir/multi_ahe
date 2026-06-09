@@ -17,6 +17,12 @@ add_executable(odom_to_tf src/odom_to_tf.cpp)
 ament_target_dependencies(odom_to_tf rclcpp nav_msgs geometry_msgs tf2_ros)
 install(TARGETS odom_to_tf DESTINATION lib/${PROJECT_NAME})
 
+install(PROGRAMS
+  m_ahe_mrta_bringup/tf_relay_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME tf_relay_node
+)
+
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
   OPTIONAL

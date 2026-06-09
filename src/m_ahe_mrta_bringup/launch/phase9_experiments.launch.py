@@ -55,9 +55,13 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    EmitEvent,
     IncludeLaunchDescription,
+    RegisterEventHandler,
     SetEnvironmentVariable,
 )
+from launch.event_handlers import OnProcessExit
+from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -133,6 +137,22 @@ def generate_launch_description() -> LaunchDescription:
         }],
     )
 
+    # ------------------------------------------------------------------
+    # Tear down the WHOLE launch (Gazebo + Nav2 + robots) as soon as the
+    # experiment_runner exits. After writing DONE the runner SIGTERMs itself;
+    # without this handler the rest of the stack would keep running until the
+    # shell timeout (~1200 s), idling each experiment for ~16 min and delaying
+    # the per-experiment MEMORY ledger update. With it, `ros2 launch` returns
+    # ~2 s after DONE so the batch advances immediately.
+    # ------------------------------------------------------------------
+    shutdown_on_runner_exit = RegisterEventHandler(
+        OnProcessExit(
+            target_action=experiment_runner,
+            on_exit=[EmitEvent(event=Shutdown(reason='experiment complete'))],
+        )
+    )
+
     return LaunchDescription(
-        args + sw_render + [robots_nav2, ecosystem_manager, experiment_runner]
+        args + sw_render
+        + [robots_nav2, ecosystem_manager, experiment_runner, shutdown_on_runner_exit]
     )
