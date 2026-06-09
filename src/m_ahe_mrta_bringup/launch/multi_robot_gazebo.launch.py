@@ -67,11 +67,26 @@ def _launch_setup(context, *_args, **_kwargs):
         condition=UnlessCondition(LaunchConfiguration('gz_gui')),
     )
 
+    # GUI: force OGRE 1.x render engine + grid-free GUI config.
+    # On software rendering (llvmpipe / no GPU driver) the default GUI crashes:
+    #   OGRE2 -> EGL driCreateNewScreen3 segfault;
+    #   OGRE1 + default Grid3D -> OgreDynamicLines::FillHardwareBuffers segfault.
+    # This config (config/gz_gui_ogre1.config) drops the Grid3D plugin and
+    # frames a bird's-eye camera on the 20x20 m arena.
+    gui_cfg = os.path.join(
+        get_package_share_directory('m_ahe_mrta_bringup'),
+        'config', 'gz_gui_ogre1.config',
+    )
     gz_with_gui = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(ros_gz_sim_share, 'launch', 'gz_sim.launch.py')
         ),
-        launch_arguments={'gz_args': f'-r {tmp_world.name}'}.items(),
+        launch_arguments={
+            'gz_args': (
+                f'-r --render-engine-gui ogre '
+                f'--gui-config {gui_cfg} {tmp_world.name}'
+            ),
+        }.items(),
         condition=IfCondition(LaunchConfiguration('gz_gui')),
     )
 

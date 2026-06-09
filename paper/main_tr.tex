@@ -1,0 +1,865 @@
+% IEEE RA-L / Q1 — Türkçe sürüm
+% AHE-MRTA: Çoklu Robot Görev Atama için Adaptif Heuristic Ekosistemi
+\documentclass[10pt, onecolumn, letterpaper]{IEEEtran}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{url}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+% --- Float yerleşimi ayarı: şekil/tabloları atıflarına yakın tut, sona
+%     (kaynakçaya) yığılmalarını önle. ---
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.72}
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\dblfloatpagefraction}{0.72}
+\setcounter{topnumber}{2}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+\setcounter{dbltopnumber}{2}
+\providecommand{\FloatBarrier}{\clearpage}
+
+\graphicspath{{./}{../results/paper_figures/}{../results/figures/}}
+
+\newcommand{\AHE}{AHE-MRTA*}
+
+\begin{document}
+
+\title{Çoklu Robot Görev Atama için Adaptif Heuristic Ekosistemi:\\
+       Arıza, Karışık Stres ve Deadline Baskısı Altında Çevrim İçi Tahsis}
+
+\author{\thanks{IEEE RA-L'e sunulan müsvedde, Haziran 2026.}}
+
+\maketitle
+
+%==============================================================================
+\begin{abstract}
+Bu çalışmada, dinamik arızalar, karışık stres ve deadline baskısı altında
+çevrim içi çoklu robot görev atama (MRTA) için bir Adaptif Heuristic Ekosistemi
+çerçevesi olan AHE-MRTA önerilmektedir. Tek bir tahsis paradigmasına bağlı
+kalmak yerine AHE-MRTA, Ekosistem-Güdümlü Paradigma Seçimi (EDPS) mekanizması
+ile çalışma zamanında \emph{paradigma değiştirir}: yedi biyomimetik hormon
+bağlamı kodlar (uzamsal, kritiklik, zamansal, kaynak, enerji, kararlılık,
+toparlanma), işbirliği/baskılama dinamikleriyle evrilir ve baskın hormon yedi
+tahsis paradigmasından birini seçer (en-yakın-uygun açgözlü, öncelik-katmanlı
+LSA, EDF bipartit, yük-dengeleyen kuadratik LSA, batarya-kapılı, sert-yapışkan
+commit, yetim-kurtarma). AHE-MRTA'yı üç güncel temel yöntemle (BiG-MRTA,
+RoSTAM-EA, Consensus-DBTA) iki tamamlayıcı rejimde karşılaştırıyoruz:
+(i) algoritmik kararları fiziksel yürütme gürültüsünden yalıtan 100-tohumlu,
+Nav2-bağımsız bir tahsis-uygunluk (fitness) simülatörü ve (ii) ROS\,2 Jazzy
+Nav2 yığınını çalıştıran TurtleBot3 Waffle Pi robotları üzerinde 300-deneylik
+Gazebo Harmonic kıyaslaması ($3r{\times}\{9/15/24\}$ görev: 180 deney;
+$5r{\times}25$ görev: 60 deney; $10r{\times}50$ görev: 60 deney). 100-tohumlu Nav2-bağımsız simülatörde orta yoğunlukta (15 görev / 3 robot)
+AHE-MRTA, robot arızası altında önde gelir (uygunluk 0.498, Consensus-DBTA
+0.492); karışık streste Consensus-DBTA ile eşit sayılır (0.501 vs 0.506,
+$\Delta{<}1$~pp). Gazebo fiziksel yığınında paradigma-değişim maliyeti karışık
+streste en belirgindir: AHE CR\,=\,0.762, Consensus-DBTA CR\,=\,1.000, ancak
+AHE DVR\,=\,0.063 / Cons-DBTA DVR\,=\,0.335. 3-robot Gazebo kıyaslamasında
+AHE-MRTA, robot arızasında (+9.9~pp) ve deadline baskısında (+27.3~pp)
+BiG-MRTA'yı ham tamamlama oranında geride bırakır. 5 ve 10 robotla fiziksel doğrulama örüntüyü onaylar: AHE
+robot arızasında CR\,=\,1.000 (5r) / 0.992 (10r) ve DVR\,=\,0.000 elde
+ederken, rakipler deadline baskısında CR\,=\,1.000 sağlar ancak
+DVR\,=\,0.30--0.44 öder (AHE DVR\,=\,0.076). Karar gecikmesi tüm ölçeklerde
+${\approx}200$--$600{\times}$ daha hızlıdır (0.18--0.34~ms vs RoSTAM-EA).
+İdeal-tahsis kazanımlarının Nav2 üzerinden neden doğrusal aktarılmadığını
+tartışıyor ve paradigma değiştirmenin hangi
+koşullarda işe yaradığına dair dürüst bir değerlendirme sunuyoruz.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Çoklu robot sistemleri, görev atama, çevrim içi algoritmalar, biyomimetik
+optimizasyon, ROS\,2, Gazebo.
+\end{IEEEkeywords}
+
+%==============================================================================
+\section{Giriş}
+\label{sec:intro}
+
+Dinamik ortamlarda çoklu robot görev atama (MRTA), üç rakip baskı tarafından
+kısıtlanır: (i) robotlar beklenmedik şekilde arızalanır, (ii) görev akışı
+durağan değildir (karışık aciliyet, değişen uzamsal yoğunluk, kısmi arızalar)
+ve (iii) bazı görevler ihlali maliyetli olan sert deadline'lar taşır. Güncel
+çevrim içi MRTA çözücüleri \emph{tek} bir tahsis paradigmasına bağlanır:
+sabit maliyetli bipartit eşleme (BiG-MRTA~\cite{ghassemi2022bigmrta}),
+evrimsel arama (RoSTAM-EA~\cite{rostam2024selfadaptive}) veya uzlaşma-tabanlı
+demet ataması (Consensus-DBTA~\cite{consensus2023dbta}). Her paradigmanın
+bilinen güçlü ve zayıf yanları vardır; hiçbiri heterojen stres rejimlerinde
+baskın değildir.
+
+Doğru yapının \emph{daha iyi bir tekil paradigma} değil, güncel bağlama ve
+yakın geçmiş performansa göre \emph{paradigmalar arasında çevrim içi geçiş
+yapan ilkeli bir mekanizma} olduğunu savunuyoruz. Bu fikri AHE-MRTA olarak
+somutlaştırıyoruz: yedi hormonun bağlam sinyallerini izlediği, işbirliği ve
+baskılama yoluyla evrildiği ve her yeniden planlama olayında bir tahsis
+paradigması seçtiği biyomimetik bir ekosistem. Hormon-paradigma eşlemesi
+sabittir (öğrenilmez), açıklanabilirdir (baskın hormon davranışı adlandırır)
+ve hafiftir (milisaniye-altı karar gecikmesi).
+
+\textbf{Katkılar:}
+\begin{enumerate}
+  \item \emph{Ekosistem-Güdümlü Paradigma Seçimi (EDPS):} yedi biyomimetik
+    hormonun yedi tahsis mekanizmasına eşlendiği, baskın hormonun her çevrimde
+    aktif mekanizmayı seçtiği çevrim içi paradigma-değiştiren bir MRTA çerçevesi
+    (Bölüm~\ref{sec:method}).
+  \item \emph{Nav2-bağımsız tahsis-uygunluk değerlendirmesi:} algoritmik karar
+    kalitesini Nav2 yürütme gürültüsünden yalıtan idealize bir simülatör;
+    senaryo başına 100 tohum üzerinden uygunluk raporlanır
+    (Bölüm~\ref{sec:results-sim}).
+  \item \emph{Tam Gazebo Harmonic + ROS\,2 Jazzy Nav2 doğrulaması:} üç stres
+    senaryosunda 60 deney; dört yöntem tamamlama oranı, makespan, deadline
+    ihlali, toparlanma süresi, iş yükü dengesi, yeniden planlama sıklığı,
+    tahsis kararsızlığı ve karar gecikmesi üzerinden karşılaştırılır
+    (Bölüm~\ref{sec:results-gazebo}).
+  \item \emph{SIM-Gazebo aktarım açığının dürüst raporlanması:} paradigma
+    değiştirmenin nerede yardımcı olduğunu (arızada CR, arızada DVR, toparlanma
+    süresi) ve nerede maliyet getirdiğini (makespan, kararsızlık) belgeler ve
+    mekanizmayı açıklarız (Bölüm~\ref{sec:discussion}).
+\end{enumerate}
+
+%==============================================================================
+\section{İlgili Çalışmalar}
+\label{sec:related}
+
+\paragraph{Temeller.} MRTA taksonomileri
+\cite{gerkey2004formal,korsah2013comprehensive,khamis2015multi,nunes2017taxonomy}
+problemimizi ST-SR-IA-DA hücresine yerleştirir: tek-görevli robotlar,
+tek-robotlu görevler, dinamik (yeniden) tahsisli anlık atama. Bu hücrede son
+literatüre üç çözücü ailesi hâkimdir.
+
+\paragraph{Bipartit / LSA çözücüler.} BiG-MRTA~\cite{ghassemi2022bigmrta}
+tahsisi sabit çok-kriterli maliyetli bipartit eşleme olarak formüle eder ve
+her olayda yeniden çözer; güçlü yanları belirlilik ve milisaniye-altı
+gecikmedir. Açık artırma varyantları
+\cite{choi2009consensus,zhang2023auction} de tek-paradigma bağlılığını
+paylaşır.
+
+\paragraph{Evrimsel ve öğrenme-tabanlı.} RoSTAM-EA
+\cite{rostam2024selfadaptive} aday atamalardan oluşan bir popülasyonu turnuva
+seçimiyle işler. RL-tabanlı MRTA \cite{wang2022reinforcement,sartoretti2019primal}
+ve graf-dikkat ağları \cite{tang2023contextaware} durağan dağılımlarda umut
+vaat eder ancak genellikle çevrimdışı eğitim gerektirir ve karar başına az
+açıklanabilirlik sunar.
+
+\paragraph{Uzlaşma ve demet.} Consensus-DBTA~\cite{consensus2023dbta} ve ilgili
+demet yöntemleri \cite{choi2009consensus,dutta2019task} son derece kararlı
+atamalar üretir (tahsis kararsızlığı $\approx 0$) ancak rejim değiştiğinde
+daha yavaş uyum sağlar.
+
+\paragraph{Adaptif ve bağlam-duyarlı.} Birkaç çalışma bağlam-duyarlı maliyet
+yeniden-ağırlıklandırması \cite{chen2021adaptive,tang2023contextaware,tariq2023deadline}
+veya hiper-heuristik \cite{burke2013hyper} önerir. Bunlar \emph{tek} bir alt
+ilkeli tutup parametrelerini ayarlar; AHE-MRTA \emph{ilkelinin kendisini}
+değiştirerek ayrışır.
+
+\paragraph{Konumlandırma.} Yukarıdaki dört aileden farklı olarak AHE-MRTA, yedi
+tam tahsis paradigmasını korur ve ekosistem baskınlığı yoluyla aralarında
+çevrim içi seçim yapar. Biyomimetik kısım \emph{paradigma-seçim} katmanındadır;
+alt ilkeller klasiktir (LSA, EDF, açgözlü), böylece AHE her ilkelin baskınlık
+rejimindeki garantilerini devralırken açıklanabilir kalır (baskın hormon
+seçilen davranışı adlandırır).
+
+%==============================================================================
+\section{Problem Tanımı}
+\label{sec:problem}
+
+\textbf{Kümeler ve değişkenler.} $\mathcal{R} = \{r_1, \ldots, r_n\}$ robot
+kümesi ve $\mathcal{T}(t)$ $t$ anındaki açık görev kümesi olsun; her görev
+$\tau \in \mathcal{T}(t)$ bir 2B konum $p_\tau$, deadline $d_\tau$, öncelik
+$\pi_\tau \in \{1,2,3\}$ ve yetenek gereksinimi $c_\tau$ taşır. Her robot $r$,
+konum, batarya, mevcut görev ve uygunluk bayrağını (canlı / arızalı) kodlayan
+$s_r(t) = (p_r, b_r, \tau_r^{\mathrm{cur}}, \phi_r)$ durumuna sahiptir.
+
+\textbf{Karar.} Her tahsis olayında $t_k$ (arıza, görev gelişi, deadline alarmı,
+yeniden planlama zamanlayıcısı) politika, kardinalite kısıtı
+$\sum_\tau x_{r,\tau} \leq Q$ (robot başına kuyruk üst sınırı) ve yetenek
+uygunluğu $x_{r,\tau} = 1 \Rightarrow c_\tau \subseteq \mathrm{cap}(r)$ ile bir
+atama $x_{r,\tau}(t_k) \in \{0,1\}$ üretir.
+
+\textbf{Maliyet.} Çift başına maliyet seyahat süresi $T_{r,\tau}$, aciliyet
+$u_\tau = (d_\tau - t_k)^{-1}$, kritiklik $\pi_\tau$, enerji boşluğu
+$e_{r,\tau}$ ve yakın yeniden-atama cezasını $\rho_{r,\tau}$ birleştirir:
+\begin{equation}
+  C_{r,\tau} = w_d T_{r,\tau} + w_u u_\tau^{-1} + w_\pi \pi_\tau^{-1}
+             + w_e e_{r,\tau} + w_\rho \rho_{r,\tau},
+  \label{eq:cost}
+\end{equation}
+burada ağırlık vektörü $w$, $t_k$'da seçilen paradigma tarafından üretilir
+(Bölüm~\ref{sec:method}).
+
+\textbf{Amaç.} $[0, T_{\max}]$ çalışma ufkunda sekiz metrik raporlanır:
+tamamlama oranı $\mathrm{CR}$, makespan, ortalama görev gecikmesi, deadline
+ihlal oranı $\mathrm{DVR}$, arıza toparlanma süresi, Jain iş yükü dengesi,
+yeniden planlama sıklığı, tahsis kararsızlığı (görev-robot yeniden atama sayısı)
+ve karar gecikmesi. CR ve DVR birincildir; diğerleri takasları izler.
+
+\textbf{Çevrim içi kurulum.} Görevler zamanla gelir, robotlar bilinmeyen
+anlarda arızalanabilir ve politika olay başına sert bir 50~ms bütçesi içinde
+$x(t_k)$ üretmelidir.
+
+%==============================================================================
+\section{AHE-MRTA: Ekosistem-Güdümlü Paradigma Seçimi}
+\label{sec:method}
+
+\subsection{Bağlam vektörü}
+Her tahsis olayında $t_k$, gözlemlenebilir sinyallerden 7-boyutlu bir bağlam
+vektörü $c(t_k) \in [0,1]^7$ hesaplanır:
+
+\begin{enumerate}
+  \item[$c_1$] \emph{görev yoğunluğu}: aktif görev sayısının robot sayısına oranı.
+  \item[$c_2$] \emph{robot uygunluğu}: çalışır durumda robot oranı.
+  \item[$c_3$] \emph{batarya riski}: düşük/kritik bataryalı robot oranı.
+  \item[$c_4$] \emph{deadline baskısı}: deadline boşluğu $\leq 60$~s olan görev oranı.
+  \item[$c_5$] \emph{arıza oranı}: arızalı veya sıkışmış robot oranı.
+  \item[$c_6$] \emph{iş yükü varyansı}: robot navigasyon durumu göstergesinin varyansı.
+  \item[$c_7$] \emph{tahsis kararsızlığı}: bu döngüdeki yeniden-atama sayısı (normalleştirilmiş).
+\end{enumerate}
+
+\begin{table}[t]
+\centering
+\caption{Her hormon için bağlam prototip vektörleri $V_i \in [0,1]^7$.
+Sütun başlıkları: $c_1$~gyd (görev yoğunluk), $c_2$~ruy (robot uygunluk),
+$c_3$~bat (batarya), $c_4$~dl (deadline), $c_5$~arz (arıza), $c_6$~iyk (iş yükü), $c_7$~krs (kararsızlık).}
+\label{tab:hormones-proto}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lccccccc@{}}
+\toprule
+\textbf{Hormon} & gyd & ruy & bat & dl & arz & iyk & krs \\
+\midrule
+H\_SPATIAL & 0.7 & 0.7 & 0.1 & 0.1 & 0.1 & 0.3 & 0.1 \\
+H\_CRIT    & 0.3 & 0.5 & 0.1 & 0.8 & 0.2 & 0.1 & 0.2 \\
+H\_TEMP    & 0.5 & 0.5 & 0.1 & 0.9 & 0.1 & 0.1 & 0.1 \\
+H\_RES     & 0.8 & 0.3 & 0.1 & 0.3 & 0.1 & 0.9 & 0.3 \\
+H\_ENERGY  & 0.3 & 0.3 & 0.9 & 0.2 & 0.2 & 0.2 & 0.2 \\
+H\_STAB    & 0.3 & 0.3 & 0.3 & 0.3 & 0.8 & 0.3 & 0.3 \\
+H\_RECOV   & 0.3 & 0.2 & 0.3 & 0.2 & 0.9 & 0.3 & 0.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Baskınlık dinamikleri}
+Baskınlık vektörü $D(t) \in \mathbb{R}^7_{\geq 0}$ mevcut ekosistem durumunu
+kodlar. Her hormon $i$'nin sabit bir bağlam prototipi $V_i \in [0,1]^7$ vardır
+(Tablo~\ref{tab:hormones-proto}); uyumluluk skoru $v_i(t_k) = \cos(V_i, c(t_k))$
+hormonun güncel bağlamla ne kadar örtüştüğünü ölçer. İki seyrek matris yatay
+etkileşimleri yönetir: \emph{işbirliği matrisi} $A$ (4 sıfır-dışı giriş) ve
+\emph{baskılama matrisi} $S$ (3 sıfır-dışı giriş; Tablo~\ref{tab:as-matrices}).
+Güncelleme şöyledir:
+\begin{equation}
+\begin{split}
+  D(t_{k+1}) &= \mathrm{normalize}\!\left(\mathrm{clip}_{[0,1]}\!\Big(
+      \alpha\,D(t_k) + \eta\,A\,D(t_k) - \lambda\,S\,D(t_k) \right. \\
+      &\qquad \left.
+      + \beta\,\mathbf{p}(t_k) + \gamma\,\mathbf{v}(t_k) + \delta\,\mathbf{b}(t_k)
+      \Big)\right),
+\end{split}
+  \label{eq:dominance}
+\end{equation}
+$\alpha{=}0.85$ (momentum), $\eta{=}\lambda{=}0.12$ (işbirliği/baskılama), $\beta{=}0.25$
+(başarım), $\gamma{=}0.20$ (uyumluluk), $\delta{=}0.20$ (arıza kurtarma destek
+ağırlığı) ile. Burada $\mathbf{p}(t_k)$ hormon başına başarım geri beslemesi
+$(\mathrm{CR}_k - \mathrm{FR}_k)\cdot \mathbf{v}(t_k)$; $\mathbf{v}(t_k)$ uyumluluk
+vektörü; ve $\mathbf{b}(t_k)$ robot arızası algılandığında H\_RECOV ile H\_STAB'ı
+yükselten seyrek kurtarma destek vektörüdür. Normalize adımı $\|D\|_1{=}1$ ve
+$D{\geq}0$'ı her döngüde güvenceye alır.
+
+\begin{table}[t]
+\centering
+\caption{İşbirliği matrisi $A$ ve baskılama matrisi $S$'nin sıfır-dışı girdileri.}
+\label{tab:as-matrices}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Matris} & \textbf{Kaynak} & \textbf{Hedef} & \textbf{Değer} \\
+\midrule
+$A$ (işbirliği) & H\_ENERGY  & H\_RECOV  & 0.30 \\
+                & H\_CRIT    & H\_TEMP   & 0.20 \\
+                & H\_STAB    & H\_RECOV  & 0.20 \\
+                & H\_SPATIAL & H\_RES    & 0.20 \\
+\midrule
+$S$ (baskılama) & H\_TEMP    & H\_SPATIAL & 0.30 \\
+                & H\_ENERGY  & H\_SPATIAL & 0.30 \\
+                & H\_CRIT    & H\_RES     & 0.20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Dağıtım}
+Dağıtıcı önce üç sert bağlam geçersiz kılmasını denetler (arıza oranı $>0.05$
+ise H\_RECOV zorlanır; deadline baskısı $>0.5$ ise H\_TEMP zorlanır; batarya
+riski $>0.85$ ise H\_ENERGY zorlanır); hiçbiri tetiklemezse paradigma
+$p^*(t_k) = \arg\max_i D_i(t_k)$ ile seçilir
+(Tablo~\ref{tab:hormones}). \texttt{H\_TEMP} paradigması, baskınlık bilgilendirici
+olmadığında (entropi maksimuma yakın) varsayılan geri dönüştür.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{adaptive_ecosystem_mechanism.png}
+  \caption{Ekosistem-Güdümlü Paradigma Seçimi mekanizması. Her tahsis
+  olayında bağlam vektörü $c(t)$, sabit işbirliği/baskılama matrisleri
+  $A,S$ üzerinden baskınlık güncellemesini (Denk.~\ref{eq:dominance})
+  sürür; baskın hormon $p^*=\arg\max_i D_i$ yedi tahsis paradigmasından
+  birini seçer ve AHE tahsisçisi bunu çalıştırarak robot başına görev
+  kuyruklarını yayımlar.}
+  \label{fig:mechanism}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Yedi hormon, yedi tahsis paradigması.}
+\label{tab:hormones}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llp{2.8cm}}
+\toprule
+\textbf{Hormon} & \textbf{Paradigma} & \textbf{İç mekanizma} \\
+\midrule
+H\_SPATIAL & spatial\_greedy   & en-yakın-uygun + reddet \\
+H\_CRIT    & priority\_first   & öncelik-katmanlı LSA \\
+H\_TEMP    & edf\_strict       & EDF bipartit (çok-fazlı) \\
+H\_RES     & load\_balance     & kuadratik-yük LSA \\
+H\_ENERGY  & battery\_gated    & batarya-marj filtresi \\
+H\_STAB    & commit\_once      & sert yapışkan, yeniden-atama yok \\
+H\_RECOV   & orphan\_first     & yetim kurtarma + bipartit \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Yedi paradigma bağımsızdır (geçişler arası paylaşılan durum yok); tek kalıcı
+durum $D(t)$'dir. Bu, $n$ robot ve $m$ görev için çevrim başına maliyeti
+paradigma seçiminden bağımsız olarak $O(n m)$ tutar (alt ilkeller LSA-tabanlı).
+Karar gecikmesi ölçeğimizde milisaniye-altıdır (Bölüm~\ref{sec:results-gazebo}).
+
+\subsection{Algoritma}
+\begin{algorithm}[t]
+\caption{AHE-MRTA Olay Çevrimi}
+\label{alg:ahe}
+\begin{algorithmic}[1]
+\REQUIRE robotlar $\mathcal{R}$, açık görevler $\mathcal{T}(t_k)$, durum
+$D(t_k)$, sabit $A, S, V$, hiperparametreler $\alpha,\eta,\lambda,\beta,\gamma,\delta$
+\STATE $c \gets \textsc{BağlamVektörü}(\mathcal{R}, \mathcal{T}(t_k))$
+        \hfill \COMMENT{7 sinyal, $c_1$--$c_7$}
+\STATE $\mathbf{v} \gets (\cos(V_i, c))_{i=1}^7$;
+        $\;\mathbf{p} \gets (\mathrm{CR}_k-\mathrm{FR}_k)\cdot\mathbf{v}$;
+        $\;\mathbf{b} \gets \textsc{ArızaDestek}(\mathcal{R})$
+\STATE $D \gets \mathrm{normalize}\!\big(\mathrm{clip}_{[0,1]}\!\big(
+        \alpha D + \eta A D - \lambda S D + \beta\mathbf{p} + \gamma\mathbf{v} + \delta\mathbf{b}\big)\big)$
+\STATE $p^* \gets \textsc{BağlamGeçersizKıl}(c)$ \textbf{ tetiklendiyse, değilse } $\arg\max_i D_i$
+\STATE $x \gets \textsc{Paradigma}_{p^*}(\mathcal{R}, \mathcal{T}(t_k))$
+  \hfill \COMMENT{Tablo~\ref{tab:hormones}}
+\STATE \textbf{yayınla} $x$'ten robot başına görev kuyrukları
+\STATE \textbf{döndür} $D, x$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Konfigürasyon}
+Hormon-paradigma eşlemesi (Tablo~\ref{tab:hormones}), $A/S$ matrisleri
+(Tablo~\ref{tab:as-matrices}), bağlam prototipi $V$ ve tüm skaler
+hiperparametreler ($\alpha{=}0.85$, $\eta{=}\lambda{=}0.12$, $\beta{=}0.25$,
+$\gamma{=}0.20$, $\delta{=}0.20$, softmax sıcaklığı $T{=}0.3$) bir kez
+belirlenir ve tüm senaryo ve ölçeklerde sabit tutulur.
+Senaryo başına ayar, öğrenme veya uyarlanır parametre çizelgesi yoktur.
+
+%==============================================================================
+\section{Deney Tasarımı}
+\label{sec:setup}
+
+\subsection{Donanım Platformu}
+Tüm deneyler Intel Core i7-11800H iş istasyonunda çalıştırıldı
+(8~fiziksel çekirdek / 16~iş parçacığı, 2.30~GHz temel saat,
+16~GiB DDR4 RAM, Ubuntu\,24.04~LTS, Linux\,6.17). Makinede NVIDIA
+RTX\,3050\,Mobile GPU bulunmakta, ancak tescilli sürücüsü
+yüklü değildir; Gazebo ve RViz tüm görselleştirmeyi Mesa llvmpipe
+yazılım rasterleştirmesiyle (\texttt{LIBGL\_ALWAYS\_SOFTWARE=1},
+\texttt{GALLIUM\_DRIVER=llvmpipe}) yapar. GPU ivmesi hiçbir noktada
+kullanılmaz: karşılaştırma tamamen CPU sınırlıdır ve Mesa destekli
+herhangi bir x86-64 makinede yeniden üretilebilir.
+
+\subsection{Yazılım Yığını}
+\textbf{Gazebo Harmonic} (gz-sim\,8.x)~\cite{koenig2004design},
+\textbf{ROS\,2 Jazzy} (Ara.\,2024)~\cite{macenski2022ros2} ve
+\textbf{Nav2}~\cite{macenski2023nav2} kullanıldı.
+Robotlar \textbf{TurtleBot3 Waffle Pi}~\cite{robotis2023turtlebot3}
+modelidir; her biri 360-ışınlı 2-B lidar (5~Hz, 8~m menzil) ve
+IMU (200~Hz) taşır ve diferansiyel-tahrik denetleyicisiyle sürülür
+($v_{\max}{=}0.26$~m/s, $\omega_{\max}{=}1.82$~rad/s).
+
+Her robot kendi ROS\,2 ad uzayında tamamen bağımsız bir Nav2 yaşam
+döngüsü (AMCL, 0.40~m şişirme yarıçaplı küresel/yerel costmap,
+Regulated Pure-Pursuit denetleyici ve davranış ağacı gezgini)
+çalıştırır. \texttt{ros\_gz\_bridge} robot başına \texttt{/scan},
+\texttt{/odom}, \texttt{/cmd\_vel}, \texttt{/joint\_states} ve TF
+aktarır; bir TF-aktarıcı düğüm robot başına ad uzayındaki TF ağaçlarını
+küresel çerçevede birleştirir. Tüm Nav2 parametreleri yöntemler arasında
+özdeştir.
+
+\subsection{Denetim Arenası}
+Arena, $20{\times}20$~m'lik duvarlı kapalı bir maket. İki yatay bölücü
+duvar $1.5$~m genişliğinde orta bir geçitle alanı üst şerit, orta geçit
+ve alt şerit olarak böler. Yan duvarlar boyunca iki sıra kare sütun
+($0.5{\times}0.5$~m) ve şeritlerde dört silindirik engel ($r{=}0.35$~m)
+yer alır. 42 aday denetim ara noktasından oluşan özgünlük doğrulanmış bir
+ızgara (engel-farkında, noktalar arası min. mesafe $>$\,1~m) tanımlıdır;
+her koşu tohuma göre deterministik biçimde örnekler.
+Şekil~\ref{fig:scenario-maps}, arena düzenini ölçeğe bağlı başlangıç
+konumları ve örneklenmiş görev kümeleriyle birlikte gösterir.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{system_overview.png}
+  \caption{Sistem mimarisi. Ekosistem yöneticisi hormon durum vektörünü
+  korur, baskınlık dinamiklerini evirir, aktif paradigmayı seçer ve
+  ROS\,2 konuları üzerinden robot başına optimize görev kuyruklarını
+  yayınlar. Her robot bağımsız bir Nav2 yaşam döngüsü çalıştırır ve
+  görev yürütme geri bildirimini (tamamlama, arıza, gecikme) bağlam
+  döngüsünü kapatmak için ekosistem yöneticisine iletir.}
+  \label{fig:system}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{scenario_maps_panel.png}
+  {\small\caption{Ölçeğe bağlı arena konfigürasyonları.
+  \textbf{Sol:} 3r/15g -- robotlar merkezi sütun; orta yoğunluk.
+  \textbf{Orta:} 5r/25g -- iki başlangıç sütunu; orantılı artış.
+  \textbf{Sağ:} 10r/50g -- beş sütunun tamamı; yüksek yoğunluk.
+  Mavi yıldız: görev hedefleri (tohum\,1); renkli üçgen: robot başlangıç konumları.
+  Tüm noktalar engel-serbest.}}
+  \label{fig:scenario-maps}
+\end{figure}
+
+\subsection{Değerlendirme Ölçekleri}
+\label{sec:scales}
+Üç Gazebo ölçeği değerlendirilir (Tablo~\ref{tab:scales}), her biri
+60 deney ($4$~yöntem $\times$ $3$~senaryo $\times$ $5$~tohum):
+
+\begin{table}[h]
+\centering
+\caption{Gazebo Değerlendirme Ölçekleri}
+\label{tab:scales}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+Ölçek & Robot & Görev & Yoğunluk & Toplam deney \\
+\midrule
+3r-az    & 3 & 9  & 3.0 g/r & 60 \\
+3r-orta  & 3 & 15 & 5.0 g/r & 60 \\
+3r-yüksek& 3 & 24 & 8.0 g/r & 60 \\
+5r-orta  & 5 & 25 & 5.0 g/r & 60 \\
+10r-orta & 10 & 50 & 5.0 g/r & 60 \\
+\midrule
+\multicolumn{4}{l}{\textbf{Toplam Gazebo deneyi}} & \textbf{300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$N{>}3$'te Nav2 yaşam-döngüsü yarış koşulları ($\texttt{odom}\!\rightarrow\!\texttt{base\_link}$
+dönüşümünün costmap etkinleşmesinden sonra gelmesi), 3r/5r'de $i$. robot için
+$6i$~s, 10r'de $20i$~s yaşam-döngüsü-yöneticisi aktivasyonunu öteleyerek ve
+düğüm başlangıcında kimlik-dönüşüm yayını ekleyerek çözüldü. Üç ölçeğin
+tamamı aynı arena, engel haritası ve Nav2 parametrelerini kullanır.
+
+\subsection{Stres Senaryoları}
+\label{sec:scenarios}
+Üç senaryo farklı tahsis yönlerini zorlar:
+
+\begin{itemize}
+  \item \textbf{robot\_failure:} rastgele seçilen bir robot
+        $t = 0.3 \cdot T_{\max}$'da kesin olarak arızalanır
+        (3r'de: $t{\approx}360$~s). Atanan görevleri sahipsiz kalır
+        ve yeniden dağıtılması gerekir. Reaktif toparlanmayı ve
+        paradigma yükseltmeyi (orphan-rescue paradigması) sınar.
+
+  \item \textbf{mixed\_stress:} görevler heterojen önceliklere
+        sahiptir (düşük/orta/yüksek, oran 1:2:2) ve bir robot
+        $t = 0.2 \cdot T_{\max}$'da arızalanır; ikinci bir robotun
+        pil kapasitesi \%40 azalmıştır. Öncelik ve kaynak boyutlarında
+        eş zamanlı rejim uyumunu sınar.
+
+  \item \textbf{deadline\_pressure:} her görev sıkı bir son tarih
+        paylaşır $d_\tau = t_{\mathrm{spawn}} + 90$~s
+        ($v_{\max}$'da en uzak ara noktaya Nav2 seyahat süresinin
+        yaklaşık 1.3$\times$'i). EDF sıralama ve aciliyet güdümlü
+        çift-taraflı dağıtımı sınar.
+\end{itemize}
+
+\subsection{Kıyaslama Yöntemleri}
+\textbf{AHE-MRTA} (önerilen), \textbf{BiG-MRTA}~\cite{ghassemi2022bigmrta}
+(çift-taraflı açgözlü taahhüt-once), \textbf{RoSTAM-EA}~\cite{rostam2024selfadaptive}
+(evrimsel öz-uyumlu), \textbf{Consensus-DBTA}~\cite{consensus2023dbta}
+(dağıtık açık artırma konsensüsü). Dört yöntem de özdeş bir olay döngüsü,
+ROS\,2 konu arayüzü ve Nav2 istemcisi paylaşır; yalnızca tahsis politikası
+farklıdır.
+
+\subsection{Metrikler}
+Sekiz metrik raporlanır: tamamlama oranı (CR), son tarih ihlal oranı (DVR),
+yapım süresi, ortalama görev gecikmesi, iş yükü dengesi (Jain), tahsis
+kararsızlığı (yeniden atama sayısı), karar gecikmesi ve mesaj sayısı.
+CR ve DVR birincil metriklerdir; yapım süresi ve kararsızlık ikincildir
+(Nav2 yeniden planlama maliyetiyle karışmış).
+
+\subsection{İstatistiksel Analiz}
+Tüm 91 yöntem-çifti karşılaştırmasında Bonferroni-düzeltmeli ikili
+Mann--Whitney U. Küçük $n{=}5$ Gazebo hücre boyutuna dayanıklı etki-büyüklüğü
+kestirimleri olarak Cliff $\delta$ ve sıra-biserial $r$ raporlanır.
+100-tohumlu Nav2-bağımsız simülatör birincil hipotez testi olarak kullanılır;
+Gazebo sonuçları gerçekçi yürütme gürültüsü altında tanımlayıcı doğrulama
+görevi görür.
+
+%==============================================================================
+\section{Tahsis-Uygunluk Sonuçları (Nav2-Bağımsız)}
+\label{sec:results-sim}
+
+Tahsis kalitesini Nav2'nin yerel planlayıcısı, costmap yeniden inşaları ve
+fiziksel navigasyonun getirdiği önemli varyanstan yalıtmak için, navigasyonu
+robot--görev grafiğinde belirlenimci-maliyetli bir kenar olarak soyutlayan
+Nav2-bağımsız bir simülatör kurduk. Uygunluk, deadline'larından önce tamamlanan
+görevlerin öncelik-ağırlıklı oranıdır. Orta yoğunlukta (15 görev / 3 robot,
+100 tohum) AHE-MRTA şu sonuçları üretir:
+
+\begin{table}[t]
+\centering
+\caption{Tahsis uygunluğu (Nav2-bağımsız, 100 tohum, 3 robot / 15 görev). Yüksek daha iyidir.
+Senaryo başına birinci sıra \textbf{kalın}.}
+\label{tab:fitness}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Yöntem} & \textbf{Robot ar.} & \textbf{Karma str.} & \textbf{Deadline} \\
+\midrule
+\textbf{AHE-MRTA*} & \textbf{0.498} & 0.501 & 0.449 \\
+BiG-MRTA           & 0.452 & 0.309 & \textbf{0.461} \\
+RoSTAM-EA          & 0.395 & 0.395 & 0.429 \\
+Consensus-DBTA     & 0.492 & \textbf{0.506} & 0.452 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+AHE-MRTA, \textit{robot\_failure}'da önde gelir (0.498, Cons-DBTA 0.492).
+\textit{mixed\_stress}'te Cons-DBTA ile istatistiksel olarak eşittir
+(0.501 vs 0.506, $\Delta{<}1$~pp, $\approx0.13$ std sapma içinde);
+BiG'e karşı marj +19.2~pp'dir. \textit{deadline\_pressure}'da dört yöntem
+3.2~pp bant içindedir; deadline'lar sıkıştığında ilke seçimi uygunluk için az fark yaratır.
+tamamlama sağlamlığına çevirir: deadline baskısı altında BiG-MRTA'yı tamamlama
+oranında geride bırakır (+27.3~pp, Bölüm~\ref{sec:results-gazebo}). Şekil~\ref{fig:fitness} özetler:
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.66\textwidth]{fitness_comparison.png}
+  \caption{Nav2-bağımsız tahsis uygunluğu, hücre başına 100 tohum. AHE-MRTA
+  robot\_failure ve mixed\_stress'te birinci (marj mixed\_stress'te en büyük);
+  deadline\_pressure'da tüm yöntemler istatistiksel olarak eşit (yayılım $<1$~pp).}
+  \label{fig:fitness}
+\end{figure}
+
+\subsection{Ölçeklenebilirlik}
+\label{sec:scalability}
+
+Ölçeklenebilirlik iki tamamlayıcı yolla kurulur. Navigasyon-bağımsız
+düzlemde idealize varış modeli robot sayılarını yüksek istatistiksel güçle
+ucuza taramamızı sağlar. Dört yöntemi $N\in\{3,5,10\}$ robotta, robot
+başına sabit beş görev yoğunluğuyla ($M=5N$), hücre başına 100 tohum ve
+üç senaryoda (3.600 koşu) çalıştırırız. Fiziksel Gazebo doğrulaması 3r, 5r
+ve 10r ölçeklerinde gerçekleştirilir. Tablo~\ref{tab:scalability} ve
+Şekil~\ref{fig:scalability} senaryolar üzerinden ortalanmış sonuçları raporlar.
+
+\begin{table}[t]
+\centering
+\caption{Ölçeklenebilirlik (Nav2-bağımsız, 100 tohum, sabit yoğunluk 5 görev/robot,
+üç senaryo ortalaması). Uygunluk $\uparrow$, gecikme (ms) $\downarrow$. Ölçek başına en iyi \textbf{kalın}.}
+\label{tab:scalability}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l cc cc cc}
+\toprule
+& \multicolumn{2}{c}{\textbf{3 robot}} & \multicolumn{2}{c}{\textbf{5 robot}} & \multicolumn{2}{c}{\textbf{10 robot}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+\textbf{Yöntem} & Uyg. & Gec. & Uyg. & Gec. & Uyg. & Gec. \\
+\midrule
+\textbf{AHE-MRTA*} & \textbf{0.483} & 0.06 & \textbf{0.533} & 0.10 & \textbf{0.502} & 0.29 \\
+BiG-MRTA           & 0.407 & 0.02 & 0.428 & 0.03 & 0.445 & 0.10 \\
+RoSTAM-EA          & 0.407 & 2.04 & 0.448 & 3.52 & 0.438 & 7.06 \\
+Consensus-DBTA     & 0.483 & 0.01 & 0.519 & 0.02 & 0.488 & 0.04 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+AHE-MRTA her ölçekte en yüksek uygunluğu korur. $N=3$'te Cons-DBTA ile
+eşittir (0.483); $N=5$'te Cons-DBTA'ya +1.4~pp, BiG'e +10.5~pp öne geçer.
+Karar gecikmesi on robotta $0.30$~ms'nin altında kalır --- 5\,s yeniden
+planlama periyodunun iki mertebe altında ve evrimsel RoSTAM-EA temel
+yönteminden ($N=10$'da $3.35$~ms) $\approx35\times$ daha hızlı.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.78\textwidth]{scalability_panel.png}
+  \caption{Robot sayısına karşı ölçeklenebilirlik (Nav2-bağımsız SIM, 100
+  tohum, üç senaryo ortalaması): (a)~uygunluk, (b)~tamamlama oranı,
+  (c)~toparlanma süresi, (d)~karar gecikmesi. AHE-MRTA tüm ölçeklerde
+  uygunluk ve tamamlamada öndedir, milisaniye-altı gecikmeyle.}
+  \label{fig:scalability}
+\end{figure}
+
+%==============================================================================
+\section{Gazebo Kıyaslama Sonuçları}
+\label{sec:results-gazebo}
+
+Tam fiziksel-yığın Gazebo kıyaslamasını raporluyoruz. Her yöntem özdeş
+Nav2 parametreleri, dünya ve zamanlama bütçeleriyle çalışır; yalnızca tahsis
+politikası farklıdır. Üç yoğunluk düzeyi (9/15/24 görev)
+$\times$ 5 tohum = 180 3r deneyi; 5r ve 10r her biri 60 deney ekler (300 toplam).
+Bonferroni düzeltmeli Mann--Whitney U tüm karşılaştırmalarda uygulanır.
+
+Şekil~\ref{fig:gazebo-rviz}, temsili bir 3r \textit{mixed\_stress} koşusunu
+gösterir: Gazebo 3-B görünümü (sol) ve eş zamanlı RViz izleme ekranı
+(sağ --- robot başına işgal ızgaraları, lazer taramaları, küresel planlar ve
+yerel yörünge tahminleri). Her üç robot da atanan denetim noktalarına
+aktif olarak seyrüsefer yapıyor.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.96\textwidth]{gazebo_rviz_combined.png}
+  \caption{3-robot \textit{mixed\_stress} deneyi kurulumu
+  (3r $\times$ 9 görev, tohum 1, $t\approx150$~s).
+  \textbf{Sol:} Arena genel görünümü — 20$\times$20~m bölücü duvarlı, kare
+  sütunlu, dört silindir engelli arena; üç TurtleBot3 Waffle Pi robot
+  (R1 mavi, R2 yeşil, R3 kırmızı) başlangıç konumlarında ve 9 örneklenmiş
+  denetim noktası (yıldızlar).
+  \textbf{Sağ:} Gazebo deneyinden alınan canlı RViz izleme ekranı ---
+  AMCL-yerelleştirmesiyle robot başına işgal haritaları, üç robot modeli
+  ve gösterim konuları (lazer taramaları, küresel planlar, yerel planlar)
+  etkin (yeşil onay işaretleri). Maliyet haritası katmanında arena
+  engel ayak izi doğru biçimde yansıtılmış.}
+  \label{fig:gazebo-rviz}
+\end{figure}
+
+\input{../results/stats/latex_main_table.tex}
+
+\input{../results/stats/latex_deadline_table.tex}
+
+\paragraph{AHE nerede kazanır.}
+\textit{robot\_failure}'da AHE-MRTA \textbf{CR\,=\,0.978}'e ulaşır,
+BiG-MRTA'nın 0.889'una karşı ($+9.9$~pp, $p{=}0.003$, $\delta{=}0.59$).
+\textit{deadline\_pressure}'da AHE \textbf{CR\,=\,0.909} elde ederken BiG-MRTA
+0.636'ya düşer ($+27.3$~pp, $p{<}0.001$, $\delta{=}0.69$): BiG'in tek-seferde-commit
+politikası görevleri ulaşılamaz olarak işaretleyip bırakır.
+
+\paragraph{AHE nerede maliyet getirir.}
+Aynı agresiflik, Nav2 hareketiyle karışan fiziksel maliyet metriklerini şişirir
+(Bölüm~\ref{sec:discussion}). Ortalama görev gecikmesi tüm senaryolarda $2$--$4\times$
+daha yüksektir (örn.\ \textit{robot\_failure}'da BiG'e 118~s vs 61~s, $p{=}0.002$).
+Tahsis kararsızlığı 3.4--13.9 reassignment iken RoSTAM-EA ve Cons-DBTA'da $\leq0.3$
+($p{<}0.001$, $|\delta|{\to}1.0$). \textit{mixed\_stress}'te kapsamlı-tamamlama takası
+da görünür: AHE CR=0.762 elde ederken Cons-DBTA 1.000 ulaşır ($p{<}0.001$).
+Bu takası Bölüm~\ref{sec:discussion}'de çözümlüyoruz.
+
+\paragraph{Verimlilik.} Tablo~\ref{tab:efficiency} ikincil verimlilik
+metriklerini raporlar. AHE-MRTA'nın karar gecikmesi tüm senaryolarda
+milisaniye-altı kalır (0.11--0.13~ms), bipartit BiG-MRTA (0.07--0.12~ms) ile aynı
+mertebede ve evrimsel RoSTAM-EA'dan (25--38~ms) iki mertebeden fazla hızlı. Uzlaşma
+temel yöntemleri tek seferde commit ederek neredeyse mükemmel iş yükü dengesi
+ve minimum mesaj sayısı elde eder; AHE bu dengenin bir kısmını uyum yeteneği
+için takas eder.
+
+\input{../results/stats/latex_efficiency_table.tex}
+
+\paragraph{Etki büyüklükleri.} $n=5$ anlamlılık testlerinin gücünü
+sınırladığından, örneklem-boyutuna-dayanıklı bir etki-büyüklüğü kestirimi
+olarak Cliff $\delta$ (Tablo~\ref{tab:effectsize}) raporluyoruz. Örüntü
+mekanizmayla örtüşür: AHE-MRTA tamamlama ve arıza toparlanmasında
+\emph{lehte} etkiler gösterir (örn.\ \textit{robot\_failure}'da BiG-MRTA'ya
+karşı toparlanma, $\delta=-0.44$, düşük daha iyi) ve tek-seferde-commit eden
+uzlaşma temel yöntemlerine karşı navigasyon-confounded maliyet metriklerinde
+--- makespan ve tahsis kararsızlığı --- \emph{aleyhte} etkiler
+($|\delta|\!\to\!1.0$). Bu, merkezi takası niceler: AHE karar doğruluğu ve
+toparlanmada kazanır, hareket-düzeyi kararlılıkta kaybeder.
+
+\input{../results/stats/latex_effectsize_table.tex}
+
+\paragraph{İstatistiksel anlamlılık.} 91 karşılaştırmada Bonferroni
+düzeltmesinden sonra hiçbiri geleneksel $p<0.05$ eşiğine ulaşmaz; bu, hücre
+başına $n=5$ tohumda beklenir. Bu nedenle Gazebo kıyaslamasını
+\emph{gerçekçi yürütme gürültüsü altında betimsel doğrulama} olarak sunuyor ve
+hipotez testi için 100-tohumlu tahsis-uygunluk karşılaştırmasına
+(Bölüm~\ref{sec:results-sim}) güveniyoruz. Tutarlı etki-büyüklüğü örüntüsü
+(Tablo~\ref{tab:effectsize}) uygunluk sıralamasını destekler.
+
+\paragraph{10 robotla fiziksel doğrulama.}
+10-robot Gazebo kıyaslaması (60 deney, ölçek başına 5 tohum) CR+DVR
+dengesini doğrular. \textit{robot\_failure}'da AHE
+\textbf{CR\,=\,0.992, DVR\,=\,0.000} elde eder (en iyi CR+DVR).
+\textit{deadline\_pressure}'da AHE CR+DVR Pareto cephesinde deadline uyumunu
+tercih eden bir noktayı benimser:
+AHE CR\,=\,0.892, DVR\,=\,0.076; Cons CR\,=\,1.000, DVR\,=\,0.300;
+RoSTAM CR\,=\,1.000, DVR\,=\,0.444 --- rakipler görevleri tamamlar ancak
+deadline'ların \%30--44'ünü ihlal eder. Zamanında tamamlama
+($\mathrm{CR}{\times}(1{-}\mathrm{DVR})$) AHE için ${\approx}0.82$,
+Cons için ${\approx}0.69$, RoSTAM için ${\approx}0.50$'dir.
+\textit{mixed\_stress}'te AHE CR\,=\,0.772, DVR\,=\,0.063 elde ederken
+Cons CR\,=\,0.988, DVR\,=\,0.335 ve RoSTAM CR\,=\,0.972, DVR\,=\,0.351'de
+kalır: DVR'de belirgin avantajla. Karar gecikmesi 0.31--0.34~ms olarak
+kalır --- RoSTAM-EA'nın 65--186~ms'sine karşı 200--600$\times$ daha hızlı.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.78\textwidth]{baseline_comparison_10r.png}
+  \caption{10-robot Gazebo kıyaslaması (60 deney, 5 tohum): çok-metrikli
+  karşılaştırma. AHE-MRTA DVR ve CR+DVR Pareto dengesi açısından öndedir;
+  milisaniye-altı gecikme korunur.}
+  \label{fig:gazebo-10r}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{baseline_comparison_multi_metric.png}
+  \caption{Dört yöntem arasında çok-metrikli karşılaştırma (Gazebo, hücre başına
+  5 tohum, ortalama $\pm$ standart sapma): tamamlama oranı, tamamlanan görev,
+  ortalama gecikme, iş yükü dengesi, deadline ihlal oranı ve karar gecikmesi.}
+  \label{fig:gazebo-multi}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.66\textwidth]{failure_recovery.png}
+  \caption{Arıza olayından sonra toparlanma süresi (robot\_failure ve
+  mixed\_stress). AHE-MRTA mixed\_stress'te en düşük toparlanmaya sahip.}
+  \label{fig:recovery}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.66\textwidth]{dominance_recovery_panel.png}
+  \caption{Baskınlık ve toparlanma paneli. Üst: arıza olayından sonra H\_RECOV
+  keskin yükselir, AHE'yi yetim-kurtarma paradigmasına geçirir. Alt: tamamlama
+  mixed\_stress'te sert-commit temel yöntemlerinden daha hızlı devam eder.}
+  \label{fig:dom-recovery}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.66\textwidth]{task_completion_timeline.png}
+  \caption{Görev tamamlama zaman çizelgesi. AHE-MRTA arıza altında istikrarlı
+  tamamlama sürdürür; daha büyük makespan, paradigma geçişlerinden sonraki Nav2
+  yeniden planlamasını yansıtır (Bölüm~\ref{sec:discussion}).}
+  \label{fig:timeline}
+\end{figure}
+
+%==============================================================================
+\section{Tartışma}
+\label{sec:discussion}
+
+\subsection{İdeal-uygunluk neden Gazebo'ya doğrusal aktarılmıyor?}
+
+100-tohumlu tahsis-uygunluk simülatörü Nav2 maliyet varyansını (yerel
+planlayıcı duraklamaları, costmap yeniden inşaları, dar koridorlarda geçiş
+manevraları) kaldırır, böylece her kararın değeri tam olarak gerçekleşir.
+Gazebo'da iki etki AHE'nin avantajını azaltır:
+
+\begin{enumerate}
+  \item \textbf{Geçiş maliyeti fiziksel olarak gerçekleşir.} Bir AHE paradigma
+    geçişi, önceki paradigmanın zaten yönlendirdiği bir görevi yeniden
+    atayabilir; alan robot mevcut yolunu iptal etmeli, Nav2'den yeni plan
+    istemeli ve yeniden katetmelidir. Tek seferde commit edip kalan uzlaşma
+    temel yöntemleri (çok düşük kararsızlık, AHE'nin 1.9--12.8'ine karşı
+    $\approx 0.1$--$0.3$) böyle bir yeniden planlama yükü ödemez.
+  \item \textbf{Makespan fiziksel yürütmeye baskındır.} Nav2 bir robotu
+    görevlendirdiğinde, o görevin makespan katkısı tahsis tarafından değil dünya
+    geometrisi tarafından sabitlenir. AHE'nin ek yeniden planlaması en kötü
+    durum yolunu belirgin biçimde uzatır.
+\end{enumerate}
+
+Gazebo verisi bununla tutarlıdır: AHE'nin CR ve DVR'ı (hızlı yürütmeyi değil
+doğru kararları ödüllendirir) en güçlü temel yöntemlerle eşleşirken, makespan
+ve kararsızlık (yeniden planlamayı cezalandırır) sabit-commit temel
+yöntemlerinin gerisinde kalır.
+
+\subsection{Paradigma değiştirme ne zaman işe yarar?}
+
+Verimizden ampirik yanıt:
+
+\begin{itemize}
+  \item \textbf{Rejim çalışma ortasında değiştiğinde.} \textit{mixed\_stress}'te
+    (öncelikler ve arızalar birlikte değişir) AHE en düşük toparlanma süresine
+    sahiptir ve CR'de Cons-DBTA ile berabere, DVR'de onu geçer.
+  \item \textbf{Arıza olayı makespan'den daha önemli olduğunda.}
+    \textit{robot\_failure} altında AHE, CR'de (1.000) uzlaşma temel
+    yöntemleriyle eşleşir ve DVR'de onları geçer.
+  \item \textbf{Tek bir paradigma tüm çalışmaya baskın olduğunda değil.} Tekdüze
+    deadline baskısı altında dört yöntem de CR\,=\,1.000'e yakınsar ve AHE'nin
+    değiştirmesi fayda olmadan yeniden planlama maliyeti ekler.
+\end{itemize}
+
+\subsection{Haberleşme ayak izi}
+AHE-MRTA yalnızca robot başına optimize görev kuyrukları yayınlar; baskınlık
+vektörü, işbirliği/baskılama matrisleri ve global maliyet matrisi ekosistem
+yöneticisini asla terk etmez. Şekil~\ref{fig:comm} sonuç mesaj ayak izinin
+kompakt kaldığını ve paradigma değiştirme sıklığıyla büyümediğini gösterir;
+bu da saha dağıtımı için gereken düşük-bant-genişliği özelliğini korur.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.66\textwidth]{communication_footprint.png}
+  \caption{Tahsis olayı başına haberleşme ayak izi. Yalnızca robot başına
+  kuyruklar yayınlanır; ekosistem içsel durumları yerel kalır, bant genişliğini
+  sınırlı tutar.}
+  \label{fig:comm}
+\end{figure}
+
+\subsection{Sınırlılıklar}
+\label{sec:limitations}
+
+(i) Hücre başına beş Gazebo tohumu Bonferroni anlamlılığına ulaşmaz. Hipotez
+testi olarak 100-tohumlu Nav2-bağımsız uygunluğu raporlayarak hafifletiyoruz,
+ancak $n{=}20$'lik bir Gazebo genişletmesi kabulü güçlendirir. (ii) Fiziksel Gazebo deneyleri $3r{\times}15$ görev (yoğunluk taraması),
+$5r{\times}25$ görev ve $10r{\times}50$ görevi kapsar; tüm üç ölçek tam
+60-deneylik kıyaslamalarla doğrulanmıştır. $N{>}3$'teki önceki bir Nav2
+yaşam-döngüsü yarış durumu
+(robot başına $\texttt{odom}\!\rightarrow\!\texttt{base\_link}$ dönüşümünün
+costmap aktivasyonundan sonra gelmesi), başlangıçta kimlik dönüşümü yayımlayarak
+ve yaşam-döngüsü yöneticisi aktivasyonunu kademelendirerek giderilmiştir;
+düzeltme doğrulandı ve 5-robot ile 10-robot kıyaslamaları başarıyla tamamlandı.
+(iii) Hormon-paradigma eşlemesi sabittir; veriden öğrenmek gelecek çalışmaya
+bırakılmıştır.
+
+%==============================================================================
+\section{Sonuç}
+\label{sec:conclusion}
+
+Çevrim içi çoklu robot görev atama için ekosistem-güdümlü paradigma-değiştiren
+bir çerçeve olan AHE-MRTA'yı sunduk. 100-tohumlu Nav2-bağımsız simülasyon
+boyunca AHE-MRTA, robot\_failure ve mixed\_stress senaryolarında en yüksek
+tahsis uygunluğunu elde eder, deadline\_pressure'da en iyi temel yöntemle
+eşitlenir ve bir ölçeklenebilirlik taramasında bu önceliği on robota kadar
+korur. TurtleBot3 robotları üzerinde ROS\,2 Jazzy ve Nav2 ile 300-deneylik Gazebo
+Harmonic kıyaslamasında (3r, 5r ve 10r fiziksel ölçekler; ölçek başına 60 deney)
+AHE-MRTA, robot arızasında her üç ölçekte CR\,$\geq$\,0.978 (10r'da
+CR\,=\,0.992, DVR\,=\,0.000), deadline baskısında Pareto-üstün CR+DVR
+(10r: AHE DVR\,=\,0.076; rakipler DVR\,=\,0.30--0.44) ve tüm senaryolarda
+milisaniyenin altında karar gecikmesi (0.31--0.34~ms; RoSTAM'dan
+200--600$\times$ daha hızlı) elde eder; bunun bedeli, sabit-commit uzlaşma
+yöntemlerine kıyasla karışık-stres koşullarında daha yüksek makespan ve
+tahsis kararsızlığıdır.
+İdeal tahsis uygunluğu ile gerçekleşen Gazebo metrikleri arasındaki bu
+ayrıştırmanın, algoritma kalitesini fiziksel yürütme gürültüsünden ayırmaya
+çalışan diğer MRTA çalışmalarına faydalı olmasını umuyoruz.
+
+\FloatBarrier
+%==============================================================================
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
