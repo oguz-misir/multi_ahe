@@ -37,10 +37,10 @@ sys.path.insert(0, os.path.join(_repo, 'src', 'm_ahe_ecosystem_manager'))
 from m_ahe_task_allocator.baselines.base_allocator import (
     AllocationResult, EcosystemContext, RobotState, TaskState,
 )
-from m_ahe_task_allocator.baselines.ahe_variants import (
-    AHEMRTAv3Allocator,
-    AHEMRTAv3NoBipartiteAllocator, AHEMRTAv3NoDenseInitAllocator,
-    AHEMRTAv3NoRecoveryAllocator, AHEMRTAv3FixedWeightsAllocator,
+from m_ahe_task_allocator.baselines.ahe_variants import AHEMRTAv3Allocator
+from m_ahe_task_allocator.placement import (
+    task_positions as _free_task_positions,
+    robot_spawns as _free_robot_spawns,
 )
 from m_ahe_task_allocator.baselines.big_mrta import BigMRTAAllocator
 from m_ahe_task_allocator.baselines.static_weighted import StaticWeightedAllocator
@@ -89,9 +89,12 @@ M = np.array([
     [0.1, 0.1, 0.1, 0.1, 0.3, 0.3, 0.9],
 ])
 
-# Tunable parameters (override with --tune-*)
-ALPHA = 0.85
-BETA  = 0.25
+# Ekosistem dinamik parametreleri — F3 (Tier 1) kalibrasyonu:
+# ALPHA düşürüldü (0.85→0.65): D vektörü daha hızlı adapte olur.
+# BETA artırıldı (0.25→0.40): performans feedback'inin etkisi büyür.
+# Birlikte: fixed_weights ablasyonu ile ölçülebilir fark üretmek için.
+ALPHA = 0.65
+BETA  = 0.40
 GAMMA = 0.20
 ETA   = 0.12
 LMBDA = 0.12
@@ -125,6 +128,13 @@ def _nav_time(robot_pos: Tuple[float, float], task_pos: Tuple[float, float]) -> 
     """Simulated navigation time in seconds."""
     d = math.hypot(task_pos[0] - robot_pos[0], task_pos[1] - robot_pos[1])
     return max(1.0, d / ROBOT_SPEED) + SERVICE_TIME
+
+
+# Nav2-independent allocation fitness is computed as the priority-weighted
+# on-time completion achieved in this idealised (navigation-free) model — see
+# the accumulation in run_simulation. It measures how well the allocator's
+# decisions translate into deadline-respecting throughput, isolating algorithmic
+# quality from physical Nav2 outcomes that confound Delay / Distance in Gazebo.
 
 
 # ---------------------------------------------------------------------------
@@ -334,26 +344,13 @@ class SimState:
 # ---------------------------------------------------------------------------
 
 def _gen_tasks(n: int, rng: random.Random, scenario: str,
-               exp_duration: float) -> List[TaskState]:
+               exp_duration: float, seed: int, n_robots: int) -> List[TaskState]:
     tasks = []
-    # Task positions — mix of reachable interior and edge positions
-    # (same distribution as Gazebo experiments: some near walls)
-    positions = []
-    for _ in range(n):
-        # 20% chance of edge position (like in real experiments)
-        if rng.random() < 0.20:
-            side = rng.choice(['x+', 'x-', 'y+', 'y-'])
-            if side == 'x+':
-                pos = (rng.uniform(5.5, 6.0), rng.uniform(-5.5, 5.5))
-            elif side == 'x-':
-                pos = (rng.uniform(-6.0, -5.5), rng.uniform(-5.5, 5.5))
-            elif side == 'y+':
-                pos = (rng.uniform(-5.5, 5.5), rng.uniform(5.5, 6.5))
-            else:
-                pos = (rng.uniform(-5.5, 5.5), rng.uniform(-6.0, -5.5))
-        else:
-            pos = (rng.uniform(-5.0, 5.0), rng.uniform(-5.0, 5.0))
-        positions.append(pos)
+    # Obstacle-aware positions shared with the Gazebo runner: identical goals
+    # for a given (n, seed, n_robots) so the two planes stay comparable (R4/R6),
+    # no task lands inside a shelf/wall/cylinder, and goals stay clear of the
+    # robot depot.
+    positions = _free_task_positions(n, seed, n_robots)
 
     # Task activation schedule:
     #   deadline_pressure : all at t=0 (single tight wave)
@@ -392,16 +389,17 @@ def _gen_tasks(n: int, rng: random.Random, scenario: str,
     return tasks
 
 
-def _initial_robots(n: int, rng: random.Random) -> List[SimRobot]:
-    # Robots start at fixed positions (like actual experiment spawn points)
-    spawn = [(-3.0, 0.0), (0.0, -3.0), (3.0, 0.0),
-             (0.0, 3.0), (-3.0, 3.0)]
+def _initial_robots(n: int, rng: random.Random, seed: int = 1) -> List[SimRobot]:
+    # Spawn at the SAME obstacle-free positions the Gazebo SDF uses
+    # (placement.robot_spawns, seed-independent) — no jitter, so SIM and Gazebo
+    # robots start identically.
+    spawn = _free_robot_spawns(n, seed)
     robots = []
     for i in range(n):
-        x, y = spawn[i % len(spawn)]
+        x, y = spawn[i]
         robots.append(SimRobot(
             robot_id=f'robot_{i+1}',
-            pos=(x + rng.uniform(-0.3, 0.3), y + rng.uniform(-0.3, 0.3)),
+            pos=(float(x), float(y)),
         ))
     return robots
 
@@ -422,15 +420,16 @@ def run_simulation(
     verbose: bool = False,
     batt_drain: float = 0.0075,       # 0.015/5s drain at 0.4m/s → 0.015/2m = 0.0075/m
     nav_fail_stuck: float = 0.0,      # real robot_interface: immediate IDLE after failure
+    ideal_nav: bool = False,          # navigation-independent eval: nav always succeeds
     alpha=ALPHA, beta=BETA, gamma=GAMMA, eta=ETA,
     lmbda=LMBDA, delta=DELTA, temp=SOFTMAX_TEMP,
 ) -> Dict:
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
 
-    tasks = _gen_tasks(n_tasks, rng, scenario, exp_duration)
+    tasks = _gen_tasks(n_tasks, rng, scenario, exp_duration, seed, n_robots)
     task_map = {t.task_id: t for t in tasks}
-    robots = _initial_robots(n_robots, rng)
+    robots = _initial_robots(n_robots, rng, seed)
     queues: Dict[str, List[str]] = {r.robot_id: [] for r in robots}
 
     if eco is not None:
@@ -471,6 +470,10 @@ def run_simulation(
     deadline_violations = 0
     robot_distances: Dict[str, float] = {r.robot_id: 0.0 for r in robots}
     robot_completed: Dict[str, int]   = {r.robot_id: 0 for r in robots}
+    # Nav2-independent allocation fitness = priority-weighted on-time completion
+    # achieved in this idealised (navigation-free) model. Higher = better.
+    ontime_pri_completed = 0.0
+    latencies: List[float] = []   # allocator decision latency (ms), Nav2-independent
 
     t = 0.0
     dt = 0.5
@@ -519,6 +522,7 @@ def run_simulation(
         result: AllocationResult = allocator.allocate(
             rs, eligible, current_t, context=eco_context
         )
+        latencies.append(result.latency_ms)
         for rid, tids in result.queues.items():
             for tid in tids:
                 if tid not in assign_log or assign_log[tid] != rid:
@@ -585,6 +589,9 @@ def run_simulation(
                         completion_times.append(t - task.activation_time)
                         if task.deadline > 0 and t > task.deadline:
                             deadline_violations += 1
+                        else:
+                            # On-time completion → credit priority-weighted fitness
+                            ontime_pri_completed += max(1, task.priority)
                         if recovery_start > 0 and recovery_end < 0:
                             recovery_end = t
                         if verbose:
@@ -635,10 +642,16 @@ def run_simulation(
                 dist = math.hypot(task.position[0] - robot.pos[0],
                                   task.position[1] - robot.pos[1])
                 nav_t = _nav_time(robot.pos, task.position)
-                success = rng.random() < _nav_success_prob(task.position, rng)
-                # Timeout: if distance too large, fail
-                if dist / ROBOT_SPEED > NAV_TIMEOUT:
-                    success = False
+                if ideal_nav:
+                    # Navigation-independent evaluation: perfect navigation, so
+                    # every metric reflects allocation quality alone (robot
+                    # failures are still injected separately).
+                    success = True
+                else:
+                    success = rng.random() < _nav_success_prob(task.position, rng)
+                    # Timeout: if distance too large, fail
+                    if dist / ROBOT_SPEED > NAV_TIMEOUT:
+                        success = False
                 job = NavJob(
                     task_id=tid,
                     start_time=t,
@@ -675,6 +688,10 @@ def run_simulation(
     recovery_time = (recovery_end - recovery_start) if (recovery_start > 0 and recovery_end > 0) else -1.0
     instability = reassign_count / max(1, n_tasks)
     total_dist = sum(robot_distances.values())
+    total_pri = sum(max(1, t.priority) for t in tasks) or 1.0
+    alloc_fitness = ontime_pri_completed / total_pri
+    dvr = deadline_violations / max(1, completed_count)
+    mean_latency = (sum(latencies) / len(latencies)) if latencies else 0.0
 
     return {
         'completion_rate': completion_rate,
@@ -682,11 +699,14 @@ def run_simulation(
         'remaining': active_remaining,
         'avg_delay': avg_delay,
         'deadline_violations': deadline_violations,
+        'deadline_violation_rate': dvr,
         'workload_balance': balance,
         'failure_recovery_time': recovery_time,
         'allocation_instability': instability,
+        'mean_decision_latency_ms': mean_latency,
         'nav_failures': failed_nav_count,
         'total_distance': total_dist,
+        'alloc_fitness': alloc_fitness,
         'last_dominant': last_dom_heuristic,
     }
 
@@ -699,11 +719,6 @@ def _make_allocators():
     return {
         # Önerilen yöntem
         'ahe_mrta_v3':                    lambda: AHEMRTAv3Allocator(),
-        # V3 ablasyon varyantları
-        'ahe_mrta_v3_no_bipartite':       lambda: AHEMRTAv3NoBipartiteAllocator(),
-        'ahe_mrta_v3_no_dense_init':      lambda: AHEMRTAv3NoDenseInitAllocator(),
-        'ahe_mrta_v3_no_recovery':        lambda: AHEMRTAv3NoRecoveryAllocator(),
-        'ahe_mrta_v3_fixed_weights':      lambda: AHEMRTAv3FixedWeightsAllocator(),
         # Karşılaştırma baseline yöntemleri
         'big_mrta':                       lambda: BigMRTAAllocator(),
         'rostam_ea':                      lambda: RoSTAMEAAllocator(),
@@ -711,11 +726,7 @@ def _make_allocators():
     }
 
 
-_AHE_METHODS = {
-    'ahe_mrta_v3',
-    'ahe_mrta_v3_no_bipartite', 'ahe_mrta_v3_no_dense_init',
-    'ahe_mrta_v3_no_recovery', 'ahe_mrta_v3_fixed_weights',
-}
+_AHE_METHODS = {'ahe_mrta_v3'}
 
 
 def _needs_eco(name: str) -> bool:
@@ -734,6 +745,7 @@ def benchmark(
     n_tasks: int = 15,
     exp_duration: float = 900.0,
     verbose: bool = False,
+    ideal_nav: bool = False,
     **eco_kwargs,
 ) -> Dict[str, Dict]:
     results: Dict[str, List[Dict]] = {m: [] for m in methods}
@@ -748,6 +760,7 @@ def benchmark(
                 n_robots=n_robots, n_tasks=n_tasks,
                 exp_duration=exp_duration,
                 eco=eco, verbose=(verbose and seed <= 2),
+                ideal_nav=ideal_nav,
                 **eco_kwargs,
             )
             results[mname].append(r)
@@ -763,12 +776,16 @@ def benchmark(
             'completion_rate':      _m('completion_rate'),
             'completion_std':       _s('completion_rate'),
             'avg_delay':            _m('avg_delay'),
+            'deadline_violation_rate': _m('deadline_violation_rate'),
             'workload_balance':     _m('workload_balance'),
             'instability':          _m('allocation_instability'),
             'instability_std':      _s('allocation_instability'),
             'recovery_time':        mean(recovery_valid) if recovery_valid else -1.0,
+            'mean_decision_latency_ms': _m('mean_decision_latency_ms'),
             'nav_failures':         _m('nav_failures'),
             'total_distance':       _m('total_distance'),
+            'alloc_fitness':        _m('alloc_fitness'),
+            'alloc_fitness_std':    _s('alloc_fitness'),
         }
     return summary
 
@@ -789,68 +806,51 @@ def print_comparison(summary: Dict[str, Dict], scenario: str, n_seeds: int):
     print(f"\n{'═'*90}")
     print(f"  Senaryo: {scenario}  |  Seed sayısı: {n_seeds}")
     print(f"{'═'*90}")
-    header = f"{'Yöntem':<28} {'Compl':>7} {'±':>5} {'Delay':>7} {'Balance':>8} {'Instab':>8} {'±':>5} {'RecTime':>8} {'NavFail':>8}"
+    header = (f"{'Yöntem':<22} {'Fit':>6} {'CR':>6} {'Delay':>7} {'DVR':>6} "
+              f"{'RecT':>7} {'Instab':>7} {'WLBal':>6} {'Dist':>7} {'Lat(ms)':>8}")
     print(header)
-    print('─' * 90)
+    print('─' * 100)
 
-    # Compute rank marks
     methods = list(summary.keys())
-    comp_vals   = [summary[m]['completion_rate'] for m in methods]
-    instab_vals = [summary[m]['instability']     for m in methods]
-    rec_vals_m  = [summary[m]['recovery_time']   for m in methods]
-    balance_vals= [summary[m]['workload_balance'] for m in methods]
+    def col(k): return [summary[m][k] for m in methods]
+    fit_vals    = col('alloc_fitness')
+    comp_vals   = col('completion_rate')
+    delay_vals  = col('avg_delay')
+    dvr_vals    = col('deadline_violation_rate')
+    rec_vals_m  = [summary[m]['recovery_time'] for m in methods]
+    instab_vals = col('instability')
+    wb_vals     = col('workload_balance')
+    dist_vals   = col('total_distance')
+    lat_vals    = col('mean_decision_latency_ms')
 
-    for mname in sorted(methods, key=lambda m: -summary[m]['completion_rate']):
+    for mname in sorted(methods, key=lambda m: -summary[m]['alloc_fitness']):
         s = summary[mname]
-        rc = _rank_mark(s['completion_rate'],  comp_vals,    higher_is_better=True)
-        ri = _rank_mark(s['instability'],      instab_vals,  higher_is_better=False)
-        prefix = '  [AHE] ' if mname in _AHE_METHODS else '        '
-        rec_str = f"{s['recovery_time']:>8.1f}" if s['recovery_time'] > 0 else '       -'
+        rf = _rank_mark(s['alloc_fitness'],         fit_vals,   True)
+        rc = _rank_mark(s['completion_rate'],       comp_vals,  True)
+        rd = _rank_mark(s['avg_delay'],             delay_vals, False)
+        rv = _rank_mark(s['deadline_violation_rate'], dvr_vals, False)
+        ri = _rank_mark(s['instability'],           instab_vals, False)
+        rw = _rank_mark(s['workload_balance'],      wb_vals,    True)
+        rt = _rank_mark(s['total_distance'],        dist_vals,  False)
+        rl = _rank_mark(s['mean_decision_latency_ms'], lat_vals, False)
+        prefix = '[AHE] ' if mname in _AHE_METHODS else '      '
+        rec_str = f"{s['recovery_time']:>6.1f}" if s['recovery_time'] > 0 else '     -'
         print(
-            f"{prefix}{mname:<20} "
-            f"{s['completion_rate']:>5.3f}{rc} "
-            f"{s['completion_std']:>5.3f} "
-            f"{s['avg_delay']:>7.1f} "
-            f"{s['workload_balance']:>8.3f} "
-            f"{s['instability']:>6.2f}{ri} "
-            f"{s['instability_std']:>5.2f} "
-            f"{rec_str} "
-            f"{s['nav_failures']:>8.1f}"
+            f"{prefix}{mname:<16}"
+            f"{s['alloc_fitness']:>5.3f}{rf}"
+            f"{s['completion_rate']:>5.3f}{rc}"
+            f"{s['avg_delay']:>6.1f}{rd}"
+            f"{s['deadline_violation_rate']:>5.3f}{rv}"
+            f"{rec_str}{'':1}"
+            f"{s['instability']:>6.2f}{ri}"
+            f"{s['workload_balance']:>5.3f}{rw}"
+            f"{s['total_distance']:>6.1f}{rt}"
+            f"{s['mean_decision_latency_ms']:>7.2f}{rl}"
         )
-    print('─' * 90)
+    print('─' * 100)
+    print("  Tüm metrikler Nav2-bağımsız (ideal-nav: navigasyon her zaman başarılı). "
+          "★=1. ✓=2.  Fit/CR/WLBal ↑ iyi; Delay/DVR/RecT/Instab/Dist/Lat ↓ iyi.")
     print("  ★=1. sıra  ✓=2. sıra  |  Compl: yüksek iyi  Instab/RecTime: düşük iyi")
-
-
-def print_ablation_insight(summary: Dict[str, Dict]):
-    """AHE_MRTA_V3 ablasyon analizi: hangi mekanizma ne kadar katkı sağlıyor."""
-    base = summary.get('ahe_mrta_v3')
-    if not base:
-        return
-    print(f"\n{'─'*60}")
-    print("  Ablasyon analizi (ahe_mrta_v3 baz alınarak):")
-    ablations = [
-        ('ahe_mrta_v3_no_bipartite',  'M1  bipartit eşleştirme kaldırıldı'),
-        ('ahe_mrta_v3_no_dense_init', 'M17 dense-initial delegasyonu kaldırıldı'),
-        ('ahe_mrta_v3_no_recovery',   'M8+M11 recovery turbo kaldırıldı'),
-        ('ahe_mrta_v3_fixed_weights', 'Ekosistem harmanlama kaldırıldı'),
-    ]
-    base_rec = base.get('recovery_time', -1)
-    for aname, label in ablations:
-        a = summary.get(aname)
-        if not a:
-            continue
-        delta_c = a['completion_rate'] - base['completion_rate']
-        delta_i = a['instability']     - base['instability']
-        a_rec = a.get('recovery_time', -1)
-        rec_str = ''
-        if base_rec > 0 and a_rec > 0:
-            delta_r = a_rec - base_rec
-            rec_str = f"  ΔRecTime={delta_r:+.1f}s"
-        sign_c = '+' if delta_c >= 0 else ''
-        sign_i = '+' if delta_i >= 0 else ''
-        effect = 'ZARAR' if delta_c < -0.005 else ('NÖTR' if abs(delta_c) <= 0.005 else 'FAYDA')
-        print(f"  {label:<45}  Δcompl={sign_c}{delta_c:+.3f}  Δinstab={sign_i}{delta_i:+.2f}{rec_str}  [{effect}]")
-    print('─' * 60)
 
 
 # ---------------------------------------------------------------------------
@@ -911,9 +911,19 @@ def main():
                         help='ALPHA sweep: 0.5..0.95')
     parser.add_argument('--tune-beta',  action='store_true',
                         help='BETA sweep: 0.1..0.5')
-    parser.add_argument('--no-ablation', action='store_true')
-    parser.add_argument('--compare-ablation', action='store_true',
-                        help='Side-by-side: ahe_mrta_v3 vs ablation varyantları')
+    parser.add_argument('--ideal-nav', action='store_true',
+                        help='Navigation-independent eval: perfect navigation, '
+                             'every metric reflects allocation quality alone.')
+    parser.add_argument('--robot-counts', type=str, default='',
+                        help='Ölçeklenebilirlik sweep: virgülle robot sayıları, ör. "3,5,10". '
+                             'Sabit yoğunluk (n_tasks=5×n_robots). → sim_scalability.csv')
+    parser.add_argument('--matrix', action='store_true',
+                        help='Tam robot×yoğunluk matrisi (Düzlem A): --robot-list robot × '
+                             '--density-list görev/robot × 4 yöntem × 3 senaryo. → sim_matrix.csv')
+    parser.add_argument('--robot-list', type=str, default='3,5,10',
+                        help='--matrix için robot sayıları (varsayılan 3,5,10)')
+    parser.add_argument('--density-list', type=str, default='3,5,8',
+                        help='--matrix için görev/robot yoğunlukları (varsayılan 3,5,8)')
     args = parser.parse_args()
 
     registry  = _make_allocators()
@@ -942,38 +952,130 @@ def main():
                        min(args.seeds, 50), args.robots, args.tasks)
         return
 
-    # ── Compare ablation mode ─────────────────────────────────────────────
-    if args.compare_ablation:
-        base_method = 'ahe_mrta_v3'
-        ablation_methods = [
-            'ahe_mrta_v3_no_bipartite', 'ahe_mrta_v3_no_dense_init',
-            'ahe_mrta_v3_no_recovery', 'ahe_mrta_v3_fixed_weights',
-        ]
+    # ── Tam robot×yoğunluk matris modu (Düzlem A; → sim_matrix.csv) ───────
+    if args.matrix:
+        _PAPER_M = ['ahe_mrta_v3', 'big_mrta', 'rostam_ea', 'consensus_dbta']
+        robots_l = [int(x) for x in args.robot_list.split(',') if x.strip()]
+        dens_l = [int(x) for x in args.density_list.split(',') if x.strip()]
         t0 = time.time()
-        for scenario in scenarios:
-            summary = benchmark(
-                [base_method] + ablation_methods, scenario, args.seeds,
-                n_robots=args.robots, n_tasks=args.tasks,
-            )
-            print_comparison(summary, scenario, args.seeds)
-            print_ablation_insight(summary)
+        rows = []
+        for n_robots in robots_l:
+            for density in dens_l:
+                n_tasks = density * n_robots
+                for scenario in scenarios:
+                    summary = benchmark(
+                        _PAPER_M, scenario, args.seeds,
+                        n_robots=n_robots, n_tasks=n_tasks,
+                        exp_duration=args.duration, ideal_nav=args.ideal_nav,
+                    )
+                    print_comparison(
+                        summary, f"{scenario} [{n_robots}r/{n_tasks}g d={density}]", args.seeds)
+                    for mname in _PAPER_M:
+                        s = summary[mname]
+                        rows.append({
+                            'robot_count': n_robots, 'task_count': n_tasks,
+                            'density': density, 'scenario': scenario, 'strategy': mname,
+                            'fitness': s['alloc_fitness'], 'fitness_std': s['alloc_fitness_std'],
+                            'cr': s['completion_rate'], 'dvr': s['deadline_violation_rate'],
+                            'recovery': s['recovery_time'],
+                            'latency': s['mean_decision_latency_ms'],
+                            'n_seeds': args.seeds,
+                        })
+        out_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                               'results', 'processed')
+        os.makedirs(out_dir, exist_ok=True)
+        out_csv = os.path.join(out_dir, 'sim_matrix.csv')
+        import csv as _csv
+        with open(out_csv, 'w', newline='') as f:
+            w = _csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            w.writeheader()
+            w.writerows(rows)
         elapsed = time.time() - t0
-        total_runs = (1 + len(ablation_methods)) * args.seeds * len(scenarios)
-        print(f"\n  Toplam {total_runs} simülasyon, {elapsed:.1f}s ({total_runs/elapsed:.0f} sim/s)\n")
+        total = len(_PAPER_M) * args.seeds * len(scenarios) * len(robots_l) * len(dens_l)
+        print(f"\n[OK]  Matrix CSV → {out_csv}  ({len(rows)} satır)")
+        print(f"  Toplam {total} simülasyon, {elapsed:.1f}s ({total/elapsed:.0f} sim/s)\n")
+        return
+
+    # ── Ölçeklenebilirlik sweep modu (Düzlem A; → sim_scalability.csv) ─────
+    if args.robot_counts.strip():
+        _PAPER_M = ['ahe_mrta_v3', 'big_mrta', 'rostam_ea', 'consensus_dbta']
+        scales = [int(x) for x in args.robot_counts.split(',') if x.strip()]
+        t0 = time.time()
+        scal_rows = []
+        for n_robots in scales:
+            n_tasks = 5 * n_robots          # sabit yoğunluk ~5 görev/robot
+            for scenario in scenarios:
+                summary = benchmark(
+                    _PAPER_M, scenario, args.seeds,
+                    n_robots=n_robots, n_tasks=n_tasks,
+                    exp_duration=args.duration, ideal_nav=args.ideal_nav,
+                )
+                print_comparison(summary, f"{scenario} [{n_robots}r/{n_tasks}g]", args.seeds)
+                for mname in _PAPER_M:
+                    s = summary[mname]
+                    scal_rows.append({
+                        'robot_count': n_robots, 'task_count': n_tasks,
+                        'scenario': scenario, 'strategy': mname,
+                        'fitness': s['alloc_fitness'], 'fitness_std': s['alloc_fitness_std'],
+                        'cr': s['completion_rate'], 'dvr': s['deadline_violation_rate'],
+                        'recovery': s['recovery_time'],
+                        'latency': s['mean_decision_latency_ms'],
+                        'n_seeds': args.seeds,
+                    })
+        out_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                               'results', 'processed')
+        os.makedirs(out_dir, exist_ok=True)
+        out_csv = os.path.join(out_dir, 'sim_scalability.csv')
+        import csv as _csv
+        with open(out_csv, 'w', newline='') as f:
+            w = _csv.DictWriter(f, fieldnames=list(scal_rows[0].keys()))
+            w.writeheader()
+            w.writerows(scal_rows)
+        elapsed = time.time() - t0
+        total_runs = len(_PAPER_M) * args.seeds * len(scenarios) * len(scales)
+        print(f"\n[OK]  Scalability CSV → {out_csv}  ({len(scal_rows)} satır)")
+        print(f"  Toplam {total_runs} simülasyon, {elapsed:.1f}s "
+              f"({total_runs/elapsed:.0f} sim/s)\n")
         return
 
     # ── Normal benchmark mode ─────────────────────────────────────────────
     t0 = time.time()
+    fit_csv_rows = []   # [scenario, strategy, fitness_mean, fitness_std, n_seeds]
     for scenario in scenarios:
         summary = benchmark(
             methods, scenario, args.seeds,
             n_robots=args.robots, n_tasks=args.tasks,
             exp_duration=args.duration,
             verbose=args.verbose,
+            ideal_nav=args.ideal_nav,
         )
         print_comparison(summary, scenario, args.seeds)
-        if not args.no_ablation:
-            print_ablation_insight(summary)
+        # Persist fitness for the cross-method comparison plot. Only the four
+        # paper methods are written so plotting stays focused.
+        _PAPER_M = {'ahe_mrta_v3', 'big_mrta', 'rostam_ea', 'consensus_dbta'}
+        for mname, s in summary.items():
+            if mname in _PAPER_M:
+                fit_csv_rows.append({
+                    'scenario': scenario,
+                    'strategy': mname,
+                    'fitness_mean': s.get('alloc_fitness', 0.0),
+                    'fitness_std':  s.get('alloc_fitness_std', 0.0),
+                    'n_seeds': args.seeds,
+                })
+
+    # Save fitness CSV for plot_results.plot_fitness_comparison.
+    if fit_csv_rows:
+        out_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                               'results', 'processed')
+        os.makedirs(out_dir, exist_ok=True)
+        out_csv = os.path.join(out_dir, 'sim_fitness.csv')
+        import csv as _csv
+        with open(out_csv, 'w', newline='') as f:
+            w = _csv.DictWriter(f, fieldnames=list(fit_csv_rows[0].keys()))
+            w.writeheader()
+            for row in fit_csv_rows:
+                w.writerow(row)
+        print(f"\n[OK]  Fitness CSV → {out_csv}  ({len(fit_csv_rows)} satır)")
 
     elapsed = time.time() - t0
     total_runs = len(methods) * args.seeds * len(scenarios)

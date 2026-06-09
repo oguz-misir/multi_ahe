@@ -20,7 +20,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'task_pool_test_pub = m_ahe_task_manager.task_pool_test_pub:main',
             'task_manager_node = m_ahe_task_manager.task_manager_node:main',
             'task_visualizer_node = m_ahe_task_manager.task_visualizer_node:main',
             'gz_path_visualizer_node = m_ahe_task_manager.gz_path_visualizer_node:main',

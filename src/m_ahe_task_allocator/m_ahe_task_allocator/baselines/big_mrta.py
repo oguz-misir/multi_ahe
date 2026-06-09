@@ -19,7 +19,7 @@ try:
 except ImportError:
     _HAS_SCIPY = False
 
-SPEED = 0.26          # m/s
+SPEED = 0.22          # m/s — Gazebo Nav2 efektif hız (tüm yöntemlerde ortak)
 ALPHA = 60.0          # time scaling factor
 EPSILON = 0.05        # battery safety margin
 MAX_QUEUE = 5         # max tasks per robot per allocation round
@@ -42,7 +42,7 @@ class BigMRTAAllocator(BaseAllocator):
         endpoint = queue_endpoint(robot, task_map, current_queue)
         dist = math.hypot(task.position[0] - endpoint[0],
                           task.position[1] - endpoint[1])
-        queue_delay = len(current_queue) * (8.0 + task.service_time)
+        queue_delay = len(current_queue) * (22.0 + task.service_time)  # Nav2 navigation overhead
         return current_time + queue_delay + dist / SPEED + task.service_time
 
     def _battery_margin(self, robot: RobotState, task: TaskState,

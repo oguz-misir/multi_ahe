@@ -20,9 +20,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'task_queue_test_pub = m_ahe_task_allocator.task_queue_test_pub:main',
-            'baseline_allocator_node = m_ahe_task_allocator.baseline_allocator_node:main',
-            'ahe_allocator_node = m_ahe_task_allocator.ahe_allocator_node:main',
             'experiment_runner_node = m_ahe_task_allocator.experiment_runner_node:main',
         ],
     },

@@ -63,8 +63,23 @@ class RobotInterfaceNode(Node):
         super().__init__('robot_interface_node')
 
         self.declare_parameter('robot_id', 'robot_1')
+        # B1 (congestion-aware recovery): stuck detection thresholds.
+        # If the robot makes < stuck_min_move_m net displacement for
+        # stuck_no_progress_sec while NAVIGATING, it is declared STUCK; the
+        # goal is cancelled and the task re-enters allocation early. STUCK is
+        # reported for stuck_report_hold_sec so the ecosystem failure_rate
+        # rises and the recovery paradigm (orphan_first) engages.
+        self.declare_parameter('stuck_no_progress_sec', 12.0)
+        self.declare_parameter('stuck_min_move_m', 0.15)
+        self.declare_parameter('stuck_report_hold_sec', 6.0)
 
         self._robot_id: str = self.get_parameter('robot_id').value
+        self._stuck_no_progress_sec: float = float(
+            self.get_parameter('stuck_no_progress_sec').value)
+        self._stuck_min_move_m: float = float(
+            self.get_parameter('stuck_min_move_m').value)
+        self._stuck_report_hold_sec: float = float(
+            self.get_parameter('stuck_report_hold_sec').value)
 
         # Navigation state
         self._nav_state = NavState.IDLE
@@ -77,6 +92,17 @@ class RobotInterfaceNode(Node):
         self._failure_flag: bool = False
         self._task_progress: float = 0.0
         self._distance_remaining: float = 0.0
+
+        # B1: Nav2 goal handle (so cancel actually cancels) + stuck tracking
+        self._goal_handle = None
+        self._active: bool = False              # guards single finalize per task
+        self._last_move_time: float = 0.0
+        self._last_move_xy: tuple[float, float] = (0.0, 0.0)
+        self._stuck_report_until: float = 0.0   # report STUCK until this time
+        # Local execution feedback signals (set by stuck detector)
+        self._congestion_indicator: int = 0
+        self._goal_reachability: int = 0
+        self._request_replan: bool = False
 
         # Task queue
         self._waypoint_queue: list[TaskWaypoint] = []
@@ -113,6 +139,7 @@ class RobotInterfaceNode(Node):
         self.create_timer(0.5, self._publish_feedback)
         self.create_timer(0.2, self._maybe_dispatch)
         self.create_timer(5.0, self._drain_battery)
+        self.create_timer(1.0, self._check_stuck)   # B1: congestion stuck detector
 
         self.get_logger().info(f'{self._robot_id} interface node started')
 
@@ -176,6 +203,14 @@ class RobotInterfaceNode(Node):
         self._avail_state = AvailState.BUSY
         self._failure_flag = False
 
+        # B1: arm stuck tracking for this task
+        self._active = True
+        self._goal_handle = None
+        self._last_move_time = self._now_sec()
+        self._last_move_xy = self._get_xy()
+        self._congestion_indicator = 0
+        self._goal_reachability = 0
+
         self.get_logger().info(
             f'{self._robot_id}: sending {waypoint.task_id} → '
             f'({goal_pose.pose.position.x:.1f}, {goal_pose.pose.position.y:.1f})'
@@ -195,6 +230,7 @@ class RobotInterfaceNode(Node):
             self._on_task_done(success=False)
             return
 
+        self._goal_handle = handle      # B1: store so we can actually cancel
         result_future = handle.get_result_async()
         result_future.add_done_callback(self._result_cb)
 
@@ -222,6 +258,13 @@ class RobotInterfaceNode(Node):
         self._on_task_done(success=success)
 
     def _on_task_done(self, *, success: bool) -> None:
+        # B1: finalize once per task (a stuck-cancel and the subsequent
+        # CANCELED result must not both fire task_failed).
+        if not self._active:
+            return
+        self._active = False
+        self._goal_handle = None
+
         task_id = self._current_task_id
         event_type = 'task_completed' if success else 'task_failed'
 
@@ -249,11 +292,64 @@ class RobotInterfaceNode(Node):
 
     def _cancel_current_goal(self) -> None:
         self.get_logger().info(f'{self._robot_id}: cancelling current goal for replan')
-        # Goal handle is not stored; Nav2 will handle the new goal naturally
-        # after cancellation via new send_goal_async on next _maybe_dispatch tick.
+        # B1: actually cancel the Nav2 goal so the robot stops chasing the old
+        # target. _active=False so the resulting CANCELED callback is ignored.
+        self._active = False
+        if self._goal_handle is not None:
+            try:
+                self._goal_handle.cancel_goal_async()
+            except Exception:  # noqa: BLE001 - best-effort cancel
+                pass
+            self._goal_handle = None
         self._nav_state = NavState.IDLE
         self._avail_state = AvailState.AVAILABLE
         self._dispatching = False
+
+    # ------------------------------------------------------------------
+    # B1 — Stuck detection (congestion-aware recovery)
+    # ------------------------------------------------------------------
+
+    def _now_sec(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _get_xy(self) -> tuple[float, float]:
+        p = self._current_pose.pose.position
+        return (p.x, p.y)
+
+    def _check_stuck(self) -> None:
+        if self._nav_state != NavState.NAVIGATING or not self._active:
+            return
+        x, y = self._get_xy()
+        lx, ly = self._last_move_xy
+        moved = ((x - lx) ** 2 + (y - ly) ** 2) ** 0.5
+        if moved >= self._stuck_min_move_m:
+            self._last_move_xy = (x, y)
+            self._last_move_time = self._now_sec()
+            return
+        if self._now_sec() - self._last_move_time >= self._stuck_no_progress_sec:
+            self._handle_stuck()
+
+    def _handle_stuck(self) -> None:
+        self.get_logger().warning(
+            f'{self._robot_id}: STUCK on {self._current_task_id} '
+            f'(no progress for {self._stuck_no_progress_sec:.0f}s) → cancel + replan'
+        )
+        # Expose congestion so the ecosystem failure_rate rises and the recovery
+        # paradigm engages; report STUCK for a short hold window.
+        self._congestion_indicator = 3       # high
+        self._goal_reachability = 1          # uncertain
+        self._request_replan = True
+        self._stuck_report_until = self._now_sec() + self._stuck_report_hold_sec
+        # Cancel the Nav2 goal (don't leave the robot grinding in place).
+        if self._goal_handle is not None:
+            try:
+                self._goal_handle.cancel_goal_async()
+            except Exception:  # noqa: BLE001 - best-effort cancel
+                pass
+        # Finalize as a soft failure → task re-enters allocation immediately
+        # (instead of waiting for Nav2's long failure timeout). _on_task_done
+        # resets the robot to IDLE/AVAILABLE so it can take other work.
+        self._on_task_done(success=False)
 
     # ------------------------------------------------------------------
     # Publishers
@@ -268,7 +364,12 @@ class RobotInterfaceNode(Node):
         msg.current_task_id = self._current_task_id
         msg.availability_state = int(self._avail_state)
         msg.battery_state = int(self._battery_state)
-        msg.navigation_state = int(self._nav_state)
+        # B1: report STUCK during the post-stuck hold so the ecosystem
+        # failure_rate reflects congestion and the recovery paradigm engages.
+        reported_nav = int(self._nav_state)
+        if self._now_sec() < self._stuck_report_until:
+            reported_nav = int(NavState.STUCK)
+        msg.navigation_state = reported_nav
         msg.failure_flag = self._failure_flag
         msg.task_completed = bool(self._last_completed_task_id)
         msg.completed_task_id = self._last_completed_task_id
@@ -283,12 +384,13 @@ class RobotInterfaceNode(Node):
         msg.current_task_id = self._current_task_id
         msg.task_progress = float(self._task_progress)
         msg.local_delay = 0.0
-        msg.congestion_indicator = 0
-        msg.goal_reachability = 0
+        msg.congestion_indicator = int(self._congestion_indicator)
+        msg.goal_reachability = int(self._goal_reachability)
         msg.navigation_effort = float(self._distance_remaining)
-        msg.temporary_failure = False
-        msg.request_replan = False
+        msg.temporary_failure = self._now_sec() < self._stuck_report_until
+        msg.request_replan = self._request_replan
         self._feedback_pub.publish(msg)
+        self._request_replan = False   # one-shot replan request
 
     # ------------------------------------------------------------------
     # Battery simulation

@@ -15,7 +15,7 @@ from .base_allocator import (
     RobotState, TaskState, cheapest_insertion, measure,
 )
 
-SPEED = 0.26
+SPEED = 0.22  # m/s — Gazebo Nav2 efektif hız (tüm yöntemlerde ortak)
 
 
 @dataclass

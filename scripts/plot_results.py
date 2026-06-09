@@ -44,10 +44,6 @@ METHOD_ORDER = [
     "big_mrta",
     "rostam_ea",
     "consensus_dbta",
-    "ahe_mrta_v3_no_bipartite",
-    "ahe_mrta_v3_no_dense_init",
-    "ahe_mrta_v3_no_recovery",
-    "ahe_mrta_v3_fixed_weights",
     "ahe_mrta_v3",
 ]
 
@@ -55,10 +51,6 @@ METHOD_LABELS = {
     "big_mrta":                     "BiG-MRTA",
     "rostam_ea":                    "RoSTAM-EA",
     "consensus_dbta":               "Cons-DBTA",
-    "ahe_mrta_v3_no_bipartite":     "AHE-NoBP",
-    "ahe_mrta_v3_no_dense_init":    "AHE-NoDI",
-    "ahe_mrta_v3_no_recovery":      "AHE-NoRec",
-    "ahe_mrta_v3_fixed_weights":    "AHE-FW",
     "ahe_mrta_v3":                  "AHE-MRTA*",
 }
 
@@ -70,15 +62,6 @@ BASELINE_COMPARISON_SET = [
     "rostam_ea",
     "consensus_dbta",
     "ahe_mrta_v3",   # proposed — always last, highlighted red
-]
-
-# G2 — Ablation: 4 ablated variants + proposed reference
-ABLATION_SET = [
-    "ahe_mrta_v3_no_bipartite",
-    "ahe_mrta_v3_no_dense_init",
-    "ahe_mrta_v3_no_recovery",
-    "ahe_mrta_v3_fixed_weights",
-    "ahe_mrta_v3",   # reference — always last
 ]
 
 HEURISTIC_COLS = ["d_0", "d_1", "d_2", "d_3", "d_4", "d_5", "d_6"]
@@ -142,55 +125,105 @@ def _ordered_methods(df: pd.DataFrame, subset=None) -> list:
 
 # ── Static architecture diagrams ────────────────────────────────────────────────
 
+def _orect(ax, x, y, w, h, lbl, fc, fs=8.0, ec="#444"):
+    """Rounded box with centered label."""
+    rect = mpatches.FancyBboxPatch(
+        (x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.10",
+        facecolor=fc, edgecolor=ec, linewidth=1.0, mutation_aspect=0.6)
+    ax.add_patch(rect)
+    ax.text(x + w / 2, y + h / 2, lbl, ha="center", va="center", fontsize=fs)
+
+
+def _harrow(ax, x1, x2, y, color="#444", lw=1.3, lbl="", lbl_dy=0.18,
+            two_way=False):
+    """Straight horizontal arrow with optional label above the midpoint."""
+    style = "<|-|>" if two_way else "-|>"
+    ax.annotate("", xy=(x2, y), xytext=(x1, y),
+                arrowprops=dict(arrowstyle=style, color=color, lw=lw,
+                                shrinkA=0, shrinkB=0))
+    if lbl:
+        ax.text((x1 + x2) / 2, y + lbl_dy, lbl, ha="center", va="bottom",
+                fontsize=6.8, color=color)
+
+
+def _varrow(ax, x, y1, y2, color="#444", lw=1.3, lbl="", side="right",
+            two_way=False):
+    """Straight vertical arrow with optional label beside it."""
+    style = "<|-|>" if two_way else "-|>"
+    ax.annotate("", xy=(x, y2), xytext=(x, y1),
+                arrowprops=dict(arrowstyle=style, color=color, lw=lw,
+                                shrinkA=0, shrinkB=0))
+    if lbl:
+        dx = 0.12 if side == "right" else -0.12
+        ha = "left" if side == "right" else "right"
+        ax.text(x + dx, (y1 + y2) / 2, lbl, ha=ha, va="center",
+                fontsize=6.8, color=color)
+
+
 def plot_system_overview(out_dir: Path, dpi: int) -> None:
-    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 4.5))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 7)
+    # Wide, short layout intended to span both columns (figure*).
+    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 2.9))
+    ax.set_xlim(0, 16)
+    ax.set_ylim(0, 7.2)
     ax.axis("off")
-    ax.set_title("AHE-MRTA System Architecture", fontsize=10, fontweight="bold", pad=8)
 
-    boxes = [
-        # (x, y, w, h, label, facecolor)
-        (0.3, 5.5, 3.2, 1.0, "Task Manager\n(goal pool, batch release, deadlines)", "#aec6cf"),
-        (3.9, 5.5, 3.2, 1.0, "Ecosystem Manager\n(context vector, dominance, W(t))", "#c8e6c9"),
-        (7.1, 5.5, 2.5, 1.0, "AHE Allocator\n(reads W(t), assigns tasks)", "#ffe0b2"),
-        (0.3, 3.2, 2.2, 1.0, "Robot Interface 1\n(Nav2 client, state machine)", "#e1bee7"),
-        (3.0, 3.2, 2.2, 1.0, "Robot Interface 2\n(Nav2 client, state machine)", "#e1bee7"),
-        (5.7, 3.2, 2.2, 1.0, "Robot Interface 3\n(Nav2 client, state machine)", "#e1bee7"),
-        (7.9, 3.2, 1.8, 1.0, "...", "#e1bee7"),
-        (1.0, 0.8, 7.5, 1.0, "Nav2 + Gazebo Harmonic (TurtleBot3 Waffle Pi, headless)", "#fff9c4"),
-        (0.3, -0.5, 9.4, 1.0, "Evaluation Logger  →  results/raw/<exp_id>/*.csv", "#f5f5f5"),
-    ]
+    BLUE, GREEN, ORANGE, PURPLE, YELLOW, GREY = (
+        "#cfe2f3", "#d9ead3", "#ffe0b2", "#e1bee7", "#fff2cc", "#efefef")
 
-    for (x, y, w, h, lbl, fc) in boxes:
-        rect = mpatches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05",
-                                       facecolor=fc, edgecolor="#555", linewidth=0.8)
-        ax.add_patch(rect)
-        ax.text(x + w / 2, y + h / 2, lbl, ha="center", va="center",
-                fontsize=7.5, wrap=True)
+    # Top row: control plane (left to right pipeline)
+    _orect(ax, 0.3, 4.2, 3.2, 1.5,
+           "Task Manager\n(goal pool, batch\nrelease, deadlines)", BLUE, 7.2)
+    _orect(ax, 4.4, 4.2, 3.6, 1.5,
+           "Ecosystem Manager\ncontext $c(t)$ $\\rightarrow$ dominance\n$D(t)$ $\\rightarrow$ paradigm $p^*$",
+           GREEN, 7.2)
+    _orect(ax, 8.9, 4.2, 3.2, 1.5,
+           "AHE Allocator\nrun $p^*$, build\nper-robot queues", ORANGE, 7.2)
 
-    # Arrows
-    arrow_kw = dict(arrowstyle="-|>", color="#333", lw=0.9,
-                    connectionstyle="arc3,rad=0.0")
-    # Task Manager → Robot Interfaces (global_pool)
-    for rx in [1.4, 4.1, 6.8]:
-        ax.annotate("", xy=(rx, 4.2), xytext=(rx, 5.5),
-                    arrowprops=dict(arrowstyle="-|>", color="#555", lw=0.8))
-    ax.text(2.2, 4.85, "/tasks/\nglobal_pool", fontsize=6.5, color="#333", ha="center")
-    # AHE Allocator → Robot Interfaces (optimized_task_queue)
-    for rx in [1.4, 4.1, 6.8]:
-        ax.annotate("", xy=(rx + 0.5, 4.2), xytext=(8.35, 5.5),
-                    arrowprops=dict(arrowstyle="-|>", color="#d62728", lw=0.8))
-    ax.text(5.8, 4.6, "/robot_N/\noptimized_task_queue", fontsize=6.5, color="#d62728", ha="center")
-    # Robot Interfaces → Nav2
-    for rx in [1.4, 4.1, 6.8]:
-        ax.annotate("", xy=(rx, 1.8), xytext=(rx, 3.2),
-                    arrowprops=dict(arrowstyle="<->", color="#555", lw=0.8))
-    # Note: EcosystemState NOT sent to robots
-    ax.text(8.4, 4.95, "EcosystemState\n(debug only, NOT\nsent to robots)",
-            fontsize=6.0, color="#888", ha="center", style="italic")
+    # control-plane arrows (straight, same row)
+    _harrow(ax, 3.5, 4.4, 4.95, lbl="tasks")
+    _harrow(ax, 8.0, 8.9, 4.95, lbl="$D(t)$")
 
-    fig.tight_layout()
+    # Distribution bus: allocator drops down to a horizontal bus,
+    # then one straight arrow per robot (no crossing fan).
+    bus_y = 3.1
+    _varrow(ax, 10.5, 4.2, bus_y + 0.05, color="#c0392b",
+            lbl="queues", side="right")
+    ax.plot([1.4, 10.5], [bus_y, bus_y], color="#c0392b", lw=1.3)
+
+    robots_x = [1.4, 4.6, 7.8]
+    for rx in robots_x:
+        _orect(ax, rx - 1.1, 1.5, 2.2, 1.2,
+               "Robot Iface\n(Nav2 client)", PURPLE, 6.9)
+        ax.annotate("", xy=(rx, 2.7), xytext=(rx, bus_y),
+                    arrowprops=dict(arrowstyle="-|>", color="#c0392b", lw=1.2,
+                                    shrinkA=0, shrinkB=0))
+
+    # Execution layer
+    _orect(ax, 0.3, 0.1, 11.8, 0.9,
+           "Nav2 + Gazebo Harmonic   (TurtleBot3 Waffle Pi, headless)",
+           YELLOW, 7.2)
+    for rx in robots_x:
+        _varrow(ax, rx, 1.5, 1.0, color="#555", two_way=True)
+
+    # Feedback path (execution feedback -> context): clean top route that
+    # touches no box. right side up, across the very top, down into EM.
+    GR = "#2e7d32"
+    ax.annotate("", xy=(15.3, 2.1), xytext=(8.9, 2.1),
+                arrowprops=dict(arrowstyle="-", color=GR, lw=1.2))
+    ax.plot([15.3, 15.3], [2.1, 6.7], color=GR, lw=1.2)
+    ax.annotate("", xy=(6.2, 6.7), xytext=(15.3, 6.7),
+                arrowprops=dict(arrowstyle="-", color=GR, lw=1.2))
+    ax.annotate("", xy=(6.2, 5.7), xytext=(6.2, 6.7),
+                arrowprops=dict(arrowstyle="-|>", color=GR, lw=1.2))
+    ax.text(15.45, 4.2, "execution\nfeedback", fontsize=6.8,
+            color=GR, ha="left", va="center")
+
+    # Logger (separate, bottom-right)
+    _orect(ax, 12.9, 0.1, 3.0, 0.9, "Evaluation\nLogger (CSV)", GREY, 7.0)
+    ax.annotate("", xy=(12.9, 0.55), xytext=(12.1, 0.55),
+                arrowprops=dict(arrowstyle="-|>", color="#555", lw=1.0))
+
+    fig.tight_layout(pad=0.2)
     out_path = out_dir / "system_overview.png"
     fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
@@ -198,81 +231,157 @@ def plot_system_overview(out_dir: Path, dpi: int) -> None:
 
 
 def plot_adaptive_ecosystem_mechanism(out_dir: Path, dpi: int) -> None:
-    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 5.0))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 8)
+    # Wide, short left-to-right pipeline intended to span both columns
+    # (figure*). Notation matches Eq. (2) in the paper.
+    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 2.7))
+    ax.set_xlim(0, 16)
+    ax.set_ylim(0, 6.4)
     ax.axis("off")
-    ax.set_title("AHE Adaptive Ecosystem Mechanism", fontsize=10, fontweight="bold", pad=8)
 
-    def box(x, y, w, h, lbl, fc, fs=7.5):
-        rect = mpatches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.08",
-                                       facecolor=fc, edgecolor="#555", linewidth=0.8)
-        ax.add_patch(rect)
-        ax.text(x + w / 2, y + h / 2, lbl, ha="center", va="center", fontsize=fs)
+    BLUE, PINK, YELLOW, GREEN, RED = (
+        "#cfe2f3", "#fde0ec", "#fff2cc", "#d9ead3", "#f4cccc")
 
-    def arrow(x1, y1, x2, y2, lbl="", color="#555"):
-        ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle="-|>", color=color, lw=0.9))
-        if lbl:
-            mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-            ax.text(mx, my, lbl, fontsize=6.5, color=color, ha="center")
+    row_y, row_h = 2.7, 1.7
+    cy = row_y + row_h / 2  # vertical center of the pipeline
 
-    # Context vector
-    box(0.2, 6.2, 2.8, 1.3,
-        "Context Vector C(t)\n" + r"$\tau$, $\rho$, $\beta$, $\delta$, $\phi$, $\omega$, $\alpha$",
-        "#dceefb")
+    # 1. Context vector
+    _orect(ax, 0.2, row_y, 2.9, row_h,
+           "Context $c(t)\\in[0,1]^7$\nspatial, crit., temporal,\nresource, energy, stab., recov.",
+           BLUE, 6.8)
+    # 2. Dominance update (Eq. 2)
+    _orect(ax, 4.0, row_y, 4.3, row_h,
+           "Dominance update\n"
+           r"$D_{k{+}1}{=}\mathrm{clip}_{[0,1]}[(1{-}\alpha)D_k$" + "\n"
+           r"$+\,\alpha A c - S D_k c^{\top}]$",
+           YELLOW, 7.0)
+    # 3. Argmax selector
+    _orect(ax, 9.2, row_y, 2.7, row_h,
+           "Select paradigm\n$p^*=\\arg\\max_i D_i$", GREEN, 7.2)
+    # 4. Allocator
+    _orect(ax, 12.8, row_y, 3.0, row_h,
+           "AHE Allocator\nrun $p^*$, publish\nper-robot queues", RED, 7.0, ec="#c0392b")
 
-    # K strategy agents
-    box(3.8, 6.2, 3.0, 1.3,
-        "K=7 Strategy Agents\nSpatial · Criticality · Temporal\nResource · Energy · Stability · Recovery",
-        "#e8f5e9")
+    # pipeline arrows (straight, single row)
+    _harrow(ax, 3.1, 4.0, cy, lbl="$c(t)$")
+    _harrow(ax, 8.3, 9.2, cy, lbl="$D_{k+1}$")
+    _harrow(ax, 11.9, 12.8, cy, lbl="$p^*$", color="#c0392b")
 
-    # Dominance update
-    box(3.5, 4.0, 3.6, 1.5,
-        "Dominance Update\n" +
-        r"$D(t+1)=\mathrm{clip}[\alpha D+\beta P+\gamma K(C)$" + "\n" +
-        r"$+\eta A\cdot D - \lambda S\cdot D - \delta F]$",
-        "#fff8e1", fs=7)
+    # Fixed matrices feed the dominance box from below (orthogonal, no cross)
+    _orect(ax, 4.0, 0.2, 4.3, 1.3,
+           "Fixed matrices: cooperation $A_{7\\times7}$, suppression $S_{7\\times7}$",
+           PINK, 6.8)
+    _varrow(ax, 6.15, 1.5, row_y, lbl="$A,S$", side="right")
 
-    # Cooperation/Suppression
-    box(0.2, 4.0, 2.8, 1.5,
-        "Cooperation A (7×7)\nSuppression S (7×7)\n(fixed interaction matrices)",
-        "#fce4ec")
+    # Event trigger feeds the context box from above (orthogonal, no cross)
+    _orect(ax, 0.2, 5.0, 2.9, 1.2,
+           "Event trigger\n(failure / new task / deadline)", "#fce5cd", 6.8,
+           ec="#e69138")
+    _varrow(ax, 1.65, 5.0, row_y + row_h, color="#e69138", side="left")
 
-    # Weight generation
-    box(3.8, 1.8, 3.0, 1.5,
-        "Weight Generation\n" +
-        r"$W(t)=\mathrm{softmax}(M \cdot D(t))$" + "\n(heuristic-to-weight map M)",
-        "#ede7f6")
+    # 7 paradigms listed under the selector (label only, no extra arrows)
+    ax.text(10.55, 1.4,
+            "greedy · priority-LSA · EDF ·\nload-LSA · battery · sticky · rescue",
+            ha="center", va="center", fontsize=6.3, color="#38761d", style="italic")
+    _varrow(ax, 10.55, row_y, 1.9, color="#38761d", side="right", lbl="")
 
-    # Event-triggered replanning
-    box(7.2, 3.0, 2.5, 1.2,
-        "Event-Triggered\nReplanning\n(failure, new task, deadline)",
-        "#fff3e0")
-
-    # Allocator output
-    box(3.8, 0.2, 3.0, 1.1,
-        "AHE Allocator\nassigns tasks with W(t)",
-        "#d62728", fs=7.5)
-    ax.findobj(mpatches.FancyBboxPatch)[-1].set_edgecolor("#d62728")
-    ax.findobj(mpatches.FancyBboxPatch)[-1].set_facecolor("#ffcdd2")
-
-    # Arrows
-    arrow(3.0, 6.85, 3.8, 6.85, "K(C)")
-    arrow(3.0, 4.75, 3.5, 4.75, "A, S")
-    arrow(5.3, 6.2, 5.3, 5.5, "D(t)")
-    arrow(5.3, 4.0, 5.3, 3.3, "D(t+1)")
-    arrow(5.3, 1.8, 5.3, 1.3, "W(t)", color="#d62728")
-    arrow(7.2, 3.6, 6.9, 4.6, "replan trigger", color="#e65100")
-    arrow(1.4, 6.2, 1.4, 5.5, "C(t)")
-    arrow(1.4, 4.0, 1.4, 3.3, "to D update")
-
-    # EcosystemState debug note
-    ax.text(0.25, 0.3, "EcosystemState → /ecosystem/debug_state  (NOT sent to robots)",
-            fontsize=6.5, color="#888", style="italic")
-
-    fig.tight_layout()
+    fig.tight_layout(pad=0.2)
     out_path = out_dir / "adaptive_ecosystem_mechanism.png"
+    fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[OK]  {out_path}")
+
+
+def plot_gazebo_arena(out_dir: Path, dpi: int) -> None:
+    """Top-down schematic of the 20x20 m Gazebo inspection arena.
+
+    Geometry mirrors src/m_ahe_mrta_gazebo/worlds/ahe_inspection_arena.sdf:
+    perimeter walls, pillar rows near the side walls, two horizontal divider
+    walls (with a central passage) partitioning the space into three lanes,
+    four cylinders, three robot spawn poses and the 20 candidate inspection
+    waypoints (15 sampled per run).
+    """
+    out_path = out_dir / "gazebo_arena.png"
+
+    WALL = "#555555"
+    OBST = "#888888"
+    CYL = "#a6761d"
+
+    # Candidate inspection waypoints (must match task_manager_node._INSPECTION_GRID)
+    waypoints = [
+        (-6.0, 7.0), (-2.0, 7.0), (2.0, 7.0), (6.0, 7.0),
+        (-6.0, 4.0), (-2.0, 4.0), (2.0, 4.0), (6.0, 4.0),
+        (-6.0, 1.0), (6.0, 1.0),
+        (-4.0, -1.0), (4.0, -1.0),
+        (-6.0, -5.0), (-4.0, -5.0), (4.0, -5.0), (6.0, -5.0),
+        (-2.0, -7.5), (0.0, -8.0), (2.0, -7.5), (6.0, -7.5),
+    ]
+    # Pillar centres (0.3 x 2.0 boxes)
+    pillars = [(x, y) for x in (-7.5, -5.0, 5.0, 7.5)
+               for y in (-7.5, -4.5, 4.5, 7.5)]
+    # Horizontal divider walls (7.0 x 0.2 boxes), centred -> central gap
+    dividers = [(-5.0, 3.0), (5.0, 3.0), (-5.0, -3.0), (5.0, -3.0)]
+    # Cylinders
+    cyls = [(-2.5, 5.5), (2.5, 5.5), (-2.5, -5.5), (2.5, -5.5)]
+    # Robot spawn poses: (x, y, colour, label)
+    robots = [(0.0, 0.0, "#1f5fd0", "R1"),
+              (0.0, 2.0, "#1a9641", "R2"),
+              (0.0, -2.0, "#d7191c", "R3")]
+
+    fig, ax = plt.subplots(figsize=(3.4, 3.5))
+
+    # Perimeter walls (inner face ~ +/-9.9)
+    ax.add_patch(mpatches.Rectangle((-10, -10), 20, 20, fill=False,
+                                    edgecolor=WALL, lw=2.2))
+
+    for (cx, cy) in pillars:
+        ax.add_patch(mpatches.Rectangle((cx - 0.15, cy - 1.0), 0.3, 2.0,
+                                        facecolor=OBST, edgecolor="none"))
+    for (cx, cy) in dividers:
+        ax.add_patch(mpatches.Rectangle((cx - 3.5, cy - 0.1), 7.0, 0.2,
+                                        facecolor=OBST, edgecolor="none"))
+    for (cx, cy) in cyls:
+        ax.add_patch(mpatches.Circle((cx, cy), 0.2, facecolor=CYL,
+                                     edgecolor="none"))
+
+    wp = np.array(waypoints)
+    ax.scatter(wp[:, 0], wp[:, 1], marker="*", s=55, c="#fdae61",
+               edgecolors="#b8860b", linewidths=0.4, zorder=3)
+
+    for (rx, ry, rc, rl) in robots:
+        ax.scatter([rx], [ry], marker="o", s=70, c=rc, edgecolors="black",
+                   linewidths=0.7, zorder=4)
+        ax.annotate(rl, (rx, ry), textcoords="offset points", xytext=(6, 4),
+                    fontsize=7, fontweight="bold", color=rc)
+
+    # Lane annotations
+    for ly, lt in [(6.0, "upper lane"), (0.0, "central passage"),
+                   (-6.0, "lower lane")]:
+        ax.text(-9.3, ly, lt, fontsize=6.0, color="#777777",
+                rotation=90, va="center", ha="center")
+
+    legend = [
+        mlines.Line2D([], [], marker="*", color="none", markerfacecolor="#fdae61",
+                      markeredgecolor="#b8860b", markersize=9,
+                      label="inspection waypoint"),
+        mlines.Line2D([], [], marker="o", color="none", markerfacecolor="#888888",
+                      markersize=9, label="robot start"),
+        mpatches.Patch(facecolor=OBST, label="wall / pillar"),
+        mpatches.Patch(facecolor=CYL, label="cylinder"),
+    ]
+    ax.legend(handles=legend, loc="upper center", bbox_to_anchor=(0.5, -0.08),
+              ncol=2, frameon=False, fontsize=6.5, handletextpad=0.3,
+              columnspacing=0.9)
+
+    ax.set_xlim(-10.6, 10.6)
+    ax.set_ylim(-10.6, 10.6)
+    ax.set_aspect("equal")
+    ax.set_xticks([-10, -5, 0, 5, 10])
+    ax.set_yticks([-10, -5, 0, 5, 10])
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
+    ax.spines[:].set_visible(True)
+    ax.tick_params(labelsize=7)
+
     fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
     print(f"[OK]  {out_path}")
@@ -315,43 +424,6 @@ def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path, 
 
     fig.tight_layout()
     out_path = out_dir / "baseline_comparison_multi_metric.png"
-    fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
-    plt.close(fig)
-    print(f"[OK]  {out_path}")
-
-
-def plot_ablation_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path, dpi: int) -> None:
-    """Ablation: AHE-NoD vs AHE-NoER vs AHE-FC vs AHE-MRTA* (full reference)."""
-    metrics = [
-        ("task_completion_rate",  "Task Completion Rate",  True),
-        ("average_task_delay",    "Avg Task Delay (s)",    False),
-        ("workload_balance",      "Workload Balance",       True),
-        ("failure_recovery_time", "Failure Recovery (s)",  False),
-        ("deadline_violation_rate","Deadline Violation",   False),
-        ("allocation_instability","Alloc. Instability",    False),
-    ]
-
-    fig, axes = plt.subplots(2, 3, figsize=(DOUBLE_COL_W, 4.5))
-    axes = axes.flatten()
-
-    if df_summary is None or df_summary.empty:
-        for ax in axes:
-            ax.text(0.5, 0.5, "No data yet", ha="center", va="center", transform=ax.transAxes)
-        fig.suptitle("Fig. 4 — Ablation Study (no data)", fontsize=9)
-    else:
-        methods = _ordered_methods(df_summary, ABLATION_SET)
-        for ax, (metric, ylabel, higher_better) in zip(axes, metrics):
-            if metric not in df_summary.columns:
-                ax.text(0.5, 0.5, f"{metric}\nmissing", ha="center", va="center",
-                        transform=ax.transAxes)
-                continue
-            _bar_panel(ax, df_summary, methods, metric, ylabel, higher_better)
-        fig.suptitle(
-            "Fig. 4 — AHE Ablation: AHE-NoD · AHE-NoER · AHE-FC vs AHE-MRTA*"
-            "  (mean ± std across seeds)", fontsize=9)
-
-    fig.tight_layout()
-    out_path = out_dir / "ablation_comparison.png"
     fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
     print(f"[OK]  {out_path}")
@@ -677,6 +749,121 @@ def plot_communication_scalability_panel(df_comm: Optional[pd.DataFrame],
     print(f"[OK]  {out_path}")
 
 
+def plot_fitness_comparison(processed_dir: Path, out_dir: Path, dpi: int) -> None:
+    """Nav2-bağımsız fitness'ı 4 yöntem için 3 senaryoda gruplu bar olarak çiz.
+
+    Kaynak: scripts/simulate_and_tune.py'nin yazdığı sim_fitness.csv (idealize
+    stokastik-stres simülasyonu, 300 seed). Gazebo verisinden bağımsızdır;
+    AHE'nin algoritmik üstünlüğünü navigasyon gürültüsünden yalıtılmış olarak
+    gösterir. Eksik CSV → uyarı ve atla.
+    """
+    fpath = processed_dir / "sim_fitness.csv"
+    if not fpath.exists():
+        print(f"[skip] {fpath.name} yok — fitness karşılaştırma çizilmedi "
+              "(önce: python3 scripts/simulate_and_tune.py --seeds 100 --scenario all)")
+        return
+    df = pd.read_csv(fpath)
+    scen_order = ["robot_failure", "mixed_stress", "deadline_pressure"]
+    scen_labels = {"robot_failure": "Robot Failure",
+                   "mixed_stress": "Mixed Stress",
+                   "deadline_pressure": "Deadline Pressure"}
+    methods = ["ahe_mrta_v3", "big_mrta", "rostam_ea", "consensus_dbta"]
+    mlabels = {"ahe_mrta_v3": "AHE-MRTA",
+               "big_mrta": "BiG-MRTA",
+               "rostam_ea": "RoSTAM-EA",
+               "consensus_dbta": "Cons-DBTA"}
+    palette = {"ahe_mrta_v3": "#d62728",
+               "big_mrta": "#1f77b4",
+               "rostam_ea": "#2ca02c",
+               "consensus_dbta": "#9467bd"}
+
+    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 3.4))
+    n_g = len(scen_order)
+    n_m = len(methods)
+    bar_w = 0.8 / n_m
+    x_pos = np.arange(n_g)
+
+    for i, m in enumerate(methods):
+        vals, errs = [], []
+        for s in scen_order:
+            sel = df[(df["scenario"] == s) & (df["strategy"] == m)]
+            vals.append(float(sel["fitness_mean"].iloc[0]) if len(sel) else 0.0)
+            errs.append(float(sel["fitness_std"].iloc[0]) if len(sel) else 0.0)
+        offset = (i - (n_m - 1) / 2) * bar_w
+        bars = ax.bar(x_pos + offset, vals, bar_w, yerr=errs,
+                      label=mlabels[m], color=palette[m],
+                      edgecolor="black", linewidth=0.4,
+                      error_kw={"linewidth": 0.6, "capsize": 2})
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width() / 2, v + 0.015,
+                    f"{v:.3f}", ha="center", va="bottom",
+                    fontsize=6.5, rotation=0)
+
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels([scen_labels[s] for s in scen_order])
+    ax.set_ylabel("Allocation Fitness (Nav2-independent) ↑")
+    ax.set_ylim(0, 1.05)
+    ax.set_title("Cross-Method Fitness — Idealised Stochastic-Stress SIM "
+                 "(higher is better)", fontsize=9)
+    ax.grid(axis="y", linestyle=":", linewidth=0.4, alpha=0.6)
+    ax.legend(loc="lower right", ncol=4, fontsize=7, frameon=False)
+    fig.tight_layout()
+    fpath_out = out_dir / "fitness_comparison.png"
+    fig.savefig(fpath_out, dpi=dpi)
+    plt.close(fig)
+    print(f"[OK]  {fpath_out}")
+
+
+def plot_scalability_panel(processed_dir: Path, out_dir: Path, dpi: int) -> None:
+    """Fig. 6 — Çoklu-ölçek panel: robot sayısına karşı (a) fitness (b) CR
+    (c) recovery_time (d) latency. Yöntem başına bir çizgi (3 senaryo ortalaması).
+
+    Kaynak: simulate_and_tune.py --robot-counts 3,5,10 → sim_scalability.csv
+    (Nav2-bağımsız sim). Eksik CSV → uyarı ve atla.
+    """
+    fpath = processed_dir / "sim_scalability.csv"
+    if not fpath.exists():
+        print(f"[skip] {fpath.name} yok — ölçek paneli çizilmedi "
+              "(önce: python3 scripts/simulate_and_tune.py --seeds 100 "
+              "--scenario all --robot-counts 3,5,10)")
+        return
+    df = pd.read_csv(fpath)
+    methods = ["ahe_mrta_v3", "big_mrta", "rostam_ea", "consensus_dbta"]
+    mlabels = {"ahe_mrta_v3": "AHE-MRTA", "big_mrta": "BiG-MRTA",
+               "rostam_ea": "RoSTAM-EA", "consensus_dbta": "Cons-DBTA"}
+    palette = {"ahe_mrta_v3": "#d62728", "big_mrta": "#1f77b4",
+               "rostam_ea": "#2ca02c", "consensus_dbta": "#9467bd"}
+    panels = [("fitness", "Allocation Fitness ↑"), ("cr", "Completion Rate ↑"),
+              ("recovery", "Recovery Time (s) ↓"), ("latency", "Decision Latency (ms) ↓")]
+    robots = sorted(df["robot_count"].unique())
+
+    fig, axes = plt.subplots(2, 2, figsize=(DOUBLE_COL_W, 5.0))
+    axes = axes.flatten()
+    for ax, (col, ylabel) in zip(axes, panels):
+        for m in methods:
+            ys = []
+            for r in robots:
+                sel = df[(df["robot_count"] == r) & (df["strategy"] == m)]
+                # recovery == -1 → veri yok; ortalamada dışla
+                vals = sel[col][sel[col] > -1] if col == "recovery" else sel[col]
+                ys.append(float(vals.mean()) if len(vals) else np.nan)
+            ax.plot(robots, ys, marker="o", markersize=4, linewidth=1.4,
+                    label=mlabels[m], color=palette[m],
+                    markeredgecolor="black", markeredgewidth=0.3)
+        ax.set_xlabel("Robot count (N)")
+        ax.set_ylabel(ylabel)
+        ax.set_xticks(robots)
+        ax.grid(True, linestyle=":", linewidth=0.4, alpha=0.6)
+    axes[0].legend(loc="best", fontsize=7, frameon=False, ncol=2)
+    fig.suptitle("Fig. 6 — Scalability vs robot count (Nav2-independent SIM, "
+                 "mean over 3 scenarios)", fontsize=9)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fpath_out = out_dir / "scalability_panel.png"
+    fig.savefig(fpath_out, dpi=dpi)
+    plt.close(fig)
+    print(f"[OK]  {fpath_out}")
+
+
 def plot_allocation_instability(df_summary: Optional[pd.DataFrame],
                                 df_alloc: Optional[pd.DataFrame],
                                 out_dir: Path, dpi: int) -> None:
@@ -892,10 +1079,16 @@ def main() -> None:
     # Mandatory static diagrams (always generated)
     plot_system_overview(out_dir, dpi)
     plot_adaptive_ecosystem_mechanism(out_dir, dpi)
+    plot_gazebo_arena(out_dir, dpi)
+
+    # Nav2-independent fitness (from SIM CSV, if present)
+    plot_fitness_comparison(processed_dir, out_dir, dpi)
+
+    # Scalability panel (from sim_scalability.csv, if present) — Fig. 6
+    plot_scalability_panel(processed_dir, out_dir, dpi)
 
     # Data-driven mandatory figures (robust to missing data)
     plot_baseline_comparison(df_summary, out_dir, dpi)
-    plot_ablation_comparison(df_summary, out_dir, dpi)
     plot_dominance_evolution(df_eco, df_alloc, out_dir, dpi)
     plot_failure_recovery(df_summary, df_alloc, out_dir, dpi)
     plot_dominance_recovery_panel(df_eco, df_alloc, df_summary, out_dir, dpi)

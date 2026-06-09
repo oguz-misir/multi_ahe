@@ -20,7 +20,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'robot_status_test_pub = m_ahe_robot_interface.robot_status_test_pub:main',
             'robot_interface_node = m_ahe_robot_interface.robot_interface_node:main',
         ],
     },

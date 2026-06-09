@@ -25,11 +25,19 @@ from typing import List, Tuple
 def compute_spawn_positions(n: int) -> List[Tuple[float, float]]:
     """Return list of (x, y) spawn positions for N robots in arena.
 
-    Spawn area: left-centre columns at x = -4, -3, -2.
-    Each column holds 5 robots at y = {-4, -2, 0, 2, 4} (2 m spacing).
-    Min clearance from arena walls (inner face at ±9.90): ≥ 5.9 m.
-    No interior obstacles at these positions (verified against obstacle_map.pgm).
+    Single source of truth: delegates to the obstacle-aware placement module
+    (m_ahe_task_allocator.placement.robot_spawns), so the Gazebo SDF spawn and
+    the navigation-independent SIM use identical, map-validated positions.
+    A local fallback (the same left-centre column layout) is used if the
+    package is not importable (e.g. tooling outside a sourced workspace).
     """
+    try:
+        from m_ahe_task_allocator.placement import robot_spawns
+        return [tuple(p) for p in robot_spawns(n)]
+    except Exception:
+        pass
+
+    # --- Fallback: left-centre columns at x = -4, -3, -2; y = {-4..4} ---
     if n <= 0:
         return []
     if n == 1:
@@ -38,25 +46,14 @@ def compute_spawn_positions(n: int) -> List[Tuple[float, float]]:
         return [(-4.0, 1.0), (-4.0, -1.0)]
     if n == 3:
         return [(-4.0, 0.0), (-4.0, 2.0), (-4.0, -2.0)]
-
-    # N >= 4: columns at x = -4, -3, -2 (centre-left, obstacle-free)
     ys = [-4.0, -2.0, 0.0, 2.0, 4.0]
-
     if n <= 5:
         return [(-4.0, y) for y in ys[:n]]
-
     if n <= 10:
-        ys_b = ys[: n - 5]
-        return [(-4.0, y) for y in ys] + [(-3.0, y) for y in ys_b]
-
+        return [(-4.0, y) for y in ys] + [(-3.0, y) for y in ys[: n - 5]]
     if n <= 15:
-        ys_c = ys[: n - 10]
-        return (
-            [(-4.0, y) for y in ys]
-            + [(-3.0, y) for y in ys]
-            + [(-2.0, y) for y in ys_c]
-        )
-
+        return ([(-4.0, y) for y in ys] + [(-3.0, y) for y in ys]
+                + [(-2.0, y) for y in ys[: n - 10]])
     raise ValueError(f'robot_count={n} not supported (max 15)')
 
 
@@ -190,6 +187,12 @@ _BRIDGE_ROBOT_BLOCK = """
   gz_topic_name: /model/robot_{i}/imu
   ros_type_name: sensor_msgs/msg/Imu
   gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /robot_{i}/joint_states
+  gz_topic_name: /model/robot_{i}/joint_states
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
   direction: GZ_TO_ROS
 """
 

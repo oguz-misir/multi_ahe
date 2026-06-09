@@ -45,6 +45,7 @@ from typing import Dict, List, Optional, Set
 
 import rclpy
 from rclpy.node import Node
+from rcl_interfaces.msg import ParameterDescriptor
 
 import yaml
 
@@ -65,13 +66,8 @@ from .baselines.static_weighted import StaticWeightedAllocator
 from .baselines.big_mrta import BigMRTAAllocator
 from .baselines.rostam_ea import RoSTAMEAAllocator
 from .baselines.consensus_dbta import ConsensusDBTAAllocator
-from .baselines.ahe_variants import (
-    AHEMRTAv3Allocator,
-    AHEMRTAv3NoBipartiteAllocator,
-    AHEMRTAv3NoDenseInitAllocator,
-    AHEMRTAv3NoRecoveryAllocator,
-    AHEMRTAv3FixedWeightsAllocator,
-)
+from .baselines.ahe_variants import AHEMRTAv3Allocator
+from .placement import task_positions as _free_task_positions
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -86,16 +82,9 @@ ALLOCATOR_REGISTRY = {
     'rostam_ea':                    RoSTAMEAAllocator,
     'consensus_dbta':               ConsensusDBTAAllocator,
     'ahe_mrta_v3':                  AHEMRTAv3Allocator,
-    'ahe_mrta_v3_no_bipartite':     AHEMRTAv3NoBipartiteAllocator,
-    'ahe_mrta_v3_no_dense_init':    AHEMRTAv3NoDenseInitAllocator,
-    'ahe_mrta_v3_no_recovery':      AHEMRTAv3NoRecoveryAllocator,
-    'ahe_mrta_v3_fixed_weights':    AHEMRTAv3FixedWeightsAllocator,
 }
 
-AHE_STRATEGIES = {
-    'ahe_mrta_v3', 'ahe_mrta_v3_no_bipartite', 'ahe_mrta_v3_no_dense_init',
-    'ahe_mrta_v3_no_recovery', 'ahe_mrta_v3_fixed_weights',
-}
+AHE_STRATEGIES = {'ahe_mrta_v3'}
 
 # ---------------------------------------------------------------------------
 # Scenario parameters
@@ -108,34 +97,23 @@ _DEADLINE_MULTIPLIERS = {
     'mixed_stress':         0.5,
 }
 
-_GRID = [
-    # Upper half  (y > 3.0, above divider wall) — kept at y=7 to avoid map-edge AMCL drift
-    (-6.0, 7.0), (-2.0, 7.0), (0.0, 7.0), (2.0, 7.0), (6.0, 7.0),
-    # Inter-shelf corridor (y=6.0, between shelf tops at y=5.5 and shelf bottoms at y=6.5)
-    # Moved from (-2,6),(2,6) and (-3,5),(3,5) — those were 0.71m from cylinders at (±2.5,5.5),
-    # inside the inflation zone (min safe = 0.72m).
-    (-6.0, 6.0), (-4.0, 6.0), (-1.0, 6.0), (0.0, 6.0), (1.0, 6.0), (4.0, 6.0), (6.0, 6.0),
-    # Above-divider mid-row (y=2.0) — far from divider wall (y=3) and shelves (y=±4.5)
-    # x in {-5, -3, 0, 3, 5} avoids shelf x columns (±5 column has gap at |y|<3.5) and
-    # leaves x∈[-9,-7] reserved for robot spawn area.
-    (-5.0, 2.0), (-3.0, 2.0), (0.0, 2.0), (3.0, 2.0), (5.0, 2.0),
-    # Central corridor  (y ∈ [-1.5, 1.5])
-    (-6.0, 1.5), (6.0, 1.5), (-5.0, 0.0), (5.0, 0.0),
-    (-6.0, -1.5), (6.0, -1.5), (-4.0, 0.0), (4.0, 0.0),
-    # Below-divider mid-row (y=-2.0) — symmetric mirror of y=2.0 row
-    (-5.0, -2.0), (-3.0, -2.0), (0.0, -2.0), (3.0, -2.0), (5.0, -2.0),
-    # Lower half  (y < -3.0, below divider wall)
-    (-6.0, -4.0), (-2.0, -4.0), (2.0, -4.0), (6.0, -4.0),
-    # Inter-shelf corridor (y=-6.0, between shelf tops at y=-5.5 and shelf bottoms at y=-6.5)
-    (-6.0, -6.0), (-4.0, -6.0), (-1.0, -6.0), (0.0, -6.0), (1.0, -6.0), (4.0, -6.0), (6.0, -6.0),
-    # Lower edge row (y=-7.0) — symmetric mirror of y=7.0
-    (0.0, -7.0),
-]
+# Task goal positions come from the shared obstacle-aware placement module
+# (m_ahe_task_allocator.placement). The legacy hand-curated _GRID now lives
+# there as placement.GRID, re-validated against the inflated obstacle map.
 
-EXPERIMENT_TIMEOUT_SEC = 900.0   # 15 minutes max per experiment
+EXPERIMENT_TIMEOUT_SEC      = 900.0   # 15 min max per experiment (sim-time)
+EXPERIMENT_WALL_TIMEOUT_SEC = 1200.0  # 20 min wall-clock safety net
+# With heavy 10r simulations, Gazebo can run at 0.3-0.5× real-time, so the
+# sim-time timeout may fire at 2000-3000s wall-time — well past the shell
+# runner's TIMEOUT_SEC=1800s.  The wall-clock backup ensures DONE is always
+# written within 20 minutes of task start regardless of sim speed.
 ALLOC_PERIOD_SEC       = 5.0
 TIMESERIES_PERIOD_SEC  = 2.0
 FAILURE_TIME_OFFSET    = 45.0    # seconds after experiment start before injecting failure
+
+# Nav2-independent allocation fitness is reported only from the navigation-free
+# SIM (scripts/simulate_and_tune.py), where it equals priority-weighted on-time
+# completion. Gazebo runs measure the Nav2-confounded reality instead.
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +134,10 @@ class ExperimentRunnerNode(Node):
         self.declare_parameter('experiment_id', '')
         self.declare_parameter('results_base',
                                os.path.expanduser('~/multi_ahe/results/raw'))
-        self.declare_parameter('gazebo_startup_delay_sec', 0.0)
+        # dynamic_typing so the launch may pass "120" (int) or "120.0" (float);
+        # we cast to float on read. Avoids InvalidParameterTypeException.
+        self.declare_parameter('gazebo_startup_delay_sec', 0.0,
+                               ParameterDescriptor(dynamic_typing=True))
 
         self._strategy: str = self.get_parameter('strategy').value
         self._scenario: str = self.get_parameter('scenario').value
@@ -164,7 +145,8 @@ class ExperimentRunnerNode(Node):
         self._task_count: int = self.get_parameter('task_count').value
         self._seed: int = self.get_parameter('seed').value
         self._results_base: str = self.get_parameter('results_base').value
-        self._startup_delay: float = self.get_parameter('gazebo_startup_delay_sec').value
+        self._startup_delay: float = float(
+            self.get_parameter('gazebo_startup_delay_sec').value or 0.0)
 
         exp_id = self.get_parameter('experiment_id').value
         if not exp_id:
@@ -189,7 +171,8 @@ class ExperimentRunnerNode(Node):
         # Startup state
         self._node_start_time: float = time.monotonic()
         self._startup_done: bool = (self._startup_delay <= 0.0)
-        self._start_time: Optional[float] = None  # set when experiment begins
+        self._start_time: Optional[float] = None         # sim-time, set when experiment begins
+        self._wall_experiment_start: float = time.monotonic()  # overwritten in _start_experiment
 
         # Experiment state
         self._tasks: List[TS] = []
@@ -290,6 +273,7 @@ class ExperimentRunnerNode(Node):
     def _start_experiment(self) -> None:
         now = self.get_clock().now().nanoseconds / 1e9
         self._start_time = now
+        self._wall_experiment_start = time.monotonic()
         self._tasks = self._generate_tasks(now)
         self._task_map = {t.task_id: t for t in self._tasks}
         self._activation_batches = self._plan_batches()
@@ -309,11 +293,10 @@ class ExperimentRunnerNode(Node):
 
     def _generate_tasks(self, now: float) -> List[TS]:
         deadline_mult = _DEADLINE_MULTIPLIERS.get(self._scenario, 1.0)
-        grid = list(_GRID)
-        self._rng.shuffle(grid)
-        while len(grid) < self._task_count:
-            grid.append((self._rng.uniform(-8.0, 8.0),
-                         self._rng.uniform(-8.0, 8.0)))
+        # Obstacle-aware, deterministic positions shared with the SIM plane
+        # (same (task_count, seed) -> same goals) so R4/R6 hold and no task
+        # lands inside a shelf/wall/cylinder.
+        grid = _free_task_positions(self._task_count, self._seed, self._robot_count)
         tasks = []
         for i in range(self._task_count):
             x, y = grid[i]
@@ -454,6 +437,12 @@ class ExperimentRunnerNode(Node):
         now = self.get_clock().now().nanoseconds / 1e9
 
         if msg.event_type == 'task_completed':
+            # Duplicate completion guard: a task can only be completed once.
+            # Aggressive re-navigation (e.g. BiG) re-sends goals to an already
+            # finished task, firing redundant 'completed' signals that inflated
+            # tasks_completed_total → CR > 1.0. Count each task exactly once.
+            if task.completed:
+                return
             task.completed = True
             task.active = False
             self._task_completion_wall[tid] = now
@@ -486,6 +475,8 @@ class ExperimentRunnerNode(Node):
                     f'backing off {self._task_backoff_sec}s'
                 )
             else:
+                # PAKET A3 GERİ ALINDI (dp deadline'ları için kritik): her nav-fail'de
+                # immediate _force_realloc — eski davranış.
                 self._force_realloc = True
             self._log_task_event(tid, 'failed', msg.robot_id)
 
@@ -534,11 +525,6 @@ class ExperimentRunnerNode(Node):
             return
         unassigned = self._get_tasks_for_alloc()
         if not self._force_realloc and not unassigned:
-            return
-        if (self._force_realloc
-                and isinstance(self._allocator, AHEMRTAv3NoRecoveryAllocator)
-                and self._alloc_count > 0):
-            self._force_realloc = False
             return
         self._force_realloc = False
         self._run_allocation()
@@ -647,8 +633,16 @@ class ExperimentRunnerNode(Node):
         if not self._startup_done or self._experiment_done:
             return
         elapsed = self._elapsed()
+        elapsed_wall = time.monotonic() - self._wall_experiment_start
         if elapsed > EXPERIMENT_TIMEOUT_SEC:
-            self.get_logger().warning('Experiment timeout — writing summary.')
+            self.get_logger().warning(
+                f'Experiment sim-time timeout ({elapsed:.0f}s sim) — writing summary.')
+            self._finish()
+            return
+        if elapsed_wall > EXPERIMENT_WALL_TIMEOUT_SEC:
+            self.get_logger().warning(
+                f'Experiment wall-clock timeout ({elapsed_wall:.0f}s wall, '
+                f'{elapsed:.0f}s sim) — writing summary.')
             self._finish()
             return
         # All tasks either completed or inactive (unactivated tasks don't count)

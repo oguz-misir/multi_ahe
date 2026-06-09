@@ -34,6 +34,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
     SetEnvironmentVariable,
+    TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -78,13 +79,17 @@ def _make_behavior_override(robot_ns: str) -> str:
 
 
 def _make_nav2_params(template_path: str, robot_ns: str, map_yaml: str,
-                       spawn_x: float, spawn_y: float) -> str:
+                       spawn_x: float, spawn_y: float,
+                       other_namespaces: list = None) -> str:
     """Generate a per-robot Nav2 params file from the shared template.
 
     Rewrites every top-level node key to its fully qualified ROS2 path so
     ROS2 Jazzy namespace matching works (e.g. 'amcl' → '/robot_1/amcl').
     AMCL initial_pose is set to the actual SDF spawn position so the
     particle filter doesn't diverge.
+    other_namespaces: list of other robot namespaces whose /scan topics are
+    added as marking-only observation sources in the local costmap so that
+    each robot avoids all other robots as dynamic obstacles.
     """
     with open(template_path) as f:
         content = f.read().replace('robot_1', robot_ns)
@@ -104,6 +109,32 @@ def _make_nav2_params(template_path: str, robot_ns: str, map_yaml: str,
     amcl_params['initial_pose']['x'] = float(spawn_x)
     amcl_params['initial_pose']['y'] = float(spawn_y)
 
+    # Add other robots' laser scans as dynamic obstacles in the local costmap.
+    # marking=True so each robot appears as an obstacle; clearing=False so one
+    # robot never clears another's map region based on its own sensor FOV.
+    if other_namespaces:
+        lc_key = f'/{robot_ns}/local_costmap/local_costmap'
+        lc_params = qualified[lc_key]['ros__parameters']
+        voxel = lc_params.get('voxel_layer', {})
+        extra = []
+        for other_ns in other_namespaces:
+            src = f'scan_{other_ns}'
+            extra.append(src)
+            voxel[src] = {
+                'topic': f'/{other_ns}/scan',
+                'max_obstacle_height': 2.0,
+                'clearing': False,
+                'marking': True,
+                'data_type': 'LaserScan',
+                'raytrace_max_range': 3.0,
+                'raytrace_min_range': 0.0,
+                'obstacle_max_range': 2.5,
+                'obstacle_min_range': 0.0,
+            }
+        current = voxel.get('observation_sources', 'scan')
+        voxel['observation_sources'] = current + ' ' + ' '.join(extra)
+        lc_params['voxel_layer'] = voxel
+
     tmp = tempfile.NamedTemporaryFile(
         mode='w', suffix='.yaml',
         prefix=f'nav2_{robot_ns}_',
@@ -115,8 +146,17 @@ def _make_nav2_params(template_path: str, robot_ns: str, map_yaml: str,
 
 
 def _nav2_nodes(robot_ns: str, params_file: str, robot_description: str, map_yaml: str,
-                spawn_x: float = 0.0, spawn_y: float = 0.0) -> list:
-    """Return the full Nav2 node list for one robot namespace."""
+                spawn_x: float = 0.0, spawn_y: float = 0.0,
+                eager_delay: float = 0.0,
+                lifecycle_delay: float = 0.0) -> list:
+    """Return the full Nav2 node list for one robot namespace.
+
+    eager_delay: seconds to wait before starting all non-lifecycle nodes.
+    lifecycle_delay: seconds to wait before starting the lifecycle_manager.
+    For ≥10r, both are staggered so only one robot's Nav2 stack initializes at a
+    time, preventing executor overload and async_send_request failures during
+    bt_navigator/map_server configure+activate.
+    """
     p = params_file
     bs_override = _make_behavior_override(robot_ns)
 
@@ -248,12 +288,26 @@ def _nav2_nodes(robot_ns: str, params_file: str, robot_description: str, map_yam
             'use_sim_time': True,
             'autostart': True,
             'node_names': NAV2_NODES,
+            'bond_timeout': 60.0,
+            'service_client_timeout_sec': 120.0,
         }],
         remappings=tf_remap,
     )
 
-    return [rsp, static_tf, world_tf, map_odom_tf, map_server, controller,
-            planner, behavior, bt_navigator, lifecycle, odom_to_tf]
+    eager = [rsp, static_tf, world_tf, map_odom_tf, map_server, controller,
+             planner, behavior, bt_navigator, odom_to_tf]
+
+    if eager_delay > 0.0:
+        # Stagger ALL nodes: wrap eager + lifecycle in separate TimerActions.
+        # This prevents concurrent executor overload (async_send_request failures)
+        # when ≥10 Nav2 stacks all try to configure/activate simultaneously.
+        delayed_eager = TimerAction(period=eager_delay, actions=eager)
+        delayed_lifecycle = TimerAction(period=lifecycle_delay, actions=[lifecycle])
+        return [delayed_eager, delayed_lifecycle]
+    if lifecycle_delay > 0.0:
+        delayed_lifecycle = TimerAction(period=lifecycle_delay, actions=[lifecycle])
+        return eager + [delayed_lifecycle]
+    return eager + [lifecycle]
 
 
 def _launch_setup(context, *_args, **_kwargs):
@@ -282,10 +336,25 @@ def _launch_setup(context, *_args, **_kwargs):
     )
 
     all_nodes = [gazebo]
-    for robot_ns, (sx, sy) in zip(namespaces, positions):
-        params_file = _make_nav2_params(template, robot_ns, map_yaml, sx, sy)
-        all_nodes.extend(_nav2_nodes(robot_ns, params_file, robot_description, map_yaml,
-                                     spawn_x=sx, spawn_y=sy))
+    if robot_count >= 10:
+        stagger_eager_s = 20.0
+        lc_offset_s = 30.0
+        for idx, (robot_ns, (sx, sy)) in enumerate(zip(namespaces, positions)):
+            params_file = _make_nav2_params(template, robot_ns, map_yaml, sx, sy)
+            eager_delay = idx * stagger_eager_s
+            lifecycle_delay = eager_delay + lc_offset_s
+            all_nodes.extend(_nav2_nodes(robot_ns, params_file, robot_description, map_yaml,
+                                         spawn_x=sx, spawn_y=sy,
+                                         eager_delay=eager_delay,
+                                         lifecycle_delay=lifecycle_delay))
+    else:
+        stagger_s = 6.0
+        for idx, (robot_ns, (sx, sy)) in enumerate(zip(namespaces, positions)):
+            params_file = _make_nav2_params(template, robot_ns, map_yaml, sx, sy)
+            lifecycle_delay = idx * stagger_s
+            all_nodes.extend(_nav2_nodes(robot_ns, params_file, robot_description, map_yaml,
+                                         spawn_x=sx, spawn_y=sy,
+                                         lifecycle_delay=lifecycle_delay))
     return all_nodes
 
 

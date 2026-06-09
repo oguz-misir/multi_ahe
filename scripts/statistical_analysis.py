@@ -6,7 +6,6 @@ Outputs:
   results/stats/stat_tests.csv           — pairwise Mann-Whitney results
   results/stats/descriptive_stats.csv    — mean ± std per method × scenario × metric
   results/stats/latex_main_table.tex     — Table II: G2 main comparison
-  results/stats/latex_ablation_table.tex — Table III: G4 ablation
   results/stats/latex_deadline_table.tex — Table IV: G3 deadline scenario
   results/stats/stat_summary.txt         — human-readable summary
 
@@ -32,22 +31,12 @@ PROPOSED = "ahe_mrta_v3"
 G1_BASELINES = ["big_mrta", "rostam_ea", "consensus_dbta"]
 G2_BASELINES = G1_BASELINES   # robot_failure + mixed_stress
 G3_BASELINES = ["big_mrta", "rostam_ea", "consensus_dbta"]  # deadline_pressure
-G4_ABLATIONS = [
-    "ahe_mrta_v3_no_bipartite",
-    "ahe_mrta_v3_no_dense_init",
-    "ahe_mrta_v3_no_recovery",
-    "ahe_mrta_v3_fixed_weights",
-]
 
 METHOD_LABELS = {
     "ahe_mrta_v3":                  "AHE-MRTA*",
     "big_mrta":                     "BiG-MRTA",
     "rostam_ea":                    "RoSTAM-EA",
     "consensus_dbta":               "Cons-DBTA",
-    "ahe_mrta_v3_no_bipartite":     "AHE-NoBP",
-    "ahe_mrta_v3_no_dense_init":    "AHE-NoDI",
-    "ahe_mrta_v3_no_recovery":      "AHE-NoRec",
-    "ahe_mrta_v3_fixed_weights":    "AHE-FW",
 }
 
 # (column, display_name, higher_is_better)
@@ -174,21 +163,27 @@ def compute_descriptive(df):
 
 # ── LaTeX helpers ─────────────────────────────────────────────────────────────
 
-def _tex_header(caption, label, col_headers):
-    ncols = 1 + len(col_headers)
+def _tex_header(caption, label, col_headers, wide=False):
+    # wide=True spans both columns (table*) — needed for wide cells like
+    # "1.000 $\pm$ 0.000" with significance stars, which overflow a single
+    # column.
     spec = "l" + "r" * len(col_headers)
     hrow = " & ".join(["\\textbf{Method}"] +
                       [f"\\textbf{{{h}}}" for h in col_headers])
+    env = "table*" if wide else "table"
     return (
-        f"\\begin{{table}}[t]\n\\centering\n"
+        f"\\begin{{{env}}}[t]\n\\centering\n"
         f"\\caption{{{caption}}}\n\\label{{{label}}}\n"
-        f"\\begin{{tabular}}{{{spec}}}\n\\toprule\n"
+        f"\\small\n"
+        + ("\\setlength{\\tabcolsep}{3pt}\n" if wide else "")
+        + f"\\begin{{tabular}}{{{spec}}}\n\\toprule\n"
         f"{hrow} \\\\\n\\midrule\n"
     )
 
 
-def _tex_footer():
-    return "\\bottomrule\n\\end{tabular}\n\\end{table}\n"
+def _tex_footer(wide=False):
+    env = "table*" if wide else "table"
+    return f"\\bottomrule\n\\end{{tabular}}\n\\end{{{env}}}\n"
 
 
 def _cell(val, std, dec, bold=False, stars=""):
@@ -224,9 +219,10 @@ def build_main_table(desc, tests):
         "Significance vs AHE-MRTA*: $^{*}p{<}0.05$, $^{**}p{<}0.01$, "
         "$^{***}p{<}0.001$ (Bonferroni-corrected Mann-Whitney U)."
     )
-    out = _tex_header(caption, "tab:main_comparison", col_hdrs)
+    out = _tex_header(caption, "tab:main_comparison", col_hdrs, wide=True)
 
-    for scenario in ["robot_failure", "mixed_stress"]:
+    scenarios = ["robot_failure", "mixed_stress"]
+    for si, scenario in enumerate(scenarios):
         sc_label = scenario.replace("_", "\\_")
         ncols = 1 + len(metrics_show)
         out += (f"\\multicolumn{{{ncols}}}{{l}}"
@@ -250,46 +246,10 @@ def build_main_table(desc, tests):
                 stars = "" if bold else _get_stars(tests, scenario, method, col)
                 cells.append(_cell(mn, sd, dec, bold, stars))
             out += " & ".join(cells) + " \\\\\n"
-        out += "\\midrule\n"
+        if si < len(scenarios) - 1:
+            out += "\\midrule\n"
 
-    out += _tex_footer()
-    return out
-
-
-def build_ablation_table(desc, tests):
-    metrics_show = [
-        ("task_completion_rate",   "CR$\\uparrow$",         3),
-        ("average_task_delay",     "Delay$\\downarrow$(s)",  1),
-        ("replanning_frequency",   "RePlan$\\downarrow$",    2),
-        ("allocation_instability", "Instab$\\downarrow$",    2),
-    ]
-    methods = [PROPOSED] + G4_ABLATIONS
-    scenario = "robot_failure"
-    sub = desc[desc["scenario"] == scenario]
-    col_hdrs = [m[1] for m in metrics_show]
-    caption = (
-        "Ablation study (robot\\_failure, 3 robots, 15 tasks, 5 seeds). "
-        "Significance vs AHE-MRTA* (Bonferroni-corrected Mann-Whitney U)."
-    )
-    out = _tex_header(caption, "tab:ablation", col_hdrs)
-    for method in methods:
-        row = sub[sub["strategy"] == method]
-        if row.empty:
-            continue
-        bold = method == PROPOSED
-        label = METHOD_LABELS.get(method, method)
-        cells = [f"\\textbf{{{label}}}" if bold else label]
-        for col, _, dec in metrics_show:
-            mn_col, sd_col = f"{col}_mean", f"{col}_std"
-            if mn_col not in row.columns:
-                cells.append("—")
-                continue
-            mn = row[mn_col].iloc[0]
-            sd = row[sd_col].iloc[0] if sd_col in row.columns else np.nan
-            stars = "" if bold else _get_stars(tests, scenario, method, col)
-            cells.append(_cell(mn, sd, dec, bold, stars))
-        out += " & ".join(cells) + " \\\\\n"
-    out += _tex_footer()
+    out += _tex_footer(wide=True)
     return out
 
 
@@ -309,7 +269,7 @@ def build_deadline_table(desc, tests):
         "DVR: deadline violation rate. "
         "Significance vs AHE-MRTA* (Bonferroni-corrected Mann-Whitney U)."
     )
-    out = _tex_header(caption, "tab:deadline", col_hdrs)
+    out = _tex_header(caption, "tab:deadline", col_hdrs, wide=True)
     for method in methods:
         row = sub[sub["strategy"] == method]
         if row.empty:
@@ -327,7 +287,7 @@ def build_deadline_table(desc, tests):
             stars = "" if bold else _get_stars(tests, scenario, method, col)
             cells.append(_cell(mn, sd, dec, bold, stars))
         out += " & ".join(cells) + " \\\\\n"
-    out += _tex_footer()
+    out += _tex_footer(wide=True)
     return out
 
 
@@ -403,17 +363,13 @@ def main():
     # Pairwise Mann-Whitney tests
     g2 = run_pairwise_tests(df, PROPOSED, G2_BASELINES, ["robot_failure", "mixed_stress"])
     g3 = run_pairwise_tests(df, PROPOSED, G3_BASELINES, ["deadline_pressure"])
-    g4 = run_pairwise_tests(df, PROPOSED, G4_ABLATIONS, ["robot_failure"])
-    all_tests = pd.concat([g2, g3, g4], ignore_index=True)
+    all_tests = pd.concat([g2, g3], ignore_index=True)
     all_tests.to_csv(out_dir / "stat_tests.csv", index=False)
     print(f"[OK] stat_tests.csv  ({len(all_tests)} tests)")
 
     # LaTeX tables
     (out_dir / "latex_main_table.tex").write_text(build_main_table(desc, g2))
     print("[OK] latex_main_table.tex")
-
-    (out_dir / "latex_ablation_table.tex").write_text(build_ablation_table(desc, g4))
-    print("[OK] latex_ablation_table.tex")
 
     (out_dir / "latex_deadline_table.tex").write_text(build_deadline_table(desc, g3))
     print("[OK] latex_deadline_table.tex")

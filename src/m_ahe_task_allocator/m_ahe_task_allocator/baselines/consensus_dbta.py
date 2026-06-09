@@ -14,7 +14,7 @@ from .base_allocator import (
     RobotState, TaskState, cheapest_insertion, measure, queue_endpoint,
 )
 
-SPEED = 0.26
+SPEED = 0.22  # m/s — Gazebo Nav2 efektif hız (tüm yöntemlerde ortak)
 MAX_QUEUE = 5
 BID_SIZE_BYTES = 16   # (robot_id hash, task_id hash, value f32, rank u8 + padding)
 
@@ -45,7 +45,7 @@ class ConsensusDBTAAllocator(BaseAllocator):
         endpoint = queue_endpoint(robot, task_map, current_queue)
         dist = math.hypot(task.position[0] - endpoint[0],
                           task.position[1] - endpoint[1])
-        queue_delay = len(current_queue) * (8.0 + task.service_time)
+        queue_delay = len(current_queue) * (22.0 + task.service_time)  # Nav2 navigation overhead
         arrival = current_time + queue_delay + dist / SPEED
 
         priority_score = float(task.priority)
