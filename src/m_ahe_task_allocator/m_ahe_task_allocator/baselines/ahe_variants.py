@@ -49,6 +49,7 @@ Mekanizmalar (25):
 """
 
 import math
+import os
 from typing import List, Optional
 
 import numpy as np
@@ -321,7 +322,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
     # RADİKAL Lite: cap=1 dp'de Delay 291s felaket → 2'ye yükselt. Her robot 2
     # görev → birini bitirirken diğerini başlatabilir (RoSTAM-tarzı pipeline);
     # tek-tek allocator-Nav2 round-trip yok. Sığ kuyruk + commit korunur.
-    JTSC_QUEUE_CAP = 2             # RADİKAL Lite: kuyruk derinliği = 2
+    JTSC_QUEUE_CAP = 2             # RADİKAL Lite: kuyruk derinliği = 2 (cap=3 rf fitness'ı bozdu — geri alındı)
     DEADLINE_SLACK = 80.0          # Gazebo nav latency'ye kalibre (s)
     OVER_CAP_PENALTY = 1.0
     LOW_BATT_THRESH = 0.10
@@ -337,7 +338,13 @@ class AHEMRTAv3Allocator(BaseAllocator):
     BID_HYBRID_W = 0.05            # M16
     USE_BIPARTITE = True           # M1: bipartit eşleştirme
     USE_DENSE_INIT = False         # M17 kapalı: V3 bipartit her zaman
-    USE_EDF_ORDER = True           # M18: EDF kuyruk sıralaması
+    # M18: EDF kuyruk sıralaması. F30 ablasyonu (2026-06-13): cheapest_insertion
+    # sıralaması sim dp fitness'ını ~0.005 artırır AMA Gazebo dp'yi BOZAR
+    # (DVR 0.044→0.190, CR 0.889→0.778) — gerçek nav gecikmeleriyle EDF'in
+    # aciliyet-önceliği deadline-uyumu için gerekli. Ayrıca dp "açığı" zaten
+    # 100-tohum gürültüsüydü: 200 tohumda EDF ile de AHE=BiG (p=0.49, parite).
+    # → EDF korunur (sim'de parite + Gazebo'da güvenli). F30 reddedildi.
+    USE_EDF_ORDER = True           # M18: EDF (cheapest reddedildi — Gazebo dp regresyonu)
     # M20 + F1: hard deadline gating (BiG-style sıkı reject)
     HARD_DEADLINE_PENALTY = 50.0
     INFEASIBLE_FLOOR = 100.0
@@ -405,10 +412,145 @@ class AHEMRTAv3Allocator(BaseAllocator):
     URGENT_MIN_PRIORITY = 2     # P=1 (low) urgent değil — Compl korumak yerine Delay düşür
     COMMIT_LOCK_ENABLED = True  # F4 (M26): commit'lenmiş task → reassign yok
     COMMIT_LOCK_EXPIRE = 999.0  # commit ömrü; deadline'a yakınsa lock kırılır
+    # ─── v4.1 iyileştirme paketi (F22–F24) ───
+    # F22 (Adaptive Acceptance Window): backlog robot kapasitesini aşınca
+    # erteleme işe yaramaz — görev sonraki çağrıda daha da geç olur. Kabul
+    # penceresi backlog oranıyla genişler:
+    #   extra = ADAPTIVE_SLACK_K * max(0, backlog/(n_avail*cap) − 1)  [saniye]
+    # K=0 → davranış değişmez (v4 ile birebir).
+    ADAPTIVE_SLACK_K = 0.0
+    # F23 (Paradigm Dwell): paradigma değişimine minimum çağrı sayısı bekleme.
+    # H_RECOV (arıza) bekleme süresini bypass eder — reaktiflik korunur.
+    # 100-seed sim doğrulaması (2026-06-11): DWELL=4 ile rf 0.498→0.502,
+    # ms 0.501→0.506 (Cons ile berabere 1.), dp 0.449→0.454. DWELL=0 eski davranış.
+    PARADIGM_DWELL = 4
+    # F24 (Fairness Regularizer): greedy paradigmalarda varış karşılaştırmasına
+    # kuyruk-uzunluğu cezası (saniye/görev) eklenir → Jain dengesi ↑.
+    # 0 → davranış değişmez.
+    FAIR_LAMBDA_S = 0.0    # REDDEDİLDİ: 12.0 recovery'yi bozdu (rf 33.6→47.1; orphan yayılması=F45 sorunu), WLBal net iyileşmedi
+    # ─── v4.2 kararlılık paketi (F25–F27) ───
+    # Teşhis (30-seed sim, 2026-06-12): reassignment'ların %85'i A→B→A
+    # ping-pong; kaynak = arıza modunda NOOP+sticky+commit-lock üçünün
+    # birden kapanması ve yürütülmekte olan görevin (hiçbir kuyrukta
+    # görünmediği için) her çağrıda yeniden havuza düşmesi.
+    # F25 (In-Progress Lock): sağlıklı+müsait robotun current_task_id'si
+    # atanmış sayılır — havuza geri düşmez, robotlar arası sürüklenmez.
+    F25_INPROGRESS_LOCK = False
+    # F26 (Scoped Failure-Sticky): arızada sticky/penalty yalnız yetim
+    # görevler (önceki sahibi sağlıksız) için kapanır; sağlıklı robottaki
+    # görevler çapasını korur. False = v4.1 davranışı (blanket disable).
+    # 100-seed doğrulama (2026-06-12): F26+F27=0.10+F28 ile sim instab
+    # 4.0→0.3 (12×), fitness rf 0.503★/ms 0.500/dp 0.447 (Δ≤0.7pp ~ SE/2).
+    F26_SCOPED_FAILURE_STICKY = True
+    # F27 (Reassignment Margin Gate): robotu değişen görev, yeni robottaki
+    # tahmini varış eskisine göre bu oranda iyileşmiyorsa eski robotuna
+    # geri döner (schedule-nervousness histerezisi). Muaf: yetim, rescue,
+    # yakın-deadline. Kapı, _assign_history (kalıcı görev→robot geçmişi)
+    # üzerinden çalışır; backoff/preempt sonrası yeniden giren görevler de
+    # kapsanır. 0.0 = kapalı (v4.1 bit-özdeş).
+    F27_REASSIGN_MARGIN = 0.10
+    # F28 (Deadline-Aware Stuck Preempt): stuck robotun kuyruğu toptan
+    # boşaltılmaz; yalnız beklemenin (tahmini F28_STUCK_WAIT_EST s) deadline
+    # kaçırtacağı görevler yetim havuzuna düşer. Deadline'sız ve bekleme
+    # toleranslı görevler robotta kalır (robot ≤60 s'de toparlanıyor).
+    # False = v4.1 davranışı (tam boşaltma). v4.2'nin ana kaldıracı:
+    # 30-seed teşhiste reassignment'ların %85'i A→B→A ping-pong'du ve
+    # baskın kaynak stuck-preempt'in kuyruğu toptan boşaltmasıydı.
+    F28_DEADLINE_AWARE_PREEMPT = True
+    F28_STUCK_WAIT_EST = 60.0
+    # F29 (Deadline-Outcome-Aware Gate): F27 marj kapısı yalnız deadline
+    # SONUCUNU değiştirmeyen taşımaları bloke eder. Bir taşıma görevi
+    # kaçırma→yetişme'ye çeviriyorsa (arr_new ≤ deadline < arr_old) marjdan
+    # bağımsız HER ZAMAN serbest → ms/dp fitness korunur, yanal churn yine
+    # engellenir. 100-seed testte fitness'ı KURTARMADI (rf 0.503→0.499) →
+    # kapalı bırakıldı; açık koşum kodda ablasyon için duruyor.
+    F29_DEADLINE_OUTCOME_AWARE = False
+    # F31 (Anti-Idle Dispatch, v4.4): Gazebo teşhisi (2026-06-13) — AHE
+    # robotları zamanın %83'ünde (ms) boşta; strict-gating + rescue-erteleme
+    # görevleri atanmamış bırakıyor → robot iş bekliyor → makespan 4× şişiyor,
+    # erken başlamayan görevler geç bitiyor (DVR de artıyor). Sim bu cezayı
+    # GÖSTERMEZ (hız 2×, nav hatası yok, makespan tutulmuyor). Çözüm: atanmamış
+    # aktif görev varken hiçbir müsait robotu BOŞ BIRAKMA — en yüksek öncelikli
+    # görevi (yakınlık tie-break) gating'i bypass ederek ata. Yalnız aksi halde
+    # boşta kalacak robotları etkiler → feasible atama kalitesi korunur.
+    F31_ANTI_IDLE_DISPATCH = False  # eski; yalnız 3PHA return'üne bağlıydı (ölü)
+    # F32 (No-Abandon Fill, v4.4): Gazebo adli teşhisi (2026-06-13) — AHE
+    # robotları %94 IDLE, hep BOŞ kuyrukla; 6 görev ilk 101s'de biter, kalan
+    # ~3 görev strict-gating'le KALICI reddedilir (deadline geçince over>slack
+    # → 1.5e5), robot ~900s boşta, makespan=timeout. Robotlar %94 boşken o
+    # görevleri rahat yapardı (gating Gazebo için aşırı karamsar). F32 TÜM
+    # dönüş yollarını saran wrapper'da çalışır (F31'in hatası: yalnız 3PHA):
+    # boşta robot + atanmamış aktif görev → gating-bypass ata (geç bile olsa
+    # tamamla). Beklenen: makespan↓, CR↑, idle↓; DVR↑ (geç tamamlama) takası.
+    F32_NO_ABANDON = True
+    # F44 (Fleet-Density Gate) — DEVRE DIŞI (999 → tüm ölçeklerde agresif).
+    # Kapı başlangıçta eklenmişti çünkü 10r Gazebo'da AHE tamamlaması büyük
+    # filoda çöküyordu; bu çöküş sonradan bir ÖLÇÜM/ALTYAPI artefaktına
+    # (birikmiş batch yükü altında Nav2/DDS startup kırılganlığı) bağlandı —
+    # algoritmik sıkışma DEĞİL. Harness düzeltilince agresif özellikler
+    # (F26/F27/F28/F32) 10r'de de iyileştirdi; bu yüzden HER ölçekte tek ve
+    # sabit bir yapılandırma kullanılır (makalenin "ölçeğe göre ayar yok"
+    # iddiasıyla tutarlı). self._fleet_aggressive allocate()'te set edilir;
+    # F26/F27/F28/F32 onu kontrol eder. AHE_MAX_FLEET env ile geçersiz kılınır.
+    F44_AGGRESSIVE_MAX_FLEET = 999
+    # F44b (Congestion-Aware Local Backfill): büyük filoda (>eşik) anti-idle'ı
+    # tamamen kapatmak yerine yalnız KISA-mesafe görevlerle doldur — robotlar
+    # yerel kalır, çapraz-arena trafiği/sıkışma azalır. Yarıçap (m); büyük
+    # filoda idle robota ancak bu mesafedeki görev atanır. 0 → eski sert kapı
+    # (büyük filoda hiç backfill). Sim sıkışmayı göstermez → Gazebo'da ayarlanır.
+    F44_LOCAL_BACKFILL_RADIUS = 0.0
+    # F45 (Recovery Load Balancing) — arıza sonrası yetim dağıtımında mutlak
+    # kuyruk-uzunluğu cezası. Sorun: c6/c7 bağlam boyutları kaldırılınca
+    # (yalnız 4 vektör), kurtarma yük-farkındalığını kaybetti; yetimler en
+    # yakın sağlıklı robota YIĞILIP seri kuyruk oluşturuyor → robot_failure
+    # makespan tail'i (örn. 50/50 ama 324s). _cost'taki L_rel mean'e görelidir
+    # ve arıza sonrası mean_q küçükken ısırmaz. F45, YALNIZ orphan_first
+    # recovery-bipartite maliyetine mutlak |queue|·W ekler → yetimler filoya
+    # yayılır, tail kısalır. Bağlam vektörüne DOKUNMAZ (mixed_stress çalkantısı
+    # geri gelmez); tek ölçek/config korunur. 0.0 → kapalı (regresyon/ablasyon).
+    F45_RECOVERY_LOADBAL_W = 0.0   # ablasyon: 0.25 makespan tail'i BOZDU (yetimi yaymak=travel artışı); kapalı
+    # F46 (Incumbent-Stable Urgency, v4.5): on-time incumbent görevlere urgency
+    # escalation uygulanmaz → LSA güvenli atamayı savurmaz. deadline_pressure
+    # instability (0.90) kök nedeni. Urgency yalnız atanmamış/risk altındaki
+    # görevleri öne çeker. False = v4.4 davranışı (ablasyon).
+    F46_INCUMBENT_STABLE_URGENCY = True
+    # F47 (Urgent-Margin Gate, v4.5): near-deadline görevler artık F27 margin
+    # kapısına tabi (yalnız gerçek rescue muaf). deadline_pressure churn (0.90)
+    # kök nedeni: URGENT_HORIZON muafiyeti + NOOP guard'ın dp'de kapalı olması.
+    # False = v4.4 davranışı (blanket urgent muafiyeti). REDDEDİLDİ: True margin
+    # kapısını near-deadline görevlere uygulayınca bipartite ile A→B→A ping-pong
+    # → sim reassign 0.90→1.86 ARTTI. (Sim reassign zaten artefakt; gerçek Gazebo
+    # churn redispatch_per_task=0.048 en iyi bantta.) Blanket muafiyet korunur.
+    F47_URGENT_MARGIN_GATE = False
+    # F48 (Slack-Graded Capability, v4.5): feasible robotu deadline-slack ile
+    # ödüllendir → feasible'lar arasında daha erken varan (yakın) robot tercih
+    # edilir; eski sabit-1.0 mesafe-körlüğünü giderir → travel/delay↓. False =
+    # eski sabit kapasite (ablasyon).
+    F48_SLACK_GRADED_CAPABILITY = True
+    F48_SLACK_REWARD = 0.5
+    # F49 (Deadline-Aware Route, v4.5): normal modda kuyruk sıralaması
+    # deadline-feasible cheapest-insertion — cheapest rotasını yalnız EDF kadar
+    # deadline koruyorsa seçer → travel/delay↓, DVR regresyonu yok. False = EDF
+    # (ablasyon). cap≥3 ile mesafe tasarrufu belirginleşir.
+    F49_DEADLINE_AWARE_ROUTE = True
+    # F50 (Lightweight Context-Keyed Selector, v4.6): EDPS dominance dinamiğini
+    # (Lotka-Volterra D güncellemesi + dwell) atlayıp bağlamdan paradigmayı
+    # DOĞRUDAN seçer. Gerekçe (Plane A forced-paradigm denetimi, 2026-06-21):
+    # 4-vektörde 5 kuralın 3'ü hiç seçilmiyordu; full EDPS her senaryoda en iyi
+    # tek sabit kuraldan KÖTÜydü (rf-WLBal açığının kök nedeni override→orphan).
+    # Statik harita {deadline→load_bal, failure→spatial, default→edf} 60-tohumda
+    # her metrik×senaryo hücresinde best-or-tied (EDPS 14/15) ve çoğunda önde.
+    # False = klasik EDPS (ablasyon). Gazebo recovery doğrulaması: Plane B'de
+    # failure kuralı (spatial vs orphan) ayrıca ölçülmeli.
+    F50_LIGHTWEIGHT_SELECTOR = False
+    LW_DEADLINE_RULE = 3   # H_RES  → load_balance   (c3 > 0.5)
+    LW_FAILURE_RULE  = 0   # H_SPATIAL → spatial_greedy (c4 > 0.05)
+    LW_DEFAULT_RULE  = 2   # H_TEMP → edf_strict (3PHA)
 
     def __init__(self):
         self._prev_queues: dict = {}
         self._prev_robot_for_task: dict = {}  # M25: tid → robot_id (önceki tahsis)
+        self._assign_history: dict = {}  # v4.2: tid → robot_id, kalıcı (F27 kapsamı)
         self._failure_active: bool = False
         self._dense_initial: bool = False
         self._first_call: bool = True
@@ -420,6 +562,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
         self._commit_map: dict = {}  # task_id → robot_id (M26 hard-lock)
         # v4 EDPS — son seçilen paradigma indeksi (telemetri için)
         self._last_paradigm: int = -1
+        # F22: backlog oranı (allocate başında güncellenir)
+        self._backlog_ratio: float = 0.0
+        # F23: paradigma bekleme sayacı
+        self._paradigm_hold: int = 0
 
     def name(self) -> str:
         return 'ahe_mrta_v3'
@@ -526,10 +672,13 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     continue
                 arr = self._arrival_time(r, task, task_map,
                                          queues[r.robot_id], current_time)
-                if task.deadline > 0 and arr > task.deadline + self.DVR_SOFT_SLACK:
+                if task.deadline > 0 and arr > (task.deadline + self.DVR_SOFT_SLACK
+                                                + self._slack_extra()):
                     continue
-                if arr < best_arr:
-                    best_arr, best_r = arr, r.robot_id
+                # F24: yük-adaleti — dolu kuyruk seçimde cezalandırılır
+                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                if arr_eff < best_arr:
+                    best_arr, best_r = arr_eff, r.robot_id
             if best_r is not None:
                 queues[best_r].append(task.task_id)
                 self._commit_map[task.task_id] = best_r
@@ -552,10 +701,18 @@ class AHEMRTAv3Allocator(BaseAllocator):
             return orphans
         n_r, n_t = len(healthy), len(orphans)
         cost_mat = np.full((max(n_r, n_t), max(n_r, n_t)), 1e6)
+        # F45: arıza sonrası env override (AHE_RECOVERY_LOADBAL_W)
+        lb_w = float(os.environ.get('AHE_RECOVERY_LOADBAL_W',
+                                    self.F45_RECOVERY_LOADBAL_W))
         for ri, r in enumerate(healthy):
+            rload = len(queues[r.robot_id])  # mutlak kuyruk uzunluğu
             for ti, t in enumerate(orphans):
                 c = self._cost(r, t, task_map, queues, weights,
                                current_time, mean_q, soft_cap, robot_cap)
+                # F45: yetimi yüklü robota yığma — mutlak yük cezası ile yay.
+                # Yalnız uygun (kabul edilen) çiftlere uygula; reddi (≥1e5) bozma.
+                if lb_w > 0.0 and c < 1e5:
+                    c += lb_w * rload
                 cost_mat[ri, ti] = c
         row_ind, col_ind = _lsa(cost_mat)
         assigned = set()
@@ -587,7 +744,51 @@ class AHEMRTAv3Allocator(BaseAllocator):
     #   H_RECOV    (6) → _paradigm_orphan_first     (orphan rescue agresif)
     # ═════════════════════════════════════════════════════════════════════
 
+    def _slack_extra(self) -> float:
+        """F22: backlog kapasiteyi aşınca kabul penceresi genişlemesi (s)."""
+        if self.ADAPTIVE_SLACK_K <= 0.0:
+            return 0.0
+        return self.ADAPTIVE_SLACK_K * max(0.0, self._backlog_ratio - 1.0)
+
+    def _select_paradigm_lightweight(self, context: Optional[EcosystemContext]) -> int:
+        """F50: Statik bağlam-anahtarlı seçim (EDPS dinamiği yok).
+
+        Dominance güncellemesi/dwell/argmax kullanılmaz; paradigma doğrudan
+        bağlam sinyallerinden seçilir. Öncelik: deadline > failure > default.
+        """
+        c = context.context_vector if (context and context.context_vector) else []
+        if len(c) >= 5:
+            if float(c[3]) > 0.50:    # deadline pressure
+                return self.LW_DEADLINE_RULE
+            if float(c[4]) > 0.05:    # failure rate
+                return self.LW_FAILURE_RULE
+        return self.LW_DEFAULT_RULE
+
     def _select_paradigm(self, context: Optional[EcosystemContext]) -> int:
+        """F23 sarmalayıcı: paradigma bekleme (dwell) + ham seçim.
+
+        H_RECOV (6) seçimi beklemeyi bypass eder — arıza reaktifliği korunur.
+        F50 aktifse statik hafif-seçici kullanılır (dinamik EDPS atlanır).
+        """
+        if self.F50_LIGHTWEIGHT_SELECTOR:
+            idx = self._select_paradigm_lightweight(context)
+            self._last_paradigm = idx
+            return idx
+        desired = self._select_paradigm_raw(context)
+        if self.PARADIGM_DWELL <= 0 or desired == 6:
+            self._last_paradigm = desired
+            self._paradigm_hold = self.PARADIGM_DWELL
+            return desired
+        if (self._last_paradigm >= 0 and desired != self._last_paradigm
+                and self._paradigm_hold > 0):
+            self._paradigm_hold -= 1
+            return self._last_paradigm
+        if desired != self._last_paradigm:
+            self._paradigm_hold = self.PARADIGM_DWELL
+        self._last_paradigm = desired
+        return desired
+
+    def _select_paradigm_raw(self, context: Optional[EcosystemContext]) -> int:
         """v5 EDPS — Context-Override Dispatcher.
 
         Sorun: Ekosistem dominance dynamics dengesiz — H_SPATIAL'ı %85-95
@@ -658,11 +859,13 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     continue
                 arr = self._arrival_time(r, task, task_map,
                                          queues[r.robot_id], current_time)
-                # Strict reject: arrival > deadline → atma
-                if task.deadline > 0 and arr > task.deadline:
+                # Strict reject: arrival > deadline (+F22 adaptif pencere) → atma
+                if task.deadline > 0 and arr > task.deadline + self._slack_extra():
                     continue
-                if arr < best_arr:
-                    best_arr, best_r = arr, r.robot_id
+                # F24: yük-adaleti terimi
+                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                if arr_eff < best_arr:
+                    best_arr, best_r = arr_eff, r.robot_id
             if best_r is not None:
                 queues[best_r].append(task.task_id)
                 self._commit_map[task.task_id] = best_r
@@ -807,10 +1010,12 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     continue
                 arr = self._arrival_time(r, task, task_map,
                                          queues[r.robot_id], current_time)
-                if task.deadline > 0 and arr > task.deadline + self.DVR_SOFT_SLACK:
+                if task.deadline > 0 and arr > (task.deadline + self.DVR_SOFT_SLACK
+                                                + self._slack_extra()):
                     continue
-                if arr < best_arr:
-                    best_arr, best_r = arr, r.robot_id
+                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                if arr_eff < best_arr:
+                    best_arr, best_r = arr_eff, r.robot_id
             # v5.1: hiçbir robot margin geçemedi ama kapasite var → en iyi bataryalıya ata
             # (task'ı düşürmek yerine — CR koruması, mixed_stress çöküşünü önler)
             if best_r is None and fallback_r is not None:
@@ -851,8 +1056,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     continue
                 arr = self._arrival_time(r, task, task_map,
                                          queues[r.robot_id], current_time)
-                if arr < best_arr:
-                    best_arr, best_r = arr, r.robot_id
+                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                if arr_eff < best_arr:
+                    best_arr, best_r = arr_eff, r.robot_id
             if best_r is not None:
                 queues[best_r].append(task.task_id)
                 self._commit_map[task.task_id] = best_r  # ilk atama → commit
@@ -878,6 +1084,109 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # Kalan unassigned (orphan dışı) için standart EDF bipartite
         return self._paradigm_edf_strict(unassigned, avail, queues, task_map,
                                          current_time, weights, mean_q, soft_cap, robot_cap)
+
+    def _update_assign_history(self, published: dict) -> None:
+        """v4.2: yayınlanan kuyruklardan kalıcı görev→robot geçmişini güncelle."""
+        for rid, q in published.items():
+            for tid in q:
+                self._assign_history[tid] = rid
+
+    def _anti_idle_dispatch(self, ordered: dict, robots: list, tasks: list,
+                            task_map: dict, current_time: float,
+                            max_radius: float = float('inf')) -> dict:
+        """F31/F32 (v4.4): Boşta robot + atanmamış aktif görev varsa robotu boş
+        bırakma. Gating-bypass: aksi halde idle kalacak robota en iyi görevi
+        ver (öncelik↓, deadline↑; yakınlık tie-break). max_radius < inf ise
+        (F44b büyük filo) yalnız bu mesafedeki görevler atanır → yerel kalır,
+        çapraz-arena sıkışması azalır."""
+        if not (self.F31_ANTI_IDLE_DISPATCH or self.F32_NO_ABANDON):
+            return ordered
+        assigned = {tid for q in ordered.values() for tid in q}
+        pending = [t for t in tasks
+                   if t.active and not getattr(t, 'completed', False)
+                   and t.task_id not in assigned]
+        if not pending:
+            return ordered
+        idle = [r for r in robots
+                if r.available and getattr(r, 'navigation_state', 0) not in (2, 3)
+                and not ordered.get(r.robot_id)]
+        if not idle:
+            return ordered
+        # En yüksek öncelik, en erken deadline önce
+        pending.sort(key=lambda t: (-max(1, t.priority),
+                                    t.deadline if t.deadline > 0 else 1e9))
+        for r in idle:
+            if not pending:
+                break
+            # En yüksek-öncelik dilimi içinde robota en yakın görevi seç
+            top_pri = max(1, pending[0].priority)
+            tier = [t for t in pending if max(1, t.priority) == top_pri]
+            best = min(tier, key=lambda t: math.hypot(
+                t.position[0] - r.pose[0], t.position[1] - r.pose[1]))
+            # F44b: yerel yarıçap dışındaki görevi atama (sıkışma koruması)
+            d = math.hypot(best.position[0] - r.pose[0],
+                           best.position[1] - r.pose[1])
+            if d > max_radius:
+                continue
+            ordered[r.robot_id] = [best.task_id]
+            pending.remove(best)
+        return ordered
+
+    def _f27_margin_gate(self, robots: list, task_map: dict, queues: dict,
+                         current_time: float) -> dict:
+        """F27 (v4.2): Yeniden-atama marj kapısı (histerezis).
+
+        Robotu değişen görev, yeni robottaki tahmini varış eskisine göre
+        F27_REASSIGN_MARGIN oranında iyileşmiyorsa eski robotuna döner.
+        Muaf: yetimler (eski sahibi sağlıksız), rescue ve URGENT_HORIZON
+        içindeki görevler. 0.0 = kapalı (v4.1 bit-özdeş).
+        """
+        if self.F27_REASSIGN_MARGIN <= 0.0 or not getattr(self, '_fleet_aggressive', True):
+            return queues
+        # Kalıcı geçmiş + son yayın: backoff/preempt ile kuyruğu terk etmiş
+        # görevlerin tarihsel sahibi de kapsanır (sızıntı düzeltmesi).
+        prev = {**getattr(self, '_assign_history', {}),
+                **self._prev_robot_for_task}
+        if not prev:
+            return queues
+        rmap = {r.robot_id: r for r in robots}
+        unhealthy = getattr(self, '_unhealthy_rids', set())
+        for rid in list(queues.keys()):
+            for tid in list(queues[rid]):
+                old = prev.get(tid)
+                if (old is None or old == rid or old in unhealthy
+                        or old not in queues):
+                    continue
+                if tid in self._rescue_tasks:
+                    continue
+                t = task_map.get(tid)
+                if t is None:
+                    continue
+                ro, rn = rmap.get(old), rmap.get(rid)
+                if ro is None or rn is None or not ro.available:
+                    continue
+                q_new = [x for x in queues[rid] if x != tid]
+                arr_new = self._arrival_time(rn, t, task_map, q_new, current_time)
+                arr_old = self._arrival_time(ro, t, task_map, queues[old], current_time)
+                # Deadline-outcome rescue: a move that flips miss→hit (new robot
+                # makes the deadline, old robot would miss it) is ALWAYS kept,
+                # margin-free — genuine rescue, never reverted.
+                if t.deadline > 0 and arr_new <= t.deadline < arr_old:
+                    continue
+                # F47 (v4.5 — Urgent-Margin Gate): near-deadline tasks were
+                # blanket-exempted from the margin gate (URGENT_HORIZON). In
+                # deadline_pressure the NOOP guard is ALSO disabled (deadlines
+                # always near), so this exemption let assigned tasks churn freely
+                # between robots every 5 s → instability 0.90. Now an urgent task
+                # is exempt only for a genuine rescue (handled above); otherwise
+                # it obeys the margin gate like any task → churn↓, rescues kept.
+                if (not self.F47_URGENT_MARGIN_GATE and t.deadline > 0
+                        and (t.deadline - current_time) < self.URGENT_HORIZON):
+                    continue
+                if arr_new > arr_old * (1.0 - self.F27_REASSIGN_MARGIN):
+                    queues[rid].remove(tid)
+                    queues[old].append(tid)
+        return queues
 
     def _phase4_commit_lock(self, queues: dict, task_map: dict,
                             current_time: float) -> dict:
@@ -975,16 +1284,55 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 break
         return queues
 
+    def _route_lateness(self, start: tuple, route: list,
+                        current_time: float) -> tuple:
+        """Bir rotanın (sıralı TaskState) toplam deadline-gecikmesi ve seyahat
+        mesafesini tahmin et. (lateness_s, dist_m) döndürür."""
+        pos = start
+        t = current_time
+        late = 0.0
+        dist = 0.0
+        for task in route:
+            d = math.hypot(task.position[0] - pos[0], task.position[1] - pos[1])
+            dist += d
+            t += d / self.SPEED + task.service_time
+            pos = task.position
+            if task.deadline > 0 and t > task.deadline:
+                late += (t - task.deadline)
+        return late, dist
+
+    def _deadline_aware_route(self, robot: RobotState, q_tasks: list,
+                              current_time: float) -> list:
+        """F49: deadline-feasible cheapest-insertion sıralama.
+
+        EDF sıralama deadline-optimal ama mesafe-kör (zigzag → travel/delay↑).
+        Saf cheapest mesafe-optimal ama deadline-kör (F30: Gazebo dp DVR'ı
+        bozdu). Bu metod cheapest rotasını YALNIZ EDF'ten daha fazla deadline
+        gecikmesi yaratmıyorsa seçer → mesafe tasarrufu bedava alınır, DVR
+        regresyonu yapısal olarak engellenir.
+        """
+        edf = _edf_sorted(q_tasks, current_time)
+        cheap = cheapest_insertion(robot.pose, q_tasks)
+        if [t.task_id for t in cheap] == [t.task_id for t in edf]:
+            return edf
+        late_e, _ = self._route_lateness(robot.pose, edf, current_time)
+        late_c, _ = self._route_lateness(robot.pose, cheap, current_time)
+        # Cheapest rota deadline'ları EDF kadar (veya daha iyi) koruyorsa onu kullan
+        return cheap if late_c <= late_e + 1e-6 else edf
+
     def _order_queue(self, robot: RobotState, q_tasks: list,
                      current_time: float) -> list:
         """M18 + M21: Failure-aware queue ordering.
 
         Arıza aktifken cheapest_insertion ile en yakın görevi öne alıyoruz:
           → robot_failure/mixed_stress'te recovery_time RoSTAM-EA seviyesinde
-        Diğer durumlarda EDF (deadline_pressure ve genel deadline avantajı için).
+        Normal modda F49 deadline-feasible cheapest (deadline'ı bozmadan mesafe↓);
+        kapalıysa EDF (deadline_pressure ve genel deadline avantajı için).
         """
         if self.FAILURE_USE_CHEAPEST and self._failure_active:
             return cheapest_insertion(robot.pose, q_tasks)
+        if self.F49_DEADLINE_AWARE_ROUTE and len(q_tasks) > 1:
+            return self._deadline_aware_route(robot, q_tasks, current_time)
         if self.USE_EDF_ORDER:
             return _edf_sorted(q_tasks, current_time)
         return cheapest_insertion(robot.pose, q_tasks)
@@ -1028,14 +1376,17 @@ class AHEMRTAv3Allocator(BaseAllocator):
             is_old = self.AGE_AWARE_RESCUE and task_age > age_thresh
             # F17: rescue penceresi (failure modunda daha geniş, normal modda dar)
             rescue_slack = (self.DVR_HARD_SLACK if self._failure_active
-                            else self.DVR_SOFT_SLACK)
+                            else self.DVR_SOFT_SLACK) + self._slack_extra()
             if self.STRICT_DEADLINE_GATING and over > 0.0:
                 if not is_old:
-                    # F1 strict: yeni task ve over>0 → reddet
-                    return 1.5e5
+                    # F1 strict: yeni task ve over>0 → reddet.
+                    # F22: backlog doygunsa erteleme işe yaramaz — adaptif
+                    # pencere içindeki küçük aşımlar kabul edilir.
+                    if over > self._slack_extra():
+                        return 1.5e5
                 # F17: eski (rescue eligible) task ama over > rescue_slack → reddet
                 # → DVR'a girmesin, sonraki cycle denenir
-                if over > rescue_slack:
+                elif over > rescue_slack:
                     return 1.5e5
             if over > 0.0:
                 deadline_penalty = self.DEADLINE_PENALTY_VAL
@@ -1073,7 +1424,17 @@ class AHEMRTAv3Allocator(BaseAllocator):
 
         # M22: Urgency escalation — deadline'ın URGENCY_THRESHOLD'unu geçince
         # T terimi üstel olarak büyür: gecikmeli görevler acil hale gelir → DVR↓
-        if self.URGENCY_BOOST_ENABLED and task.deadline > 0 and T >= self.URGENCY_THRESHOLD:
+        # v4.5 (F46 — Incumbent-Stable Urgency): on-time bir incumbent'ın
+        # maliyetini şişirmek LSA'yı her döngüde o görevi robotlar arası
+        # savurmaya iter (deadline_pressure'da instability 0.90'ın kök nedeni).
+        # Urgency yalnız ATANMAMIŞ / risk altındaki görevleri öne çekmeli;
+        # güvenli incumbent'ı sabit tut → churn↓, dolaylı delay/WLBal/DVR↓.
+        _incumbent_robot = self._prev_robot_for_task.get(task.task_id)
+        _safe_incumbent = (self.F46_INCUMBENT_STABLE_URGENCY
+                           and _incumbent_robot == robot.robot_id
+                           and (task.deadline <= 0 or arrival <= task.deadline))
+        if (self.URGENCY_BOOST_ENABLED and task.deadline > 0
+                and T >= self.URGENCY_THRESHOLD and not _safe_incumbent):
             excess = (T - self.URGENCY_THRESHOLD) / (1.0 - self.URGENCY_THRESHOLD + 1e-9)
             T = T * (1.0 + self.URGENCY_SCALE * excess * excess)
             T = min(self.URGENCY_SCALE, T)  # cap at URGENCY_SCALE
@@ -1083,9 +1444,18 @@ class AHEMRTAv3Allocator(BaseAllocator):
         cost = (w_d*AT + w_p*P + w_b*B + w_l*L + w_f*F + w_t*T + w_r*R
                 + deadline_penalty + critical_pen)
 
-        # M12: Deadline-capability score (consensus_dbta tarzı)
+        # M12: Deadline-capability score. v4.5 (F48 — Slack-Graded Capability):
+        # eski biçim feasible (arrival≤deadline) TÜM robotlara sabit 1.0 verir →
+        # feasible robotlar arasında mesafe/erkenlik ayrımı YOK; sticky baskın
+        # olunca görev uzak robotta kalır (AHE mesafe ~2× → delay↑). Yeni biçim
+        # feasible robotu slack (deadline−arrival) ile ödüllendirir → daha erken
+        # varan (= daha yakın) robot tercih edilir; feasibility/gating korunur.
         if task.deadline > 0:
-            capability = 1.0 / (1.0 + max(0.0, arrival - task.deadline))
+            if arrival <= task.deadline and self.F48_SLACK_GRADED_CAPABILITY:
+                slack_frac = min(1.0, (task.deadline - arrival) / task.deadline)
+                capability = 1.0 + self.F48_SLACK_REWARD * slack_frac
+            else:
+                capability = 1.0 / (1.0 + max(0.0, arrival - task.deadline))
             cost -= self.DEADLINE_CAPABILITY_W * capability
 
         # M16: Hibrid consensus-style bid (Compl 1. sıra için)
@@ -1105,7 +1475,13 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # Sabit STICKY=0.30 / REASSIGN=0.30 acil task'larda bile reassign'ı bloke ediyordu.
         # F20: T (urgency) ile çarp → T=0 yeni task'ta tam stabilite, T=1 acil task'ta sıfır.
         # Bu Instab'ı düşürür AMA deadline yaklaşan task'ların hızlı reassign'ını engellemez.
-        if not (self.FAILURE_STICKY_DISABLE and self._failure_active):
+        sticky_off = self.FAILURE_STICKY_DISABLE and self._failure_active
+        if sticky_off and self.F26_SCOPED_FAILURE_STICKY and getattr(self, '_fleet_aggressive', True):
+            # F26 (v4.2): arızada sticky yalnız yetimler için kapanır.
+            _prev0 = self._prev_robot_for_task.get(task.task_id)
+            sticky_off = (_prev0 is None
+                          or _prev0 in getattr(self, '_unhealthy_rids', set()))
+        if not sticky_off:
             prev_robot_for_task = self._prev_robot_for_task
             prev_rid = prev_robot_for_task.get(task.task_id)
             if self.URGENCY_STICKY_DECAY and task.deadline > 0:
@@ -1143,6 +1519,38 @@ class AHEMRTAv3Allocator(BaseAllocator):
     @measure
     def allocate(self, robots: list, tasks: list, current_time: float,
                  context: Optional[EcosystemContext] = None) -> AllocationResult:
+        """F32 sarmalayıcı: çekirdek tahsisi çağır, sonra TÜM dönüş yollarında
+        anti-abandonment uygula. F44: yalnız küçük-orta filoda (≤eşik) aktif."""
+        # F44 yoğunluk kapısı: küçük filo → tam anti-idle; büyük filo → yalnız
+        # yerel (kısa-mesafe) backfill (sıkışma koruması). Radius=0 ise büyük
+        # filoda hiç backfill (sert kapı).
+        # AHE_MAX_FLEET env override (A/B gate testi için kod-düzenlemesiz config
+        # değişimi): set edilmişse F44 eşiğini geçersiz kılar. örn. 999 → gate
+        # kapalı (10r de agresif), 7 → varsayılan (10r muhafazakâr).
+        _max_fleet = self.F44_AGGRESSIVE_MAX_FLEET
+        _env_mf = os.environ.get('AHE_MAX_FLEET')
+        if _env_mf:
+            try:
+                _max_fleet = int(_env_mf)
+            except ValueError:
+                pass
+        self._fleet_aggressive = (len(robots) <= _max_fleet)
+        result = self._allocate_core(robots, tasks, current_time, context)
+        if self.F32_NO_ABANDON:
+            if self._fleet_aggressive:
+                radius = float('inf')
+            elif self.F44_LOCAL_BACKFILL_RADIUS > 0:
+                radius = self.F44_LOCAL_BACKFILL_RADIUS
+            else:
+                radius = None  # büyük filoda backfill yok
+            if radius is not None:
+                result.queues = self._anti_idle_dispatch(
+                    result.queues, robots, tasks,
+                    {t.task_id: t for t in tasks}, current_time, max_radius=radius)
+        return result
+
+    def _allocate_core(self, robots: list, tasks: list, current_time: float,
+                       context: Optional[EcosystemContext] = None) -> AllocationResult:
         # PAKET A.2: context'i _cost'a iletmek için instance attribute'a sakla.
         self._last_context = context
         # M17: İlk çağrıda senaryo tipini algıla
@@ -1168,21 +1576,48 @@ class AHEMRTAv3Allocator(BaseAllocator):
         if self.STUCK_PREEMPT_ENABLED:
             for r in robots:
                 if getattr(r, 'navigation_state', 0) in (2, 3) and queues.get(r.robot_id):
+                    keep: list = []
                     for tid in queues[r.robot_id]:
                         t = task_map.get(tid)
-                        if t is not None and not getattr(t, 'completed', False):
-                            orphan_pool.append(t)
+                        if t is None or getattr(t, 'completed', False):
+                            self._commit_map.pop(tid, None)
+                            continue
+                        # F28 (v4.2): bekleme deadline'ı kaçırtmıyorsa görev
+                        # stuck robotta kalsın — gereksiz yetimleştirme yok.
+                        if self.F28_DEADLINE_AWARE_PREEMPT and getattr(self, '_fleet_aggressive', True):
+                            if t.deadline <= 0:
+                                keep.append(tid)
+                                continue
+                            arr_wait = (self._arrival_time(
+                                r, t, task_map, keep, current_time)
+                                + self.F28_STUCK_WAIT_EST)
+                            if arr_wait <= t.deadline:
+                                keep.append(tid)
+                                continue
+                        orphan_pool.append(t)
                         # Commit'i temizle: stuck robot artık owner değil
                         self._commit_map.pop(tid, None)
-                    queues[r.robot_id] = []
+                    queues[r.robot_id] = keep
 
         # M25: cache prev_robot_for_task (cost hesaplamasında kullanılır)
         self._prev_robot_for_task = {}
         for rid, q in self._prev_queues.items():
             for tid in q:
                 self._prev_robot_for_task[tid] = rid
+        # v4.2: sağlıksız robot kümesi (F26/F27 muafiyet kararları için)
+        self._unhealthy_rids = {
+            r.robot_id for r in robots
+            if (not r.available) or getattr(r, 'navigation_state', 0) in (2, 3)
+        }
 
         already = {tid for q in queues.values() for tid in q}
+        # F25 (v4.2): yürütülmekte olan görev havuza geri düşmesin.
+        # Sahibi arızalı/stuck ise düşer (recovery bozulmaz).
+        if self.F25_INPROGRESS_LOCK:
+            for r in robots:
+                ctid = getattr(r, 'current_task_id', '') or ''
+                if ctid and r.robot_id not in self._unhealthy_rids:
+                    already.add(ctid)
         unassigned = sorted(
             [t for t in tasks if t.task_id not in already],
             key=lambda t: (-t.priority, t.deadline),
@@ -1243,6 +1678,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 q_tasks = [task_map[tid] for tid in queues[r.robot_id] if tid in task_map]
                 ordered[r.robot_id] = [t.task_id for t in self._order_queue(r, q_tasks, current_time)]
             self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
+            self._update_assign_history(ordered)
             return AllocationResult(queues=ordered, latency_ms=0,
                                     communication_footprint_bytes=84)
 
@@ -1253,6 +1689,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
 
         # Ortalama kuyruk uzunluğu (M3)
         avail_ids = [r.robot_id for r in avail]
+
+        # F22: backlog / kapasite oranı — adaptif kabul penceresi girdisi
+        total_pending = len(unassigned) + sum(len(queues[rid]) for rid in avail_ids)
+        self._backlog_ratio = total_pending / max(1.0, len(avail) * self.JTSC_QUEUE_CAP)
         mean_q = sum(len(queues[rid]) for rid in avail_ids) / max(1, len(avail_ids))
 
         # ════════════════════════════════════════════════════════════════
@@ -1290,6 +1730,8 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 # 3PHA tam pipeline aşağıda çalışır (else branch'i)
             # Non-3PHA paradigmalar tamamlandı → swap_refine + ordering'e atla
             if paradigm_idx != 2:
+                # F27 (v4.2): paradigma çıktısındaki marjsız robot değişimlerini geri al
+                queues = self._f27_margin_gate(robots, task_map, queues, current_time)
                 # M24 swap_refine atla (commit_once için zararlı), ordering uygula
                 ordered_paradigm = {}
                 for r in robots:
@@ -1305,6 +1747,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 self._commit_map = {tid: rid for tid, rid in self._commit_map.items()
                                     if tid in active_tids}
                 self._prev_queues = {rid: list(q) for rid, q in ordered_paradigm.items()}
+                self._update_assign_history(ordered_paradigm)
                 return AllocationResult(queues=ordered_paradigm, latency_ms=0,
                                         communication_footprint_bytes=84)
 
@@ -1375,6 +1818,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
             # M1: AŞAMA-2 — kalan görevler için multi-slot bipartit matching
             remaining_tasks = [t for t in unassigned if t.task_id not in round1_taken]
             if not remaining_tasks:
+                queues = self._f27_margin_gate(robots, task_map, queues, current_time)
                 ordered = {}
                 for r in robots:
                     q_tasks = [task_map[tid] for tid in queues[r.robot_id]
@@ -1382,6 +1826,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     ordered[r.robot_id] = [t.task_id for t in
                                            self._order_queue(r, q_tasks, current_time)]
                 self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
+                self._update_assign_history(ordered)
                 return AllocationResult(queues=ordered, latency_ms=0,
                                         communication_footprint_bytes=84)
 
@@ -1481,6 +1926,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
             self._commit_map = {tid: rid for tid, rid in self._commit_map.items()
                                 if tid in active_tids}
 
+        # F27 (v4.2): bipartite/swap çıktısındaki marjsız robot değişimlerini geri al
+        queues = self._f27_margin_gate(robots, task_map, queues, current_time)
+
         # M18 + M21: failure-aware ordering — arızada cheapest, normalde EDF
         ordered = {}
         for r in robots:
@@ -1488,8 +1936,11 @@ class AHEMRTAv3Allocator(BaseAllocator):
             ordered[r.robot_id] = [t.task_id for t in
                                    self._order_queue(r, q_tasks, current_time)]
 
+        # (F32 anti-abandonment artık allocate() wrapper'ında TÜM yollar için uygulanır)
+
         # M4: bir sonraki tur için önceki kuyrukları sakla
         self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
+        self._update_assign_history(ordered)
 
         return AllocationResult(queues=ordered, latency_ms=0,
                                 communication_footprint_bytes=84)

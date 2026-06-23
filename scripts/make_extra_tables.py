@@ -73,9 +73,13 @@ def efficiency_table(scen_label_map, caption, label, fname):
 def effect_size_table(scen_label_map, caption, label, fname, note):
     st = pd.read_csv(STATS / "stat_tests.csv")
     key_metrics = ["task_completion_rate", "deadline_violation_rate",
-                   "failure_recovery_time", "allocation_instability"]
+                   "failure_recovery_time", "redispatch_per_task"]
     mlabel = {"task_completion_rate": "CR", "deadline_violation_rate": "DVR",
-              "failure_recovery_time": "RecT", "allocation_instability": "Instab"}
+              "failure_recovery_time": "RecT", "redispatch_per_task": "Churn"}
+    # lower-better metrics: flip sign so that delta>0 always favours AHE,
+    # matching the caption's stated convention
+    flip = {"task_completion_rate": 1, "deadline_violation_rate": -1,
+            "failure_recovery_time": -1, "redispatch_per_task": -1}
     lines = [
         r"\begin{table}[t]", r"\centering",
         rf"\caption{{{caption}}}", rf"\label{{{label}}}",
@@ -92,7 +96,8 @@ def effect_size_table(scen_label_map, caption, label, fname, note):
                 continue
             cells = {}
             for _, r in row.iterrows():
-                cells[r.baseline] = f"{r.cliffs_delta:+.2f}{r.stars if isinstance(r.stars,str) else ''}"
+                d = flip[met] * r.cliffs_delta
+                cells[r.baseline] = f"{d:+.2f}{r.stars if isinstance(r.stars,str) and r.stars not in ('ns','—') else ''}"
             lines.append(
                 f"{mlabel[met]} & $\\delta$ & "
                 f"{cells.get('big_mrta','--')} & "
@@ -109,7 +114,7 @@ def effect_size_table(scen_label_map, caption, label, fname, note):
 # EN
 efficiency_table(
     SCEN_LABEL,
-    "Efficiency metrics (Gazebo, 3 robots, 15 tasks, 5 seeds). "
+    "Efficiency metrics (Gazebo, 3-robot scale; densities 9/15/24 pooled, $n{=}15$ per cell). "
     "WLBal: Jain workload balance; Lat: mean decision latency; "
     "Msgs: allocation messages; Dist: total travel distance.",
     "tab:efficiency", "latex_efficiency_table.tex")
@@ -117,7 +122,7 @@ effect_size_table(
     SCEN_LABEL,
     "Effect sizes (Cliff's $\\delta$) of AHE-MRTA* vs each baseline on "
     "primary metrics. $\\delta>0$ favors AHE-MRTA*. "
-    "$^{*}p{<}0.05$ (uncorrected Mann-Whitney U).",
+    "$^{*}p{<}0.05$ (Mann--Whitney U, Bonferroni-corrected within scenario family).",
     "tab:effectsize", "latex_effectsize_table.tex",
     "Positive $\\delta$ = AHE-MRTA* better; magnitude $|\\delta|{>}0.47$ = large.")
 

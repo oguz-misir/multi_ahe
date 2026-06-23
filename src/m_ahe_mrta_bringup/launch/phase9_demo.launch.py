@@ -262,21 +262,8 @@ def _make_rviz_config(robot_count: int) -> str:
     })
 
     config = {
-        'Panels': [
-            {
-                'Class': 'rviz_common/Displays',
-                'Help Height': 78,
-                'Name': 'Displays',
-                'Property Tree Widget': {'Expanded': [], 'Splitter Ratio': 0.5},
-                'Tree Height': 900,
-            },
-            {
-                'Class': 'rviz_common/Views',
-                'Expanded': ['/Current View1'],
-                'Name': 'Views',
-                'Splitter Ratio': 0.5,
-            },
-        ],
+        # Paneller YOK → temiz tam-ekran 3D görünüm (Displays/Views panelleri gizli).
+        'Panels': [],
         'Preferences': {'PromptSaveOnExit': False},
         'Toolbars': {'toolButtonStyle': 2},
         'Visualization Manager': {
@@ -286,7 +273,7 @@ def _make_rviz_config(robot_count: int) -> str:
             'Global Options': {
                 'Background Color': '20; 20; 20',
                 'Fixed Frame': 'world',
-                'Frame Rate': 30,
+                'Frame Rate': 15,
             },
             'Name': 'root',
             'Tools': [
@@ -321,7 +308,7 @@ def _make_rviz_config(robot_count: int) -> str:
         'Window Geometry': {
             'Displays': {'collapsed': False},
             'Height': 1080,
-            'Hide Left Dock': False,
+            'Hide Left Dock': True,
             'Hide Right Dock': True,
             'Views': {'collapsed': False},
             'Width': 1920,

@@ -216,27 +216,21 @@ class EcosystemSimulator:
 
         task_density  = min(1.0, len(active) / max(1, s.n_tasks))
         robot_avail   = n_avail / n_robots
-        batt_risk     = sum(1 for r in s.robots if r.battery < 0.25) / n_robots
         deadline_p    = sum(
             1 for t in active
             if t.deadline > 0 and (t.deadline - s.time) < 60
         ) / n_active
         failure_rate  = (n_robots - n_avail) / n_robots
-        queue_lens = [len(s.queues.get(r.robot_id, [])) for r in s.robots if r.available]
-        if len(queue_lens) > 1 and mean(queue_lens) > 1e-6:
-            workload_var = stdev(queue_lens) / mean(queue_lens)
-        else:
-            workload_var = 0.0
-        alloc_instab  = min(1.0, s.reassign_count / max(1, n_active))
-
+        # batt_risk (c3), workload_var (c6), alloc_instab (c7): DEVRE DIŞI —
+        # bağlam ablasyonu gereksiz (Δfitness=0); 0'da bırakılır, hesap atlanır.
         return [
             min(1.0, task_density),
             min(1.0, robot_avail),
-            min(1.0, batt_risk),
+            0.0,                      # c3 battery (disabled)
             min(1.0, deadline_p),
             min(1.0, failure_rate),
-            min(1.0, workload_var),
-            min(1.0, alloc_instab),
+            0.0,                      # c6 workload variance (disabled)
+            0.0,                      # c7 allocation instability (disabled)
         ]
 
 
@@ -684,13 +678,34 @@ def run_simulation(
     else:
         balance = 0.0
 
-    avg_delay = mean(completion_times) if completion_times else 0.0
+    # Completed-only (legacy) delay/DVR — retained for transparency.
+    avg_delay_completed = mean(completion_times) if completion_times else 0.0
+    dvr_completed = deadline_violations / max(1, completed_count)
+
+    # ── FAIR (all-task) delay / DVR — survivorship-bias-free ─────────────────
+    # A method that DROPS hard tasks (low completion) otherwise gets an
+    # artificially low delay/DVR because dropped tasks never enter the
+    # completed-only denominator. The fair metrics censor every uncompleted
+    # task at the horizon (delay = remaining horizon) and count an unfinished
+    # deadline task as a violation. Applied UNIFORMLY to all methods.
+    fair_delays = list(completion_times)  # completed: delay since activation
+    for task in tasks:
+        if not task.completed:
+            fair_delays.append(max(0.0, exp_duration - task.activation_time))
+    avg_delay = mean(fair_delays) if fair_delays else 0.0
+
+    dl_tasks = [task for task in tasks if task.deadline > 0]
+    dl_violated_all = deadline_violations  # completed-late count
+    for task in dl_tasks:
+        if not task.completed:
+            dl_violated_all += 1            # never finished → deadline missed
+    dvr = dl_violated_all / max(1, len(dl_tasks)) if dl_tasks else 0.0
+
     recovery_time = (recovery_end - recovery_start) if (recovery_start > 0 and recovery_end > 0) else -1.0
     instability = reassign_count / max(1, n_tasks)
     total_dist = sum(robot_distances.values())
     total_pri = sum(max(1, t.priority) for t in tasks) or 1.0
     alloc_fitness = ontime_pri_completed / total_pri
-    dvr = deadline_violations / max(1, completed_count)
     mean_latency = (sum(latencies) / len(latencies)) if latencies else 0.0
 
     return {
@@ -698,8 +713,10 @@ def run_simulation(
         'completed': completed_count,
         'remaining': active_remaining,
         'avg_delay': avg_delay,
-        'deadline_violations': deadline_violations,
+        'avg_delay_completed': avg_delay_completed,
+        'deadline_violations': dl_violated_all,
         'deadline_violation_rate': dvr,
+        'deadline_violation_rate_completed': dvr_completed,
         'workload_balance': balance,
         'failure_recovery_time': recovery_time,
         'allocation_instability': instability,
@@ -708,6 +725,8 @@ def run_simulation(
         'total_distance': total_dist,
         'alloc_fitness': alloc_fitness,
         'last_dominant': last_dom_heuristic,
+        'robot_completed': dict(robot_completed),   # diagnostic: per-robot completions
+        'failed_robot': fail_robot_id,
     }
 
 
