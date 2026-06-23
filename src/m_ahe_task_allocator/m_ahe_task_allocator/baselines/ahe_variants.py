@@ -286,22 +286,18 @@ class AHEMRTAv3Allocator(BaseAllocator):
     yapmaz. Sonuç: AHE 4 farklı MRTA paradigma ailesini tek framework altında
     birleştirir (bipartite/auction/EA/consensus dynamics).
 
-    v5 ÖNEMLİ DÜZELTME: v4'te ekosistem dominance dengesizdi (H_SPATIAL %95+
-    seçiliyordu). v5'te context vektörü override öncelikli:
+    Context vektörü (4-dim: td, ra, dp, fr) override öncelikli seçim:
       1. failure_rate > 0.05 → ZORLA H_RECOV (orphan_first)
       2. deadline_p > 0.5   → ZORLA H_TEMP (edf_strict — zengin pipeline)
-      3. batt_risk > 0.3    → ZORLA H_ENERGY (battery_gated)
-      4. workload_var > 0.5 → ZORLA H_RES (load_balance)
-      5. fallback           → argmax(dominance) (klasik EDPS)
+      3. fallback           → argmax(dominance) (klasik EDPS)
 
-    7 hormon → 7 paradigma mekanizması (her biri AHE'nin kendi kodu):
+    5 hormon → 5 paradigma mekanizması (her biri AHE'nin kendi kodu):
       H_SPATIAL  (0) → spatial_greedy   (nearest-feasible, strict reject)
       H_CRIT     (1) → priority_first   (priority-tiered LSA)
       H_TEMP     (2) → edf_strict       (3PHA + EDF — default)
-      H_RES      (3) → load_balance     (quadratic load Hungarian)
-      H_ENERGY   (4) → battery_gated    (battery margin filter + nearest)
-      H_STAB     (5) → commit_once      (hard sticky, no reassign)
-      H_RECOV    (6) → orphan_first     (orphan rescue → bipartite)
+      H_STAB     (3) → commit_once      (hard sticky, no reassign)
+      H_RECOV    (4) → orphan_first     (orphan rescue → bipartite)
+    (v4.6: energy/resource hormonları kaldırıldı — tüm rejimlerde inaktif.)
 
     Tier yapısı (kümülatif):
       Tier 1 (M1–M25, F1–F3): temel bipartite + ekosistem weight blend
@@ -571,17 +567,13 @@ class AHEMRTAv3Allocator(BaseAllocator):
         return 'ahe_mrta_v3'
 
     def _weights_from_context(self, context: Optional[EcosystemContext]) -> List[float]:
-        # M8: failure_rate algıla (context[4])
+        # 4-dim context [td, ra, dp, fr]: failure=idx3, deadline=idx2
         failure_rate = 0.0
         deadline_p = 0.0
-        batt_risk = 0.0
-        if context and context.context_vector and len(context.context_vector) > 4:
+        if context and context.context_vector and len(context.context_vector) >= 4:
             ctx = context.context_vector
-            failure_rate = float(ctx[4])
-            if len(ctx) > 3:
-                deadline_p = float(ctx[3])
-            if len(ctx) > 2:
-                batt_risk = float(ctx[2])
+            failure_rate = float(ctx[3])
+            deadline_p   = float(ctx[2])
 
         # M23: Recovery hysteresis — failure_rate > 0.05 → recovery aç;
         # < 0.02 → RECOVERY_HYSTERESIS çağrı boyunca recovery'de kal (sık switching önlenir)
@@ -608,8 +600,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
         if not self._failure_active:
             if deadline_p > self.DEADLINE_DISCRIM_THRESH:
                 w[5] = min(1.0, w[5] * self.DEADLINE_DISCRIM_BOOST)  # w_t
-            if batt_risk > self.BATT_DISCRIM_THRESH:
-                w[2] = min(1.0, w[2] * self.BATT_DISCRIM_BOOST)      # w_b
+            # (battery-risk context boyutu kaldırıldı — 4-dim context'te batt yok)
 
         # M11+M19+M23: Recovery turbo — W_RECOVERY ile blend (failure modu)
         # blend: 0.50→0.80 (failure_rate yüksekse W_RECOVERY %80 dominant)
@@ -734,14 +725,12 @@ class AHEMRTAv3Allocator(BaseAllocator):
     # v4 EDPS — Ecosystem-Driven Paradigm Selection
     # Hormone-driven mekanizma seçici. argmax(dominance) → paradigma.
     # Her paradigma AHE'nin kendi kodu (rakip allocator çağrılmaz, sadece
-    # paradigma alınır). 7 hormon → 7 mekanizma ailesi:
+    # paradigma alınır). 5 hormon → 5 mekanizma ailesi:
     #   H_SPATIAL  (0) → _paradigm_spatial_greedy   (mesafe-min greedy)
     #   H_CRIT     (1) → _paradigm_priority_first   (öncelik-sıralı LSA)
     #   H_TEMP     (2) → _paradigm_edf_strict       (EDF + hard deadline)
-    #   H_RES      (3) → _paradigm_load_balance     (workload-variance min)
-    #   H_ENERGY   (4) → _paradigm_battery_gated    (batarya margin filter)
-    #   H_STAB     (5) → _paradigm_commit_once      (sticky commit, no reassign)
-    #   H_RECOV    (6) → _paradigm_orphan_first     (orphan rescue agresif)
+    #   H_STAB     (3) → _paradigm_commit_once      (sticky commit, no reassign)
+    #   H_RECOV    (4) → _paradigm_orphan_first     (orphan rescue agresif)
     # ═════════════════════════════════════════════════════════════════════
 
     def _slack_extra(self) -> float:
@@ -757,10 +746,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
         bağlam sinyallerinden seçilir. Öncelik: deadline > failure > default.
         """
         c = context.context_vector if (context and context.context_vector) else []
-        if len(c) >= 5:
-            if float(c[3]) > 0.50:    # deadline pressure
+        if len(c) >= 4:              # 4-dim context [td, ra, dp, fr]
+            if float(c[2]) > 0.50:    # deadline pressure
                 return self.LW_DEADLINE_RULE
-            if float(c[4]) > 0.05:    # failure rate
+            if float(c[3]) > 0.05:    # failure rate
                 return self.LW_FAILURE_RULE
         return self.LW_DEFAULT_RULE
 
@@ -775,7 +764,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
             self._last_paradigm = idx
             return idx
         desired = self._select_paradigm_raw(context)
-        if self.PARADIGM_DWELL <= 0 or desired == 6:
+        if self.PARADIGM_DWELL <= 0 or desired == 4:  # H_RECOV (4) bypass'lar
             self._last_paradigm = desired
             self._paradigm_hold = self.PARADIGM_DWELL
             return desired
@@ -807,39 +796,25 @@ class AHEMRTAv3Allocator(BaseAllocator):
         if context is None or not context.dominance:
             return 2  # default: H_TEMP edf_strict (3PHA full pipeline)
 
-        # Context vektörü kontrolü — kritik sinyaller override eder
+        # Context vektörü kontrolü (4-dim: [td, ra, dp, fr]) — sert override
         ctx = context.context_vector if context.context_vector else []
-        if len(ctx) >= 7:
-            failure_rate = float(ctx[4])
-            deadline_p   = float(ctx[3])
-            batt_risk    = float(ctx[2])
-            workload_var = float(ctx[5])
+        if len(ctx) >= 4:
+            failure_rate = float(ctx[3])
+            deadline_p   = float(ctx[2])
 
-            # Öncelik 1: Failure → H_RECOV
+            # Öncelik 1: Failure → H_RECOV (orphan_first)
             if failure_rate > 0.05:
-                return 6  # H_RECOV → orphan_first
+                return 4  # H_RECOV
 
-            # Öncelik 2: Deadline pressure → H_TEMP (zengin pipeline)
+            # Öncelik 2: Deadline pressure → H_TEMP (edf_strict, zengin pipeline)
             if deadline_p > 0.50:
-                return 2  # H_TEMP → edf_strict (default rich)
-
-            # Öncelik 3: Battery risk → H_ENERGY
-            # v5.1: eşik 0.30 → 0.85. mixed_stress'te robotlar düşük batarya ile
-            # başlıyor (0.40/0.70/1.00) → batt_risk sürekli >0.3 → battery_gated
-            # çoğu task'ı reddediyordu → CR çöküyordu. Sadece GERÇEKTEN kritik
-            # batarya (>0.85 risk) durumunda H_ENERGY seç.
-            if batt_risk > 0.85:
-                return 4  # H_ENERGY → battery_gated
-
-            # Öncelik 4: Workload variance → H_RES
-            if workload_var > 0.50:
-                return 3  # H_RES → load_balance
+                return 2  # H_TEMP
 
         # Fallback: ekosistem dominance argmax (klasik EDPS)
         d = np.asarray(context.dominance, dtype=float)
-        if d.size < 7 or float(d.max() - d.min()) < 1e-4:
+        if d.size < 5 or float(d.max() - d.min()) < 1e-4:
             return 2  # neredeyse uniform → H_TEMP default
-        return int(np.argmax(d[:7]))
+        return int(np.argmax(d[:5]))
 
     def _paradigm_spatial_greedy(self, unassigned, avail, queues, task_map,
                                  current_time, robot_cap) -> dict:
@@ -947,83 +922,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
             self._commit_map[t.task_id] = r.robot_id
         return queues
 
-    def _paradigm_load_balance(self, unassigned, avail, queues, task_map,
-                               current_time, robot_cap) -> dict:
-        """H_RES: Load-balance Hungarian.
-
-        Cost = (current_queue_len + 1)² (quadratic load penalty).
-        Workload variance minimize. Mesafe ikincil.
-        """
-        if not _HAS_SCIPY or not avail or not unassigned:
-            return queues
-        n_r, n_t = len(avail), len(unassigned)
-        cost = np.full((max(n_r, n_t), max(n_r, n_t)), 1e6)
-        for ri, r in enumerate(avail):
-            for ti, t in enumerate(unassigned):
-                if r.battery_state == BATT_CRITICAL:
-                    continue
-                if len(queues[r.robot_id]) >= robot_cap[r.robot_id]:
-                    continue
-                # Load-dominant cost: (queue_len+1)² + tie-break dist
-                ep = queue_endpoint(r, task_map, queues[r.robot_id])
-                dist = math.hypot(t.position[0]-ep[0], t.position[1]-ep[1])
-                load_term = (len(queues[r.robot_id]) + 1) ** 2
-                cost[ri, ti] = 10.0 * load_term + dist / MAX_DIST
-        row_ind, col_ind = _lsa(cost)
-        for ri, ti in zip(row_ind, col_ind):
-            if ri >= n_r or ti >= n_t or cost[ri, ti] >= 1e5:
-                continue
-            r = avail[ri]
-            t = unassigned[ti]
-            if len(queues[r.robot_id]) >= robot_cap[r.robot_id]:
-                continue
-            queues[r.robot_id].append(t.task_id)
-            self._commit_map[t.task_id] = r.robot_id
-        return queues
-
-    def _paradigm_battery_gated(self, unassigned, avail, queues, task_map,
-                                current_time, robot_cap) -> dict:
-        """H_ENERGY: Battery-margin filter + nearest.
-
-        BiG'in battery_margin yaklaşımı. Robot battery - dist*drain ≤ ε → reject.
-        Düşük bataryalı robotlar yeni task almaz, yalnız mevcudunu bitirir.
-        """
-        eps = 0.05
-        drain_per_m = 0.015
-        for task in sorted(unassigned, key=lambda t: t.deadline if t.deadline > 0 else 1e9):
-            best_r, best_arr = None, float('inf')
-            # v5.1: CR güvenlik ağı — margin geçemezse en iyi bataryalı robotu hatırla
-            fallback_r, fallback_batt = None, -1.0
-            for r in avail:
-                if r.battery_state == BATT_CRITICAL:
-                    continue
-                if len(queues[r.robot_id]) >= robot_cap[r.robot_id]:
-                    continue
-                ep = queue_endpoint(r, task_map, queues[r.robot_id])
-                dist = math.hypot(task.position[0]-ep[0], task.position[1]-ep[1])
-                # Fallback adayı: en yüksek bataryalı uygun robot
-                if r.battery > fallback_batt:
-                    fallback_batt, fallback_r = r.battery, r.robot_id
-                # Battery margin gate (BiG-style)
-                margin = r.battery - dist * drain_per_m
-                if margin <= eps:
-                    continue
-                arr = self._arrival_time(r, task, task_map,
-                                         queues[r.robot_id], current_time)
-                if task.deadline > 0 and arr > (task.deadline + self.DVR_SOFT_SLACK
-                                                + self._slack_extra()):
-                    continue
-                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
-                if arr_eff < best_arr:
-                    best_arr, best_r = arr_eff, r.robot_id
-            # v5.1: hiçbir robot margin geçemedi ama kapasite var → en iyi bataryalıya ata
-            # (task'ı düşürmek yerine — CR koruması, mixed_stress çöküşünü önler)
-            if best_r is None and fallback_r is not None:
-                best_r = fallback_r
-            if best_r is not None:
-                queues[best_r].append(task.task_id)
-                self._commit_map[task.task_id] = best_r
-        return queues
+    # v4.6: _paradigm_load_balance (H_RES) ve _paradigm_battery_gated (H_ENERGY)
+    # kaldırıldı — tüm değerlendirilen rejimlerde inaktiftiler (paradigm_audit:
+    # %0 seçim), makale 5-paradigma spec'iyle birebir. Δfitness<0.002.
 
     def _paradigm_commit_once(self, unassigned, avail, queues, task_map,
                               current_time, robot_cap) -> dict:
@@ -1498,8 +1399,8 @@ class AHEMRTAv3Allocator(BaseAllocator):
             if self._failure_active is False:
                 _ctx = getattr(self, '_last_context', None)
                 if (_ctx is not None and _ctx.context_vector
-                        and len(_ctx.context_vector) > 3
-                        and float(_ctx.context_vector[3]) > 0.50):
+                        and len(_ctx.context_vector) >= 4
+                        and float(_ctx.context_vector[2]) > 0.50):  # 4-dim: dp=idx2
                     sticky *= self.STICKY_DP_SCALE
                     penalty *= self.STICKY_DP_SCALE
             if prev_rid == robot.robot_id:
@@ -1712,16 +1613,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 queues = self._paradigm_priority_first(
                     unassigned, avail, queues, task_map, current_time,
                     weights, mean_q, soft_cap, robot_cap)
-            elif paradigm_idx == 3:  # H_RES → load_balance
-                queues = self._paradigm_load_balance(
-                    unassigned, avail, queues, task_map, current_time, robot_cap)
-            elif paradigm_idx == 4:  # H_ENERGY → battery_gated
-                queues = self._paradigm_battery_gated(
-                    unassigned, avail, queues, task_map, current_time, robot_cap)
-            elif paradigm_idx == 5:  # H_STAB → commit_once
+            elif paradigm_idx == 3:  # H_STAB → commit_once
                 queues = self._paradigm_commit_once(
                     unassigned, avail, queues, task_map, current_time, robot_cap)
-            elif paradigm_idx == 6:  # H_RECOV → orphan_first
+            elif paradigm_idx == 4:  # H_RECOV → orphan_first
                 queues = self._paradigm_orphan_first(
                     unassigned, avail, orphan_pool, queues, task_map,
                     current_time, weights, mean_q, soft_cap, robot_cap)

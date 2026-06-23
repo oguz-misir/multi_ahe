@@ -50,43 +50,41 @@ from m_ahe_task_allocator.baselines.rostam_ea import RoSTAMEAAllocator
 # ---------------------------------------------------------------------------
 # Ecosystem constants (mirrored from ecosystem_manager_node)
 # ---------------------------------------------------------------------------
-K = 7
-H_SPATIAL, H_CRIT, H_TEMP, H_RES, H_ENERGY, H_STAB, H_RECOV = range(7)
+# v4.6: 5 hormon / 4-boyutlu context (energy/resource hormonları ve battery/
+# workload/instab context boyutları kaldırıldı — tüm rejimlerde inaktiftiler,
+# Δfitness<0.002; makale spec'iyle birebir). Yeni indeksler: 0..4.
+K = 5
+H_SPATIAL, H_CRIT, H_TEMP, H_STAB, H_RECOV = range(5)
 HEURISTIC_NAMES = [
     'SpatialOpportunist', 'CriticalityGuardian', 'TemporalRegulator',
-    'ResourceDistributor', 'EnergyConservator', 'StabilityController',
-    'RecoveryCoordinator',
+    'StabilityController', 'RecoveryCoordinator',
 ]
 
 A = np.zeros((K, K))
-A[H_RECOV, H_ENERGY] = 0.30
-A[H_TEMP,  H_CRIT]   = 0.20
-A[H_RECOV, H_STAB]   = 0.20
-A[H_RES,   H_SPATIAL] = 0.20
+A[H_TEMP,  H_CRIT]  = 0.20
+A[H_RECOV, H_STAB]  = 0.20
 
 S = np.zeros((K, K))
-S[H_SPATIAL, H_TEMP]   = 0.30
-S[H_SPATIAL, H_ENERGY] = 0.30
-S[H_RES,     H_CRIT]   = 0.20
+S[H_SPATIAL, H_TEMP] = 0.30
 
+# Context prototype V_i ∈ [0,1]^4 (cols: td, ra, dp, fr) — makale Tablo II
 V = np.array([
-    [0.7, 0.7, 0.1, 0.1, 0.1, 0.3, 0.1],
-    [0.3, 0.5, 0.1, 0.8, 0.2, 0.1, 0.2],
-    [0.5, 0.5, 0.1, 0.9, 0.1, 0.1, 0.1],
-    [0.8, 0.3, 0.1, 0.3, 0.1, 0.9, 0.3],
-    [0.3, 0.3, 0.9, 0.2, 0.2, 0.2, 0.2],
-    [0.3, 0.3, 0.3, 0.3, 0.8, 0.3, 0.3],
-    [0.3, 0.2, 0.3, 0.2, 0.9, 0.3, 0.8],
+    [0.7, 0.7, 0.1, 0.1],   # H_SPATIAL
+    [0.3, 0.5, 0.8, 0.2],   # H_CRIT
+    [0.5, 0.5, 0.9, 0.1],   # H_TEMP
+    [0.3, 0.3, 0.3, 0.8],   # H_STAB
+    [0.3, 0.2, 0.2, 0.9],   # H_RECOV
 ])
 
+# M (7 cost-weight × 5 hormone): hormon→ağırlık eşlemesi (kaldırılan cols çıkarıldı)
 M = np.array([
-    [0.9, 0.1, 0.1, 0.3, 0.3, 0.3, 0.3],
-    [0.1, 0.9, 0.5, 0.1, 0.1, 0.5, 0.1],
-    [0.1, 0.1, 0.1, 0.1, 0.9, 0.3, 0.3],
-    [0.1, 0.1, 0.1, 0.9, 0.1, 0.1, 0.3],
-    [0.1, 0.1, 0.1, 0.1, 0.3, 0.9, 0.9],
-    [0.1, 0.5, 0.9, 0.1, 0.1, 0.1, 0.1],
-    [0.1, 0.1, 0.1, 0.1, 0.3, 0.3, 0.9],
+    [0.9, 0.1, 0.1, 0.3, 0.3],   # w_d
+    [0.1, 0.9, 0.5, 0.5, 0.1],   # w_p
+    [0.1, 0.1, 0.1, 0.3, 0.3],   # w_b
+    [0.1, 0.1, 0.1, 0.1, 0.3],   # w_l
+    [0.1, 0.1, 0.1, 0.9, 0.9],   # w_f
+    [0.1, 0.5, 0.9, 0.1, 0.1],   # w_t
+    [0.1, 0.1, 0.1, 0.3, 0.9],   # w_r
 ])
 
 # Ekosistem dinamik parametreleri — F3 (Tier 1) kalibrasyonu:
@@ -185,11 +183,10 @@ class EcosystemSimulator:
         supp = lmbda * (S @ self._D)
 
         boost = np.zeros(K)
-        failure_rate = ctx[4]  # C_FAILURE dimension
+        failure_rate = ctx[3]  # 4-dim context: [td, ra, dp, fr] → fr = idx 3
         boost[H_RECOV] = failure_rate * 0.6
         boost[H_STAB]  = failure_rate * 0.4
         boost[H_SPATIAL] = -failure_rate * 0.3
-        boost[H_RES]     = -failure_rate * 0.2
 
         D_new = np.clip(
             alpha * self._D + beta * perf + gamma * compat + coop - supp + delta * boost,
@@ -221,16 +218,13 @@ class EcosystemSimulator:
             if t.deadline > 0 and (t.deadline - s.time) < 60
         ) / n_active
         failure_rate  = (n_robots - n_avail) / n_robots
-        # batt_risk (c3), workload_var (c6), alloc_instab (c7): DEVRE DIŞI —
-        # bağlam ablasyonu gereksiz (Δfitness=0); 0'da bırakılır, hesap atlanır.
+        # 4-boyutlu context (makale §III-A): [td, ra, dp, fr]. battery/workload/
+        # instab boyutları ablasyonda gereksiz çıktı (Δfitness=0) → kaldırıldı.
         return [
-            min(1.0, task_density),
-            min(1.0, robot_avail),
-            0.0,                      # c3 battery (disabled)
-            min(1.0, deadline_p),
-            min(1.0, failure_rate),
-            0.0,                      # c6 workload variance (disabled)
-            0.0,                      # c7 allocation instability (disabled)
+            min(1.0, task_density),   # c1 task density
+            min(1.0, robot_avail),    # c2 robot availability
+            min(1.0, deadline_p),     # c3 deadline pressure
+            min(1.0, failure_rate),   # c4 failure rate
         ]
 
 
