@@ -94,73 +94,122 @@ görev `T_replan(t)`'e girer; her robot kendi kuyruğunu sırayla yürütür.
 
 ---
 
-# 3. Yöntem: AHE-MRTA v4 (EDPS)
+# 3. Yöntem: AHE-MRTA (EDPS) — 5 hormon / 4-boyutlu bağlam
 
-**Methodolojik katkı:** Mevcut MRTA yöntemleri tek paradigma altında çalışır (BiG: weighted
-bipartite, RoSTAM: evolutionary, CDBTA: consensus bidding). AHE v4 biomimetik ekosistem
-dinamikleriyle bir **runtime paradigma seçici** olur. Dominance vektörü `D ∈ ℝ⁷`, cooperation
-matrisi `A` ve suppression matrisi `S` ile evrilir; her döngüde `argmax(D)` 7 paradigmadan
-birini seçer. Her paradigma AHE'nin kendi kodudur (rakip allocator'a delegasyon yok). Bu yapı,
-no-free-lunch'ı context-aware paradigma seçimiyle aşar.
+**Methodolojik katkı.** Mevcut MRTA yöntemleri tek paradigma altında çalışır (BiG: weighted
+bipartite, RoSTAM: evolutionary, CDBTA: consensus bidding). AHE bir **selection hyper-heuristic**
+(Burke et al.): allocation'ı kendi çözmez, hangi düşük-seviye tahsis-sezgiselinin (paradigma)
+uygulanacağını **çevrim içi** seçer. Baskınlık vektörü `D(t) ∈ ℝ⁵_{≥0}`, cooperation matrisi `A` ve
+suppression matrisi `S` ile Lotka–Volterra tipi evrilir. **Seçim iki katmanlıdır:** akut rejimleri
+(arıza, deadline) hızlı belirlenimci bağlam-override'ları yakalar; aksi halde `argmax_i D_i`.
+Her paradigma AHE'nin kendi kodudur (rakip allocator'a delegasyon yok).
 
-## 3.1. Strateji ajanları → 7 paradigma
+> **v4.6 (5h/4c):** energy/resource hormonları + battery/workload/instab bağlam-boyutları
+> kaldırıldı (tüm rejimlerde inaktif; bağlam ablasyonu Δfitness≈0). Kod (`ahe_variants.py`,
+> `simulate_and_tune.py`, `ecosystem_manager_node.py`) + makale birebir 5 hormon / 4 boyut.
 
-| Hormon `D[i]` | Paradigma | İç mekanizma | Hedef metrik | Eşdeğer klasik |
+## 3.1. Beş hormon → beş paradigma
+
+| `i` | Hormon | Paradigma | İç mekanizma | Eşdeğer klasik |
 |---|---|---|---|---|
-| H_SPATIAL | `_paradigm_spatial_greedy` | Nearest-feasible + strict reject | Delay/DVR ↓ | BiG-MRTA |
-| H_CRIT | `_paradigm_priority_first` | Priority-tiered Hungarian | High-priority ↑ | Auction/CBBA |
-| **H_TEMP** (default) | `_paradigm_edf_strict` | EDF + multi-phase bipartite | CR ↑ | deadline-aware bipartite |
-| H_RES | `_paradigm_load_balance` | (queue+1)² Hungarian | Workload var. ↓ | Workload-min ILP |
-| H_ENERGY | `_paradigm_battery_gated` | Battery margin filter | Düşük batt. koruma | Energy-aware MRTA |
-| H_STAB | `_paradigm_commit_once` | Hard sticky, no reassign | Instab ↓↓ | RoSTAM commit-once |
-| H_RECOV | `_paradigm_orphan_first` | Orphan-first redistribution | RecTime ↓ | Recovery-first MAPF |
+| 0 | H_SPATIAL | `_paradigm_spatial_greedy` | Nearest-feasible + strict reject | BiG-MRTA |
+| 1 | H_CRIT | `_paradigm_priority_first` | Priority-tiered LSA | Auction/CBBA |
+| 2 | **H_TEMP** (default) | `_paradigm_edf_strict` | EDF + 3PHA multi-phase bipartite | deadline-aware bipartite |
+| 3 | H_STAB | `_paradigm_commit_once` | Hard sticky, no reassign | RoSTAM commit-once |
+| 4 | H_RECOV | `_paradigm_orphan_first` | Orphan-first redistribution | Recovery-first MAPF |
 
-## 3.2. Bağlam vektörü (context vector)
-
-Her döngüde 7 bileşen hesaplanır ve `[0,1]`'e ölçeklenir:
+Her paradigma ortak bir ilkel paylaşır — fizibilite-maskeli maliyet matrisi `C^(p)` üzerinde
+**doğrusal toplam atama (LSA / Hungarian):**
 
 ```text
-task_density          = active_task_count / robot_count
-robot_availability    = available_robot_count / robot_count
-battery_risk          = low_or_critical_battery_count / robot_count
-deadline_pressure     = near_deadline_task_count / active_task_count
-failure_rate          = failed_or_stuck_robot_count / robot_count
-workload_variance     = variance(queue_length_per_robot)
-allocation_instability= reassigned_task_count / active_task_count
+x^(p) = argmin_{x∈X} Σ_r Σ_τ C^(p)_{r,τ} · x_{r,τ}
+X: Σ_τ x_{r,τ} ≤ Q (kuyruk),  Σ_r x_{r,τ} ≤ 1 (tek-atama),  yetenek fizibilitesi
+infeasible çift → C^(p)_{r,τ} = ∞
 ```
 
-### 3.2.1. Bağlam boyutu ablasyonu (Düzlem A)
+Paradigmalar yalnız `C^(p)`'yi ve kuyruk sıralamasını şekillendirir (ayrıntı §3.6).
 
-`scripts/ablate_context.py` her boyutu 0'a maskeler (sinyal yok) ve uçtan-uca
-etkiyi ölçer — maske dominance güncellemesini, kosinüs-uyumluluğu VE sert
-override'ları birlikte etkiler. 60-seed tarama + 100-seed teyit (v4.2,
-3r15t, 2026-06-12):
+## 3.2. Bağlam vektörü (4-boyut)
 
-| Çıkarılan | Etki (fitness / DVR) | Yorum |
+Her olayda `t_k` durum 4-boyutlu vektöre sıkıştırılır, `c(t_k) ∈ [0,1]^4`. `m=|T(t_k)|`,
+`n=|R|`, `R^av` = uygun (alive, stuck değil, kapasiteli), `R^f` = arızalı/stuck robotlar;
+`Δ_d = 60` s deadline ufku:
+
+```text
+c1 = min(1, m/n)                              # görev yoğunluğu (task density)
+c2 = |R^av| / n                              # robot uygunluğu (availability)
+c3 = |{τ : d_τ − t_k ≤ Δ_d}| / max(1, m)     # deadline baskısı
+c4 = |R^f| / n                               # arıza oranı (failure rate)
+```
+
+Her boyut, farklı bir tahsis-sezgiseli ailesinin sömürdüğü bir sinyaldir: `c1,c2` arz/talep
+dengesi (yük-farkında); `c3` deadline-kısıtlı tahsis; `c4` arıza-dayanıklı tahsis.
+
+### 3.2.1. Boyut ablasyonu (7→4 indirgeme gerekçesi)
+
+`scripts/ablate_context.py` her boyutu 0'a maskeler ve uçtan-uca etkiyi ölçer (100-seed teyit):
+
+| Boyut | Etki (fitness / DVR) | Karar |
 |---|---|---|
-| c5 arıza | ms 0.491→0.403 (−8.8pp), rf −2.4pp | **Kritik** — H_RECOV override + boost + W_RECOVERY blend'i taşır |
-| c4 deadline | dp DVR 0.004→0.072 (18×) | **Kritik** — H_TEMP override'ı taşır; fitness'a değil DVR'a yansır |
-| c1, c2, c3, c6, c7 | Δ≤0.3pp (tekli ve kombolar) | Etkisiz/yedek — c2, c5'in tümleyeni; c3 sim'de nadir tetiklenir; c7 v4.2 sonrası ~0 |
+| failure (`c4`) | ms 0.491→0.403 (−8.8pp) | **Kritik** — H_RECOV override + boost'u taşır → **tut** |
+| deadline (`c3`) | dp DVR 0.004→0.072 (18×) | **Kritik** — H_TEMP override'ı taşır → **tut** |
+| density, avail (`c1,c2`) | Δ≤0.3pp | yedek ama ucuz, fallback argmax için sinyal → **tut** |
+| battery, workload_var, alloc_instab | Δ≤0.3pp (tüm rejimler) | **inaktif → KALDIR** (v4.6) |
 
-Karar: vektör 7 boyutlu kalır — çıkarmak ölçülebilir kazanç sağlamaz;
-c3/c2 Gazebo'da (gerçek batarya düşüşü, kısmi uygunluk) sigorta görevi
-görür. Tablo makaleye "neden 7 boyut?" gerekçesi olarak girer
-(100-seed değerleriyle).
+Sonuç: bağlam **4 boyuta** indirildi (battery/workload/instab çıkarıldı; Δfitness≈0). Bu, hem
+sade hem hakemin "neden bu boyutlar?" sorusuna ablasyonla dayanaklı cevaptır.
 
-## 3.3. Dominance güncellemesi ve paradigma seçimi (gerçek uygulama)
+## 3.3. Baskınlık dinamiği (Lotka–Volterra) — gerçek uygulama
 
-`ecosystem_manager_node.py` şu denklemi kullanır (`c(t)` = bağlam vektörü):
+Her paradigma `i`'nin sabit bağlam-prototipi `V_i ∈ [0,1]^4` var (Tablo aşağıda); **uyumluluk:**
 
 ```text
-D(t+1) = clip_[0,1][ (1−α)·D(t) + α·A·c(t) − S·D(t)·c(t)ᵀ ]
-W(t)   = softmax(M·D(t),  T = 0.3)          # heuristic→ağırlık eşlemesi
-paradigm = argmax(D(t+1))                    # → 7 paradigmadan biri
+v_i(t_k) = cos(V_i, c(t_k)) = (V_i · c) / (‖V_i‖ ‖c‖)
 ```
 
-`A` (cooperation) bağlamla uyumlu ajanları güçlendirir, `S` (suppression) uygunsuzları
-baskılar. `T=0.3` baskın heuristic'in ağırlığını belirgin vurgular (uniform 0.143 → ~0.225).
-`α=0.85` geçmiş dominance hafızası. *(Not: önceki geliştirme sürümlerindeki α,β,γ,η,λ,δ
-parametreli denklem yalnızca tarihsel referanstır; makale yukarıdaki formülü kullanır.)*
+**Performans geri-beslemesi** (tamamlama − arıza, uyumlulukla ölçeklenmiş) ve **arıza-destek vektörü:**
+
+```text
+p(t_k) = (CR_k − FR_k) · v(t_k)
+b: b[RECOV]=0.6·c4,  b[STAB]=0.4·c4,  b[SPATIAL]=−0.3·c4,  diğer=0
+```
+
+**Baskınlık güncellemesi** (winner-reinforce / winner-suppress, Lotka–Volterra tipi):
+
+```text
+D(t_{k+1}) = normalize( clip_[0,1][ α·D(t_k) + η·A·D(t_k) − λ·S·D(t_k)
+                                    + β·p(t_k) + γ·v(t_k) + δ·b(t_k) ] )
+```
+
+`normalize` = olasılık simpleksine projeksiyon (‖D‖₁=1, D≥0). Hiperparametreler (sim+node+makale
+birebir): **α=0.65** (momentum), **β=0.40** (performans), **γ=0.20** (uyumluluk), **η=λ=0.12**
+(işbirliği/baskılama), **δ=0.20** (arıza desteği), softmax **T=0.3**.
+
+**Prototip `V` (5×4) ve seyrek `A`, `S`:**
+
+```text
+              c1(td) c2(ra) c3(dp) c4(fr)
+H_SPATIAL(0)   0.7    0.7    0.1    0.1
+H_CRIT  (1)    0.3    0.5    0.8    0.2
+H_TEMP  (2)    0.5    0.5    0.9    0.1
+H_STAB  (3)    0.3    0.3    0.3    0.8
+H_RECOV (4)    0.3    0.2    0.2    0.9
+A: A[TEMP,CRIT]=0.20, A[RECOV,STAB]=0.20      S: S[SPATIAL,TEMP]=0.30      (diğer=0)
+```
+
+### 3.3.1. Paradigma seçimi (override cascade + argmax + dwell)
+
+Seçim iki katmanlı; akut rejimler belirlenimci override ile, kalanı baskınlık argmax'ı ile:
+
+```text
+p* = H_RECOV          if c4 > 0.05            # arıza → orphan_first
+   = H_TEMP           else if c3 > 0.50       # deadline → edf_strict
+   = argmax_i D_i     aksi halde              # klasik EDPS (kararların ~%6.8'i)
+```
+
+**Dwell histerezisi** (ρ=4): H_RECOV dışı paradigma değişimi ρ çağrı geciktirilir (ping-pong↓,
+reaktiflik korunur). *Mimari nüans: override'lar akut olayları çözdüğünden L-V dinamiği kararların
+azınlığını (rf/mixed ~%6.8) belirler; dinamiğin ağırlığı ağırlık-karışımı (W_eco) üzerindedir.*
 
 ## 3.4. Maliyet fonksiyonu ve sabitler (tek kaynak)
 
@@ -189,7 +238,7 @@ ECO_BLEND_NORMAL = 0.70    # W_base = 0.30·W0_V3 + 0.70·W_eco(t)
 EDPS_ENABLED = True;  STUCK_PREEMPT_ENABLED = True
 DVR_SOFT_SLACK = 8.0;  URGENT_HORIZON = 30.0;  RECOVERY_HYSTERESIS = 1
 SPEED = 0.22 (m/s);  NAV2_QUEUE_OVERHEAD = 22.0 (s);  AT_NORM = 220.0
-DEADLINE_SLACK = 80 (s);  softmax T = 0.3;  α = 0.85
+DEADLINE_SLACK = 80 (s);  softmax T = 0.3;  α = 0.65;  β = 0.40 (§3.3)
 ```
 
 failure_rate > 0.05 → `failure_active` (recovery_hold=4); aktifken
@@ -846,9 +895,9 @@ güncel hatlarla (yukarıda) genişletilmeli.
 
 > **Revizyon notu (2026-06-04 sadeleştirme):** Belge ~4460 → ~600 satıra indirildi. Tek
 > kaynağa hizalananlar: **CR = §22.3 benzersiz-CR** (ham olay-CR tablosu çıkarıldı);
-> **yöntem = v4 EDPS, 7 paradigma** ("24/25 mekanizma" ifadeleri kaldırıldı); **dominance =
-> gerçek `ecosystem_manager_node.py` denklemi** (eski α,β,γ,η,λ,δ denklemi tarihsel nota
-> indirildi); **deadline_pressure = %50**. Çoklu ölçek planı "DONE/planlandı" etiketleriyle
+> **yöntem = EDPS, 5 paradigma / 4-boyut bağlam** (v4.6; energy/resource + battery/workload/instab
+> kaldırıldı — §3); **dominance = gerçek `ecosystem_manager_node.py` Lotka–Volterra denklemi**
+> (α=0.65, β=0.40 — §3.3); **deadline_pressure = %50**. Çoklu ölçek planı "DONE/planlandı" etiketleriyle
 > korundu. Karşılaştırma yöntemi ayrıntıları `ahe_mrta_recent_comparison_methods.md`'dedir.
 >
 > **Sonraki eklemeler:** çift-düzlemli değerlendirme (§5.4, Düzlem A/B) + ölçüm kuralları

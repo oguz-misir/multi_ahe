@@ -287,6 +287,30 @@ kuralı olarak okunduğunda, güncelleme bir \emph{hiper-sezgisel}
 oluşturur~\cite{burke2013hyper}: ekosistem atamayı kendisi çözmez, hangi
 klasik çözücünün --- çevrim içi ve olay başına --- çözeceğini seçer.
 
+\paragraph{Ağırlık üretimi.} Baskınlık vektörü, sabit bir sezgisel-ağırlık
+matrisi $M\in\mathbb{R}^{7\times5}$ ve düşük-sıcaklık softmax ile
+Eq.~\eqref{eq:cost} maliyet ağırlıklarını belirler; baz ağırlık $w_0$ ile
+harmanlanır:
+\begin{equation}
+  w_{\mathrm{eco}}(t_k)=\mathrm{softmax}\!\big(M D(t_k),\,T_w\big),\quad
+  w(t_k)=(1-\beta_e)\,w_0+\beta_e\,w_{\mathrm{eco}}(t_k),
+  \label{eq:weights}
+\end{equation}
+$T_w{=}0.3$, harman $\beta_e{=}0.7$; arıza altında ($c_4{>}0$) harman bir
+toparlanma profiline $w_{\mathrm r}$ doğru $\theta{=}\min(0.8,\,0.5{+}0.6\,c_4)$
+ile kayar. Override tetiklenmediğinde Lotka--Volterra durumunun bir kararı
+etkilediği \emph{tek} kanal budur.
+
+\paragraph{Maliyet şekillendirme.} İki doğrusal-olmayan terim
+Eq.~\eqref{eq:cost}'u deadline için keskinleştirir. \emph{Sert fizibilite
+kapısı}: öngörülen varış $a_{r,\tau}$ deadline'ı adaptif slack $\Delta_s$
+ötesinde aşarsa çift reddedilir,
+$\;a_{r,\tau}>d_\tau+\Delta_s\Rightarrow C_{r,\tau}{=}\infty$. \emph{Aciliyet
+yükseltmesi}: bir görev deadline bütçesinin $u_0{=}0.7$ kesrini geçince
+zamansal terim şişer, $\hat u_\tau = u_\tau(1+\zeta e^2)$,
+$e=(u_\tau-u_0)/(1-u_0)$; böylece risk altındaki \emph{atanmamış} görevler öne
+çekilir, zamanında incumbent'lar muaftır (churn freni).
+
 \begin{table}[t]
 \centering
 \caption{İşbirliği matrisi $A$ ve baskılama matrisi $S$'nin sıfır-dışı girdileri.}

@@ -301,6 +301,31 @@ portfolio of low-level allocation heuristics, the update instantiates a
 the assignment itself but chooses, online and per event, which classical
 solver should.
 
+\paragraph{Weight generation.} The dominance vector sets the cost weights of
+Eq.~\eqref{eq:cost} through a fixed heuristic-to-weight matrix
+$M\in\mathbb{R}^{7\times5}$ and a low-temperature softmax, blended with a base
+weight $w_0$:
+\begin{equation}
+  w_{\mathrm{eco}}(t_k)=\mathrm{softmax}\!\big(M D(t_k),\,T_w\big),\quad
+  w(t_k)=(1-\beta_e)\,w_0+\beta_e\,w_{\mathrm{eco}}(t_k),
+  \label{eq:weights}
+\end{equation}
+with $T_w{=}0.3$ and blend $\beta_e{=}0.7$; under failure ($c_4{>}0$) the blend
+shifts toward a recovery profile $w_{\mathrm r}$ by
+$\theta{=}\min(0.8,\,0.5{+}0.6\,c_4)$. This is the \emph{only} channel through
+which the Lotka--Volterra state influences a decision when no override fires.
+
+\paragraph{Cost shaping.} Two non-linear terms sharpen
+Eq.~\eqref{eq:cost} for deadlines. A \emph{hard feasibility gate} rejects a
+pair whose projected arrival $a_{r,\tau}$ exceeds the deadline beyond an
+adaptive slack $\Delta_s$,
+$\;a_{r,\tau}>d_\tau+\Delta_s\Rightarrow C_{r,\tau}{=}\infty$; and an
+\emph{urgency escalation} inflates the temporal term once a task passes a
+fraction $u_0{=}0.7$ of its deadline budget,
+$\hat u_\tau = u_\tau\big(1+\zeta\,e^2\big)$ with
+$e=(u_\tau-u_0)/(1-u_0)$, so at-risk \emph{unassigned} tasks are pulled
+forward while on-time incumbents are exempt (a churn brake).
+
 \begin{table}[t]
 \centering
 \caption{Nonzero entries of cooperation matrix $A$ and suppression matrix $S$.
