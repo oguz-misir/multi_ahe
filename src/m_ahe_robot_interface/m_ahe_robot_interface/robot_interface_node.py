@@ -109,6 +109,30 @@ class RobotInterfaceNode(Node):
         self._queue_version: int = 0
         self._dispatching: bool = False
 
+        # RC1 (dispatch commitment / sequential egress): when a goal cannot
+        # START — Nav2 rejects it, or it aborts with ~zero net movement — the
+        # robot is boxed in by neighbours at the spawn strip, not failing a
+        # task. Reporting task_failed here makes the runner reassign the task,
+        # producing a reject→reassign churn loop that froze 60-80% of the fleet
+        # at spawn for the whole run in 10r (baselines move 10/10; AHE moved
+        # 2-6/10 with ~71 nav-failures vs baselines' 0). Instead we keep the
+        # robot COMMITTED to its task and retry the same goal after a backoff;
+        # a per-robot jitter desynchronises retries so the fleet leaves the
+        # spawn strip one-by-one. Method-agnostic: baselines never hit it.
+        self._RC1_MAX_GOAL_RETRIES = 10
+        self._RC1_RETRY_BACKOFF_SEC = 4.0
+        self._RC1_BOXED_PROGRESS_M = 0.30
+        self._retry_count: int = 0
+        self._retry_waypoint = None
+        self._retry_after: float = 0.0
+        self._active_waypoint = None
+        self._goal_send_xy: tuple[float, float] = (0.0, 0.0)
+        try:
+            self._robot_index = int(self._robot_id.rsplit('_', 1)[-1])
+        except (ValueError, IndexError):
+            self._robot_index = 0
+        self._retry_jitter = 0.4 * self._robot_index
+
         ns = self._robot_id
 
         # Subscribers
@@ -177,9 +201,23 @@ class RobotInterfaceNode(Node):
             return
         if self._nav_state != NavState.IDLE:
             return
-        if not self._waypoint_queue:
-            return
         if not self._nav_client.server_is_ready():
+            return
+
+        # RC1: a goal that could not start is retried with the SAME waypoint
+        # after a backoff. While backing off the robot stays committed to its
+        # task — it does not pop new work — so the spawn strip clears robot by
+        # robot instead of everyone re-colliding at once.
+        if self._retry_waypoint is not None:
+            if self._now_sec() < self._retry_after:
+                return
+            waypoint = self._retry_waypoint
+            self._retry_waypoint = None
+            self._dispatching = True
+            self._send_goal(waypoint)
+            return
+
+        if not self._waypoint_queue:
             return
 
         self._dispatching = True
@@ -188,6 +226,8 @@ class RobotInterfaceNode(Node):
 
     def _send_goal(self, waypoint: TaskWaypoint) -> None:
         self._current_task_id = waypoint.task_id
+        self._active_waypoint = waypoint          # RC1: kept for goal retry
+        self._goal_send_xy = self._get_xy()       # RC1: measure net progress
         self._task_progress = 0.0
         self._distance_remaining = 0.0
 
@@ -224,10 +264,12 @@ class RobotInterfaceNode(Node):
     def _goal_response_cb(self, future) -> None:
         handle = future.result()
         if not handle.accepted:
+            # RC1: rejection = could not start (boxed in at spawn). Retry the
+            # same goal rather than failing the task.
             self.get_logger().warning(
                 f'{self._robot_id}: goal rejected for {self._current_task_id}'
             )
-            self._on_task_done(success=False)
+            self._handle_dispatch_retry(boxed_in=True)
             return
 
         self._goal_handle = handle      # B1: store so we can actually cancel
@@ -251,11 +293,48 @@ class RobotInterfaceNode(Node):
             self.get_logger().info(
                 f'{self._robot_id}: reached {self._current_task_id}'
             )
+            self._on_task_done(success=True)
+            return
+        self.get_logger().warning(
+            f'{self._robot_id}: failed {self._current_task_id} (status={result.status})'
+        )
+        # RC1: distinguish "could not start" (≈0 net movement → boxed in at the
+        # spawn strip / congested origin) from a genuine mid-route failure. The
+        # former is retried (stay committed); the latter fails the task.
+        sx, sy = self._goal_send_xy
+        x, y = self._get_xy()
+        net_moved = ((x - sx) ** 2 + (y - sy) ** 2) ** 0.5
+        if net_moved < self._RC1_BOXED_PROGRESS_M:
+            self._handle_dispatch_retry(boxed_in=True)
         else:
-            self.get_logger().warning(
-                f'{self._robot_id}: failed {self._current_task_id} (status={result.status})'
-            )
-        self._on_task_done(success=success)
+            self._on_task_done(success=False)
+
+    def _handle_dispatch_retry(self, *, boxed_in: bool) -> None:
+        """RC1: keep the robot committed to its current task and re-issue the
+        goal after a backoff, instead of reporting task_failed. Failing here
+        would make the runner reassign the task — the reject→reassign churn
+        that froze most of the fleet at spawn in 10r. After
+        _RC1_MAX_GOAL_RETRIES we give up and fail the task for real."""
+        if not self._active:
+            return
+        if not boxed_in or self._retry_count >= self._RC1_MAX_GOAL_RETRIES:
+            self._on_task_done(success=False)
+            return
+        self._retry_count += 1
+        self._retry_waypoint = self._active_waypoint
+        backoff = self._RC1_RETRY_BACKOFF_SEC + self._retry_jitter
+        self._retry_after = self._now_sec() + backoff
+        # Reset so the dispatch timer can re-send, but DO NOT emit task_failed
+        # and DO NOT clear _current_task_id — the task stays assigned to us.
+        self._active = False
+        self._goal_handle = None
+        self._nav_state = NavState.IDLE
+        self._avail_state = AvailState.BUSY     # committed; not free for new work
+        self._dispatching = False
+        self.get_logger().info(
+            f'{self._robot_id}: retry {self._retry_count}/{self._RC1_MAX_GOAL_RETRIES} '
+            f'for {self._current_task_id} in {backoff:.1f}s (could not start)'
+        )
 
     def _on_task_done(self, *, success: bool) -> None:
         # B1: finalize once per task (a stuck-cancel and the subsequent
@@ -289,6 +368,10 @@ class RobotInterfaceNode(Node):
         self._avail_state = AvailState.AVAILABLE
         self._failure_flag = False
         self._dispatching = False
+        # RC1: task finished (done or really failed) — clear retry bookkeeping.
+        self._retry_count = 0
+        self._retry_waypoint = None
+        self._active_waypoint = None
 
     def _cancel_current_goal(self) -> None:
         self.get_logger().info(f'{self._robot_id}: cancelling current goal for replan')
@@ -304,6 +387,10 @@ class RobotInterfaceNode(Node):
         self._nav_state = NavState.IDLE
         self._avail_state = AvailState.AVAILABLE
         self._dispatching = False
+        # RC1: an explicit replan-cancel drops the committed goal too.
+        self._retry_count = 0
+        self._retry_waypoint = None
+        self._active_waypoint = None
 
     # ------------------------------------------------------------------
     # B1 — Stuck detection (congestion-aware recovery)

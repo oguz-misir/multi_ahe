@@ -44,8 +44,8 @@ METRICS = [
     ("task_completion_rate",    "Completion Rate",      True),
     ("average_task_delay",      "Avg Task Delay (s)",   False),
     ("failure_recovery_time",   "Recovery Time (s)",    False),
-    ("replanning_frequency",    "Replanning Freq.",     False),
-    ("allocation_instability",  "Alloc. Instability",   False),
+    ("exec_preemptions",        "Exec Preemptions",     False),
+    ("redispatch_per_task",     "Re-dispatch/Task",     False),
     ("mean_decision_latency_ms","Decision Latency (ms)",False),
     ("deadline_violation_rate", "Deadline Viol. Rate",  False),
 ]
@@ -135,7 +135,8 @@ def run_pairwise_tests(df, proposed, baselines, scenarios):
                     "p_value":         p,
                     "effect_r":        r,
                     "cliffs_delta":    cd,
-                    "stars":           sig_stars(p) if not np.isnan(p) else "—",
+                    "p_adj":           min(1.0, p * n_tests) if not np.isnan(p) else np.nan,
+                    "stars":           sig_stars(min(1.0, p * n_tests)) if not np.isnan(p) else "—",
                     "significant_bonferroni": (not np.isnan(p)) and (p < corrected_alpha),
                     "corrected_alpha": corrected_alpha,
                 })
@@ -209,15 +210,15 @@ def build_main_table(desc, tests):
         ("task_completion_rate",   "CR$\\uparrow$",    3),
         ("average_task_delay",     "Delay$\\downarrow$(s)", 1),
         ("failure_recovery_time",  "RecT$\\downarrow$(s)",  1),
-        ("replanning_frequency",   "RePlan$\\downarrow$",   2),
-        ("allocation_instability", "Instab$\\downarrow$",   2),
+        ("exec_preemptions",       "Preempt$\\downarrow$",  2),
+        ("redispatch_per_task",    "Churn$\\downarrow$",    3),
     ]
     methods_g2 = [PROPOSED] + G2_BASELINES
     col_hdrs = [m[1] for m in metrics_show]
     caption = (
-        "Main comparison (3 robots, 15 tasks, 5 seeds). "
+        "Main comparison at the 5-robot (primary) scale; task densities 15/25 pooled, $n{=}10$ runs per cell. "
         "Significance vs AHE-MRTA*: $^{*}p{<}0.05$, $^{**}p{<}0.01$, "
-        "$^{***}p{<}0.001$ (Bonferroni-corrected Mann-Whitney U)."
+        "$^{***}p{<}0.001$ (Mann--Whitney U, Bonferroni-corrected within each scenario family of 21 tests)."
     )
     out = _tex_header(caption, "tab:main_comparison", col_hdrs, wide=True)
 
@@ -258,14 +259,14 @@ def build_deadline_table(desc, tests):
         ("task_completion_rate",    "CR$\\uparrow$",         3),
         ("average_task_delay",      "Delay$\\downarrow$(s)", 1),
         ("deadline_violation_rate", "DVR$\\downarrow$",      3),
-        ("replanning_frequency",    "RePlan$\\downarrow$",   2),
+        ("exec_preemptions",        "Preempt$\\downarrow$",  2),
     ]
     methods = [PROPOSED] + G3_BASELINES
     scenario = "deadline_pressure"
     sub = desc[desc["scenario"] == scenario]
     col_hdrs = [m[1] for m in metrics_show]
     caption = (
-        "Deadline scenario results (deadline\\_pressure, 3 robots, 15 tasks, 5 seeds). "
+        "Deadline scenario results (deadline\\_pressure) at the 5-robot (primary) scale; task densities 15/25 pooled, $n{=}10$ runs per cell. "
         "DVR: deadline violation rate. "
         "Significance vs AHE-MRTA* (Bonferroni-corrected Mann-Whitney U)."
     )

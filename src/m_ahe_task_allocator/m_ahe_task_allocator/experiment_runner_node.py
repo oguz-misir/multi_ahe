@@ -45,7 +45,9 @@ from typing import Dict, List, Optional, Set
 
 import rclpy
 from rclpy.node import Node
+from rclpy.action import ActionClient
 from rcl_interfaces.msg import ParameterDescriptor
+from nav2_msgs.action import NavigateToPose
 
 import yaml
 
@@ -174,6 +176,21 @@ class ExperimentRunnerNode(Node):
         self._start_time: Optional[float] = None         # sim-time, set when experiment begins
         self._wall_experiment_start: float = time.monotonic()  # overwritten in _start_experiment
 
+        # Readiness-gated startup: sabit _startup_delay'i beklemek yerine her
+        # robotun NavigateToPose action server'ını (= bt_navigator ACTIVE) yokla.
+        # Hepsi hazır olunca min-settle sonrası başla; _startup_delay artık MAX
+        # timeout — o ana kadar hazır olmayan robot varsa startup FAILURE: DONE
+        # YAZMA, çöp veri kaydetme, kapan (driver yeniden koşar). Bu, yük/DDS
+        # kaynaklı bozuk startup'ları (gece batch'inde 9 çöp koşu) eler.
+        self._nav_ready_clients: Dict[str, ActionClient] = {}
+        self._startup_min_settle: float = 15.0
+        self._startup_all_ready_since: Optional[float] = None
+        self._startup_failed: bool = False
+        if self._startup_delay > 0.0:
+            for r in self._robots:
+                self._nav_ready_clients[r] = ActionClient(
+                    self, NavigateToPose, f'/{r}/navigate_to_pose')
+
         # Experiment state
         self._tasks: List[TS] = []
         self._task_map: Dict[str, TS] = {}
@@ -262,13 +279,48 @@ class ExperimentRunnerNode(Node):
     # ------------------------------------------------------------------
 
     def _check_startup(self) -> None:
-        if self._startup_done:
+        if self._startup_done or self._startup_failed:
             return
         elapsed_wall = time.monotonic() - self._node_start_time
+        ready = [r for r, c in self._nav_ready_clients.items() if c.server_is_ready()]
+        n_ready, n_total = len(ready), len(self._robots)
+
+        if n_ready >= n_total:
+            # Tüm Nav2 server'ları hazır → min-settle sonra başla
+            if self._startup_all_ready_since is None:
+                self._startup_all_ready_since = time.monotonic()
+                self.get_logger().info(
+                    f'Nav2: {n_ready}/{n_total} robot hazır ({elapsed_wall:.0f}s) — '
+                    f'{self._startup_min_settle:.0f}s settle...')
+            elif time.monotonic() - self._startup_all_ready_since >= self._startup_min_settle:
+                self._startup_done = True
+                self.get_logger().info(
+                    f'Nav2 startup complete ({n_ready}/{n_total} ready, '
+                    f'{elapsed_wall:.0f}s) — starting experiment.')
+                self._start_experiment()
+            return
+
+        # Henüz hepsi hazır değil — MAX timeout'a kadar bekle
         if elapsed_wall >= self._startup_delay:
-            self._startup_done = True
-            self.get_logger().info('Nav2 startup complete — starting experiment.')
-            self._start_experiment()
+            not_ready = [r for r in self._robots if r not in ready]
+            self.get_logger().error(
+                f'STARTUP FAILED: {n_ready}/{n_total} Nav2 hazır, '
+                f'{self._startup_delay:.0f}s sonra hazır olmayan: {not_ready}. '
+                f'DONE yazılmıyor (çöp veri yok) — kapanıyor.')
+            self._write_startup_failed(not_ready)
+            self._startup_failed = True
+            self._experiment_done = True
+            self.create_timer(2.0, self._shutdown_self)
+
+    def _write_startup_failed(self, not_ready: List[str]) -> None:
+        """Bozuk startup işareti — DONE DEĞİL. Driver bunu görür, hücreyi
+        DONE saymaz → yeniden koşar (çöp 0/50 DONE artık üretilmez)."""
+        try:
+            path = os.path.join(self._results_dir, 'STARTUP_FAILED')
+            with open(path, 'w') as f:
+                f.write(f'not_ready={",".join(not_ready)}\n')
+        except OSError:
+            pass
 
     def _start_experiment(self) -> None:
         now = self.get_clock().now().nanoseconds / 1e9
@@ -824,24 +876,47 @@ class ExperimentRunnerNode(Node):
         if makespan > EXPERIMENT_TIMEOUT_SEC:
             makespan = EXPERIMENT_TIMEOUT_SEC
 
-        # Average task delay (completion - activation per task)
-        delays = []
+        # Average task delay — FAIR (all-task, survivorship-bias-free). A method
+        # that DROPS hard tasks would otherwise post an artificially low delay
+        # because dropped tasks never enter the completed-only denominator. Every
+        # uncompleted task is censored at makespan (the experiment horizon) so
+        # dropping is penalised, not rewarded. Applied uniformly to all methods.
+        # Completed-only delay is retained alongside for transparency.
+        delays_all = []
+        delays_completed = []
         for task in self._tasks:
+            act_t = self._task_activation_wall.get(task.task_id, self._start_time or 0.0)
             if task.completed:
-                act_t = self._task_activation_wall.get(task.task_id, self._start_time or 0.0)
                 cmp_t = self._task_completion_wall.get(task.task_id, makespan)
-                delays.append(cmp_t - act_t)
-        avg_delay = sum(delays) / len(delays) if delays else 0.0
+                d = max(0.0, cmp_t - act_t)
+                delays_all.append(d)
+                delays_completed.append(d)
+            else:
+                delays_all.append(max(0.0, makespan - act_t))  # never finished → censored
+        avg_delay = sum(delays_all) / len(delays_all) if delays_all else 0.0
+        avg_delay_completed = (sum(delays_completed) / len(delays_completed)
+                               if delays_completed else 0.0)
 
-        # Deadline violation rate
+        # Deadline violation rate — FAIR: an unfinished task that carried a
+        # deadline counts as a violation; denominator = all deadline-bearing
+        # tasks (not just completed ones).
+        dl_tasks = 0
         dl_violated = 0
+        dl_violated_completed = 0
         for task in self._tasks:
+            deadline = self._task_deadline_wall.get(task.task_id, float('inf'))
+            has_dl = deadline != float('inf')
+            if has_dl:
+                dl_tasks += 1
             if task.completed:
                 cmp_t = self._task_completion_wall.get(task.task_id, 0.0)
-                deadline = self._task_deadline_wall.get(task.task_id, float('inf'))
-                if cmp_t > deadline:
+                if has_dl and cmp_t > deadline:
                     dl_violated += 1
-        dl_viol_rate = dl_violated / max(1, completed)
+                    dl_violated_completed += 1
+            elif has_dl:
+                dl_violated += 1  # unfinished deadline task → missed
+        dl_viol_rate = dl_violated / max(1, dl_tasks)
+        dl_viol_rate_completed = dl_violated_completed / max(1, completed)
 
         # Workload balance: 1 / (1 + variance)
         workload = [self._robot_tasks_completed.get(r, 0) for r in self._robots]
@@ -892,7 +967,9 @@ class ExperimentRunnerNode(Node):
             'task_completion_rate': f'{comp_rate:.4f}',
             'makespan_s': f'{makespan:.1f}',
             'average_task_delay': f'{avg_delay:.2f}',
+            'average_task_delay_completed': f'{avg_delay_completed:.2f}',
             'deadline_violation_rate': f'{dl_viol_rate:.4f}',
+            'deadline_violation_rate_completed': f'{dl_viol_rate_completed:.4f}',
             'total_travel_distance': f'{total_dist:.2f}',
             'workload_balance': f'{wb:.4f}',
             'failure_recovery_time': f'{fail_rec_time:.2f}',

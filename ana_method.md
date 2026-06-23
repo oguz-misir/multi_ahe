@@ -46,20 +46,20 @@ Inspection Environments**
 - **Karşılaştırma seti (G1, 4 yöntem):** `ahe_mrta_v3`, `big_mrta`, `rostam_ea`,
   `consensus_dbta`. Ablasyon paper kapsamı dışındadır.
 
-> **Not:** Yöntemde iyileştirmeler yapıldığından **tüm deneyler sıfırdan koşulacak**; önceki
-> koşum sonuçları geçersiz kılındı (§6 sayısal değerler temizlendi). Aşağıdaki tablo yapısal
-> durumdur, sonuç iddiası değildir.
+> **Durum (2026-06-23):** Yöntem **v45 (klasik EDPS) KİLİTLENDİ**; F50/F51/F52 reddedildi.
+> Tüm veri TAM (ground-truth), pipeline + makale (EN+TR) güncel. Ayrıntı §13.
 
 | İş | Durum |
 |---|---|
-| Gazebo G1, 3r/15g (4 yöntem × 3 senaryo × 5 seed = 60) | ◻ Sıfırdan koşulacak (yöntem güncellendi) |
-| Nav2-bağımsız fitness sim, 3r, ≥100 seed | ◻ Sıfırdan koşulacak |
-| İstatistik + figür + LaTeX tablo + paper (main.tex/main_tr.tex) | ◻ Yeni veriyle yeniden üretilecek |
-| Gazebo 5r/25g (Nav2 lifecycle düzeltmesi gerekir) | ◻ Planlandı |
-| Sim ölçeklenebilirlik sweep'i 3/5/10r (3600 koşu) | ◻ Planlandı |
-| seed=01 video çiftleri | ◻ Planlandı |
+| Gazebo GT 3r (4 yöntem × 3 senaryo × 5 seed × 3 yoğunluk = 180) | ✓ `results/raw/gazebo` |
+| Gazebo GT 5r/25g (60, birincil) | ✓ `results/raw/gazebo_5r_v45` |
+| Gazebo GT 10r/50g (60) | ✓ `results/raw/gazebo_10r_clean` |
+| Nav2-bağımsız fitness sim (5r/25t, 100 seed) + sweep (3/5/10r) | ✓ `sim_fitness.csv`, `sim_scalability.csv` |
+| İstatistik + figür + LaTeX tablo + yol-planları + paper | ✓ derlendi (0 çözümsüz ref) |
 
-**Ana sonuç özeti:** *(yeni koşum tamamlanınca yazılacak — şu an sonuç değeri yoktur; §6.)*
+**Ana sonuç özeti:** AHE = Consensus-DBTA ile **eş-lider fitness** (Düzlem A, nav-bound tavan)
++ **150-340× latency** + Gazebo'da **%100 tamamlama / en düşük robot_failure DVR / en düşük churn**
+(Düzlem B). Detay §6/§13.
 
 ---
 
@@ -129,6 +129,24 @@ workload_variance     = variance(queue_length_per_robot)
 allocation_instability= reassigned_task_count / active_task_count
 ```
 
+### 3.2.1. Bağlam boyutu ablasyonu (Düzlem A)
+
+`scripts/ablate_context.py` her boyutu 0'a maskeler (sinyal yok) ve uçtan-uca
+etkiyi ölçer — maske dominance güncellemesini, kosinüs-uyumluluğu VE sert
+override'ları birlikte etkiler. 60-seed tarama + 100-seed teyit (v4.2,
+3r15t, 2026-06-12):
+
+| Çıkarılan | Etki (fitness / DVR) | Yorum |
+|---|---|---|
+| c5 arıza | ms 0.491→0.403 (−8.8pp), rf −2.4pp | **Kritik** — H_RECOV override + boost + W_RECOVERY blend'i taşır |
+| c4 deadline | dp DVR 0.004→0.072 (18×) | **Kritik** — H_TEMP override'ı taşır; fitness'a değil DVR'a yansır |
+| c1, c2, c3, c6, c7 | Δ≤0.3pp (tekli ve kombolar) | Etkisiz/yedek — c2, c5'in tümleyeni; c3 sim'de nadir tetiklenir; c7 v4.2 sonrası ~0 |
+
+Karar: vektör 7 boyutlu kalır — çıkarmak ölçülebilir kazanç sağlamaz;
+c3/c2 Gazebo'da (gerçek batarya düşüşü, kısmi uygunluk) sigorta görevi
+görür. Tablo makaleye "neden 7 boyut?" gerekçesi olarak girer
+(100-seed değerleriyle).
+
 ## 3.3. Dominance güncellemesi ve paradigma seçimi (gerçek uygulama)
 
 `ecosystem_manager_node.py` şu denklemi kullanır (`c(t)` = bağlam vektörü):
@@ -176,6 +194,60 @@ DEADLINE_SLACK = 80 (s);  softmax T = 0.3;  α = 0.85
 
 failure_rate > 0.05 → `failure_active` (recovery_hold=4); aktifken
 `W = (1−blend)·W_base + blend·W_RECOVERY`, `blend = min(0.80, 0.50 + failure_rate·0.60)`.
+
+## 3.4.1. Kararlılık mekanizmaları (v4.1–v4.2)
+
+Minimal-bozulma yeniden planlama ilkesi: yeniden tahsis sıfırdan değil, önceki
+plan korunarak yapılır; yürüyen/çapalı atamalar yalnızca gerekçeli nedenlerle
+(yetimleşme, rescue, yakın deadline) bozulur.
+
+```python
+# v4.1
+PARADIGM_DWELL = 4          # F23: paradigma değişimine 4-çağrı histerezis
+                            #      (H_RECOV bypass eder; reaktiflik korunur)
+# v4.2 — kök neden: reassignment'ların %85'i A→B→A ping-pong'du;
+# baskın kaynak stuck-preempt'in kuyruğu toptan boşaltması + arızada
+# NOOP/sticky/commit-lock üçünün birden devre dışı kalması.
+F26_SCOPED_FAILURE_STICKY = True   # arızada sticky yalnız yetimler için kapanır
+F27_REASSIGN_MARGIN = 0.10         # robot değişimi ancak varış ≥%10 iyileşirse
+                                   # (kalıcı _assign_history üzerinden; muaf:
+                                   #  yetim, rescue, URGENT_HORIZON içi)
+F28_DEADLINE_AWARE_PREEMPT = True  # stuck kuyruğu toptan boşaltılmaz; yalnız
+F28_STUCK_WAIT_EST = 60.0          # bekleme(60s)+varış > deadline olan görevler
+                                   # yetim havuzuna düşer
+# (F25_INPROGRESS_LOCK = False — kuyruk yaşam döngüsünde görev tamamlanana
+#  dek kuyrukta kaldığından hem sim'de hem Gazebo'da no-op; bayrak duruyor)
+```
+
+100-seed doğrulama (2026-06-12): sim kararsızlık 4.0 → **0.2–0.4** (~12×,
+baseline bandı; Cons 0.11, BiG 0.11), fitness korunur: rf 0.503★ (1.),
+ms 0.500 (Cons 0.506'ya −0.6pp ≈ SE/2), dp 0.447; 5r/10r ortalamada 1.lik
+sürer. Regresyon kuralı: F26=False, F27=0, F28=False → v4.1 bit-özdeş.
+Sim yeniden-atamayı bedelsiz modellediğinden bu paketin asıl getirisi
+Gazebo'da beklenir (her yeniden-atama = Nav2 yol iptali + yeniden katetme).
+
+### 3.4.2. F30 ablasyonu — kuyruk sıralaması (cheapest REDDEDİLDİ)
+
+dp sim fitness'ta AHE'nin BiG'in hafif gerisinde görünmesi araştırıldı.
+Sistematik eleme (rescue penceresi, atama ağırlıkları, kuyruk derinliği,
+TOPTW prize-insertion, hız-kalibrasyonu) açığı kapatmadı; yalnız **EDF →
+cheapest-insertion** sıralaması sim dp'yi ~0.005 artırdı (EDF aşırı yükte
+"domino-kaçırma" yapar).
+
+**Ancak cheapest çift-düzlem doğrulamasında REDDEDİLDİ:**
+1. **Gazebo regresyonu:** r3t9 dp'de cheapest CR 0.889→0.778, DVR
+   0.044→0.190 (4.3×), makespan 429→745 s. Sim temiz-nav'da sıralamayı
+   önemsemez; gerçek Nav2 gecikmeleriyle EDF'in aciliyet-önceliği
+   deadline-uyumu için gereklidir.
+2. **Açık zaten gürültüydü:** 200 eşleştirilmiş tohumda EDF ile de dp
+   AHE 0.4559 vs BiG 0.4583 (p=0.49 → istatistiksel parite). 100-tohumdaki
+   "0.447 vs 0.461" örnekleme gürültüsüydü; mimari değişikliğe gerek yok.
+
+→ **EDF (M18) korundu.** 200 tohumda AHE 9/9 senaryo×ölçek hücresinde
+en iyi baseline ile parite veya önde (5r rf/ms anlamlı önde). Metodolojik
+ders: önerilen iyileştirme ideal-sim'e değil **gerçek sisteme (Gazebo)** karşı
+doğrulanır; regresyon görülünce reddedilir. (F30 bayrağı `USE_EDF_ORDER`
+kodda ablasyon için durur; varsayılan True.)
 
 ## 3.5. Karmaşıklık ve maliyet
 
@@ -563,23 +635,29 @@ failure/queue), `method_runtime.csv` (latency), `communication_metrics.csv`,
 - `plot_results.py` → PNG figürler.
 - `generate_scenario_maps.py` → senaryo haritaları (`scenario_map_*.png`).
 
-**CSV → PNG haritası:**
+**CSV → PNG haritası (paper figür seti — plot_results.py bunların tamamını ve
+yalnızca bunları üretir; main.tex referanslarıyla birebir):**
 
-| Kaynak CSV | PNG | Tip | Kapsam |
-|---|---|---|---|
-| `summary.csv` | `baseline_comparison_multi_metric.png` | çok-panel bar+error | Ana |
-| `ecosystem_metrics.csv` + `allocation_events.csv` | `dominance_evolution.png` | line + event marker | Ana |
-| `summary.csv` + `allocation_events.csv` | `failure_recovery.png` | bar/box | Ana |
-| `processed/sim_scalability.csv` | `scalability_panel.png` | çok-panel line (fitness/CR/recovery/latency vs robot) | Ana |
-| `communication_metrics.csv` | `communication_footprint.png` | bar/box | Supp. |
-| `method_runtime.csv` | `decision_latency.png` | boxplot | Supp. |
-| `task_events.csv` | `fitness_progression.png` | cumulative line + event marker | **Ana (Fig. 7)** |
-| `task_events.csv` | `task_completion_timeline.png` | cumulative line | Supp. |
-| `robot_workload.csv` | `workload_distribution.png` | boxplot | Supp. |
+| Kaynak | PNG | Tip |
+|---|---|---|
+| statik diyagram | `system_overview.png` | mimari |
+| statik diyagram | `adaptive_ecosystem_mechanism.png` | EDPS akışı |
+| `processed/sim_fitness.csv` | `fitness_comparison.png` | gruplu bar (3 senaryo × 4 yöntem) |
+| `processed/sim_scalability.csv` | `scalability_panel.png` | 2×2 line (fitness/CR/recovery/latency vs N) |
+| `all_summary.csv` (3r) | `baseline_comparison_multi_metric.png` | 6-panel bar+err |
+| `gazebo_10r/all_summary.csv` | `baseline_comparison_10r.png` | 6-panel bar+err |
+| `all_summary.csv` | `failure_recovery.png` | 3-panel bar (robot_failure) |
+| `all_ecosystem_metrics.csv` + `all_task_events.csv` + `all_summary.csv` | `dominance_recovery_panel.png` | dominance + kümülatif CR + 3 bar |
+| `all_communication.csv` | `communication_footprint.png` | 2-panel bar (log+linear) |
+| `all_task_events.csv` | `task_completion_timeline.png` | kümülatif line (rf+ms) |
+| `generate_scenario_maps.py` | `scenario_maps_panel.png` | 1×3 harita paneli |
+| ekran görüntüsü montajı | `gazebo_rviz_combined.png` | Gazebo+RViz görsel |
 
-**Figür stili (tek yer):** 300 dpi; font 8–9; tek sütun ~3.5", çift ~7.0"; error bar = std
-veya %95 CI; yöntem sırası sabit; önerilen yöntem vurgulu; metrik yönü caption'da. **Radar
-chart kullanılmaz** (ters normalizasyon hakem kafası karıştırır).
+**Figür stili (tek yer):** 300 dpi; taban font 10, tick 9; tek sütun ~3.5", çift ~7.0";
+Okabe–Ito renk körü dostu palet (AHE=vermilyon `#D55E00`, BiG=mavi `#0072B2`,
+RoSTAM=yeşil `#009E73`, Cons=mor `#CC79A7`); error bar = std; yöntem sırası sabit,
+önerilen yöntem son ve kalın kenarlı; figür numarası görüntü içinde DEĞİL caption'da.
+**Radar chart kullanılmaz** (ters normalizasyon hakem kafası karıştırır).
 
 ---
 
@@ -718,42 +796,44 @@ show. Then stop and report.
 
 ---
 
-# 13. Mevcut Durum ve Kalan İşler (2026-06-04)
+# 13. Mevcut Durum ve Kalan İşler (2026-06-23)
 
-## 13.1. Hazır altyapı (sonuç verisi YOK — yöntem güncellendi, sıfırdan koşulacak)
+## 13.1. Tamamlanan durum
 
-> Aşağıdakiler **araç/pipeline** olarak hazırdır; ürettikleri **sonuç verileri geçersiz
-> kılındı** (yöntem iyileştirmesi sonrası tüm deneyler sıfırdan koşulacak). Eski sayısal
-> sonuçlar §6'dan temizlendi.
+**Yöntem KİLİTLENDİ: AHE = v45 (klasik EDPS).** F50 (hafif statik seçici), F51 (max-on-time
+route) ve F52 (öncelik-baskın sıralama) sim'de doğrulandı ve **REDDEDİLDİ** (marjinal/zararlı;
+ablasyon bayrakları ve kodları kaldırıldı). Derin iyileştirme analizi (7 bağımsız test): sim
+fitness **pozisyon-tabanlı nav-failure-bound** (~14/25 tamamlama tavanı tüm yöntemlerde),
+**AHE ≈ Consensus-DBTA Pareto-frontier eşit**; realize edilebilir allocation iyileştirmesi yok
+(p-hacking reddi, projenin tutarlı kalıbı).
 
-| Araç (yeniden kullanılır) | Not |
-|---|---|
-| G1 Gazebo runner | `run_paper_experiments_v3.sh` — yeniden koşulacak |
-| Fitness simülatörü | `simulate_and_tune.py` — yeniden koşulacak |
-| İstatistik | `statistical_analysis.py` — Mann-Whitney U + Bonferroni |
-| LaTeX tablo + figür pipeline | `plot_results.py`, `make_extra_tables.py`, `results/figures/` |
-| Paper iskeleti | `main.tex`/`main_tr.tex` (yeni veriyle yeniden derlenecek) |
-| Arena + senaryo figürleri | `gazebo_arena.png`; `scenario_maps_panel.png` (`scripts/generate_scenario_maps.py`) |
+**Lokalizasyon: ground-truth** (statik `map→odom`, başlangıç pozu). AMCL terk edildi (5r'de
+temelden sapıyor; katkı = allocation, lokalizasyon değil → ground-truth bilimsel savunulabilir,
+kasıtlı deneysel kontrol; §12 limitation).
 
-## 13.2. Kalan işler
+**Veri TAM (hepsi ground-truth):**
+| Düzlem | Veri | Durum |
+|---|---|---|
+| A — Nav2-bağımsız sim | `sim_fitness.csv` (5r/25t 100 tohum), `sim_scalability.csv` (3/5/10) | ✓ taze v45 |
+| B — Gazebo GT 3r | `results/raw/gazebo` (180 deney, yoğunluk sweep 9/15/24) | ✓ |
+| B — Gazebo GT 5r | `results/raw/gazebo_5r_v45` (60 deney, birincil) | ✓ kanonik |
+| B — Gazebo GT 10r | `results/raw/gazebo_10r_clean` (60 deney) | ✓ |
 
-**Ölçeklenebilirlik:**
-- ✓ `simulate_and_tune.py` sim matris (3/5/10r × 100 seed) → `sim_matrix.csv`, `sim_fitness.csv`, `sim_scalability.csv`
-- ✓ `plot_results.py` → `scalability_panel.png` (sim sweep)
-- ✓ Gazebo 3r/15g (60 deney + yoğunluk sweep 180 deney) tamamlandı
-- 🔄 Gazebo 5r/25g (60 deney) — devam ediyor (~18/60 DONE)
-- ◻ Gazebo 10r/50g — F6 fazı (5r bittikten sonra):
-  - F6-A: `multi_robot_nav2.launch.py` lifecycle stagger idx×8s (10r için), `run_experiments_robust.sh` timeout 1800s
-  - F6-B: 10r smoke test (1 seed × ahe_mrta_v3 × robot_failure × 10r/50g)
-  - F6-C: Smoke PASS → full 10r batch (60 deney, ~25 saat)
-- ◻ Pipeline yeniden çalıştır (3r+5r+10r birleştir) → `scalability_panel.png` Gazebo 3 nokta overlay
-- ◻ Paper Table 4 ölçeklenebilirlik tablosuna Gazebo 10r kolonu ekle; §12 limitation'ı kaldır
+**Pipeline + makale TAM:** consolidate/stats/plots/extra_tables v45'e bağlı; **yol-planları**
+(`results/figures/path_grids/`, 4 yöntem hizalı, 3 ölçek × 3 senaryo); `main.tex` + `main_tr.tex`
+iki-düzlem (Düzlem A sim eş-liderlik + Düzlem B Gazebo GT üstünlük), 0 çözümsüz ref, derlendi
+(EN 16sf + TR 17sf).
 
-**Diğer:**
-- ◻ Video: seed=01 × 4 yöntem × 3 senaryo = 12 çift × 3 ölçek (3r+5r+10r = 36 çift)
-- ◻ Related work güncellemesi (2023 sonrası: MRTA SLR, SMT-based, warehouse, RL/MARL/GNN,
-  fault-tolerant)
-- ◻ Reviewer'a göre tablo içeriği ayarı
+**Manşet (dürüst):** AHE = en güçlü baseline (Consensus-DBTA) ile **eş-lider fitness** (A deadline
+1.=0.482, rf eşit=0.540, mixed −0.001) + **150-340× latency üstünlüğü** + Gazebo'da **%100
+tamamlama / en düşük deadline-ihlali (robot_failure) / en düşük gerçek churn**.
+
+## 13.2. Kalan işler (opsiyonel)
+- Gazebo prose'undaki bireysel CR/DVR/latency sayılarının her birini stats CSV'leriyle tek tek
+  çapraz-doğrulama (LaTeX tablolar otomatik `\input`, güncel).
+- 3r/10r yol-planı grid'lerini ek figür olarak ekleme (şu an yalnız 5r setup figüründe).
+- Related work 2023-sonrası güncelleme (MRTA SLR, SMT-based, RL/MARL/GNN, fault-tolerant).
+- Yedek/dead-end veriler `results/_depo_archive/`'a alındı (silme yerine arşiv politikası).
 
 ## 13.3. Temel kaynaklar
 
@@ -777,3 +857,9 @@ güncel hatlarla (yukarıda) genişletilmeli.
 > vs robot) + Table 4 genişletildi; **§7.5 congestion-aware Nav2 + recovery** (kod: A1/A3
 > `nav2_params.yaml`, B1 `robot_interface_node.py` uygulandı; A2/B2 aşamalı). Güncel: **7 ana
 > figür (bütçe 6) + 4 ana tablo**.
+>
+> **Revizyon (2026-06-23):** Yöntem **v45 (klasik EDPS) kilitlendi**; F50/F51/F52 sim'de
+> doğrulanıp reddedildi (kod+bayraklar kaldırıldı). **AMCL terk → ground-truth** (katkı=allocation).
+> Sonuç çerçevesi **eş-liderlik** (AHE≈Consensus-DBTA, fitness nav-bound) + Gazebo GT üstünlük
+> (latency/tamamlama/churn). Tüm veri TAM, paper EN+TR derlendi. **Yol-planları** eklendi
+> (`path_grids/`). §1.3 ve §13 güncel duruma çekildi. Dead-end/yedek veriler `results/_depo_archive/`.

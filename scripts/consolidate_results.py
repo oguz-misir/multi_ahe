@@ -10,9 +10,16 @@ Usage:
 
 import argparse
 import os
+import sys
 import yaml
 import pandas as pd
 from pathlib import Path
+
+# Reuse the physical (method-independent) stability metrics so all_summary.csv
+# carries exec_preemptions / task_redispatch / redispatch_per_task instead of
+# the flawed call-cadence counters (allocation_instability, replanning_frequency).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from recompute_stability_metrics import compute_for_exp  # noqa: E402
 
 RAW_FILES = [
     "task_events.csv",
@@ -78,6 +85,12 @@ def consolidate(raw_dir: Path, processed_dir: Path) -> None:
             try:
                 df = pd.read_csv(fpath)
                 df = inject_meta(df, meta, exp_id)
+                if fname == "summary.csv":
+                    stab = compute_for_exp(exp_dir)
+                    if stab:
+                        df["exec_preemptions"] = stab["exec_preemptions"]
+                        df["task_redispatch"] = stab["task_redispatch"]
+                        df["redispatch_per_task"] = stab["redispatch_per_task"]
                 frames[fname].append(df)
             except Exception as e:
                 print(f"[ERROR] {exp_id}/{fname}: {e}")

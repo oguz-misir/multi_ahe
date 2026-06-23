@@ -28,13 +28,26 @@ cleanup_ros_gz() {
     pkill -TERM -f "robot_interface_node|robot_state_pub"     2>/dev/null || true
     pkill -TERM -f "parameter_bridge|ros_gz_bridge"           2>/dev/null || true
     pkill -TERM -f "amcl|bt_navigator|controller_server|planner_server|map_server|lifecycle_manager" 2>/dev/null || true
+    # KRİTİK: robot başına spawn olan TF/odom yardımcıları (10r'de 40 süreç/deney).
+    # Önceki pattern'lerde YOKTU → her temizlikten sağ çıkıp batch boyunca birikir,
+    # geç koşan deneyleri (AHE 10r en son) CPU'dan aç bırakır → Nav2 heartbeat
+    # hatası → goal reddi → donmuş robotlar. 10r "freeze" artefaktının kökü buydu.
+    pkill -TERM -f "static_transform_publisher|odom_to_tf"    2>/dev/null || true
     sleep 8
     pkill -KILL -f "gz sim|gz_server|gzserver|gzclient|parameter_bridge|ros_gz_bridge" 2>/dev/null || true
     pkill -KILL -f "experiment_runner_node|ecosystem_manager|robot_interface_node"     2>/dev/null || true
     pkill -KILL -f "amcl|bt_navigator|controller_server|planner_server|map_server|lifecycle_manager" 2>/dev/null || true
+    pkill -KILL -f "static_transform_publisher|odom_to_tf"    2>/dev/null || true
     pkill -KILL -f "robot_state_pub|ros2"                     2>/dev/null || true
-    rm -f /dev/shm/fastrtps_* /tmp/fastrtps_* 2>/dev/null || true
-    rm -f /dev/shm/gz_* /tmp/gz_* /dev/shm/sem.* 2>/dev/null || true
+    # ros2 daemon + FastDDS SHM tam temizliği. Ardışık launch'larda fastrtps SHM
+    # port/segment'leri serbest bırakılmazsa 'open_and_lock_file failed' → TF ağacı
+    # kopar, Nav2 lifecycle ayağa kalkamaz → startup sonsuza takılır. Bu yüzden
+    # daemon'u durdur ve TÜM fastrtps/datasharing/sem segmentlerini sil.
+    ros2 daemon stop >/dev/null 2>&1 || true
+    rm -f /dev/shm/fastrtps_* /tmp/fastrtps_*           2>/dev/null || true
+    rm -f /dev/shm/fast_datasharing_* /dev/shm/fastdds_* 2>/dev/null || true
+    rm -f /dev/shm/sem.fastrtps_* /dev/shm/sem.fast_*    2>/dev/null || true
+    rm -f /dev/shm/gz_* /tmp/gz_* /dev/shm/sem.*         2>/dev/null || true
     sleep "$SETTLE_SLEEP"
 }
 
@@ -88,4 +101,21 @@ record_done() {
         EXPECTED_TOTAL="${expected:-${EXPECTED_TOTAL:-60}}" \
             bash "$REPO/scripts/exp_status.sh" --results-dir "$rdir" --quiet 2>/dev/null || true
     fi
+}
+
+# run_health_ok <launch_log> — AMCL/lokalizasyon sağlık kontrolü.
+# DONE üreten ama AMCL sapması yüzünden BOZUK veri içeren koşumları yakalar:
+# robot harita DIŞINA konumlandığında planner sürekli "outside bounds" der.
+# Birkaç geçici uyarı normal; HEALTH_OOB_MAX'tan fazlası = kalıcı sapma → retry.
+# Dönüş: 0 = sağlıklı, 1 = bozuk (yeniden denenmeli).
+run_health_ok() {
+    local lg="$1"
+    [ -f "$lg" ] || return 0          # log yoksa karar verme (eski davranış)
+    local oob
+    oob=$(grep -c "outside bounds" "$lg" 2>/dev/null || echo 0)
+    if [ "${oob:-0}" -gt "${HEALTH_OOB_MAX:-8}" ]; then
+        echo "  [health] AMCL sapması: $oob × 'outside bounds' (> ${HEALTH_OOB_MAX:-8})"
+        return 1
+    fi
+    return 0
 }

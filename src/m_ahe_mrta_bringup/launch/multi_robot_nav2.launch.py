@@ -337,8 +337,12 @@ def _launch_setup(context, *_args, **_kwargs):
 
     all_nodes = [gazebo]
     if robot_count >= 10:
-        stagger_eager_s = 20.0
-        lc_offset_s = 30.0
+        # 10s/robot (was 20s): at 20s, the last robot's Nav2 did not finish
+        # activating until ~210s+ under load, which exceeded the video capture
+        # window so the experiment never dispatched goals. 10s still spaces the
+        # lifecycle configure/activate enough to avoid concurrent executor overload.
+        stagger_eager_s = 10.0
+        lc_offset_s = 20.0
         for idx, (robot_ns, (sx, sy)) in enumerate(zip(namespaces, positions)):
             params_file = _make_nav2_params(template, robot_ns, map_yaml, sx, sy)
             eager_delay = idx * stagger_eager_s

@@ -40,3 +40,12 @@ venv/
 
 # Claude Code session
 .claude/
+
+# Tüm results/ outputs + arşiv (raw zaten yukarıda; outputs regenerable, _depo_archive büyük)
+results/
+# LaTeX build artefaktları (tex/pdf/cls/bst commit edilir)
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc

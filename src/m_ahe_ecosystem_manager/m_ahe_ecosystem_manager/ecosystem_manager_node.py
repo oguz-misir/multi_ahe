@@ -331,13 +331,12 @@ class EcosystemManagerNode(Node):
         )
         ctx[C_ROBOT_AVAIL] = avail / robot_count
 
-        # C2: battery_risk (fraction of robots with LOW or CRITICAL battery)
-        batt_risk = sum(
-            1 for r in self._robots
-            if (s := self._robot_states.get(r)) is not None
-            and s.battery_state >= 1
-        )
-        ctx[C_BATT_RISK] = batt_risk / robot_count
+        # C2 (battery_risk), C5 (workload_variance) ve C6 (allocation_instability)
+        # DEVRE DIŞI: bağlam ablasyonu bu üç sinyalin GEREKSİZ olduğunu gösterdi
+        # (çıkarılınca fitness değişimi 0.000). Sıfırda bırakılır ve (daha pahalı
+        # olan) hesapları atlanır → dört bilgilendirici sinyal kalır: görev
+        # yoğunluğu, robot uygunluğu, deadline baskısı, arıza oranı.
+        ctx[C_BATT_RISK] = 0.0
 
         # C3: deadline_pressure
         # For now use a simple proxy: fraction of active tasks with non-zero deadline
@@ -357,24 +356,9 @@ class EcosystemManagerNode(Node):
         )
         ctx[C_FAILURE] = failed_stuck / robot_count
 
-        # C5: workload_variance
-        queue_lens = []
-        for r in self._robots:
-            s = self._robot_states.get(r)
-            # Use navigation_state as proxy: if navigating, count 1
-            if s is not None:
-                queue_lens.append(1 if s.navigation_state == 1 else 0)
-            else:
-                queue_lens.append(0)
-        if queue_lens:
-            arr = np.array(queue_lens, dtype=float)
-            ctx[C_WORKLOAD_VAR] = min(1.0, float(np.var(arr)))
-
-        # C6: allocation_instability
-        ctx[C_ALLOC_INSTAB] = min(
-            1.0,
-            self._reassigned_this_cycle / max(1, active_count),
-        )
+        # C5 (workload_variance), C6 (allocation_instability): DEVRE DIŞI (yukarı bak).
+        ctx[C_WORKLOAD_VAR] = 0.0
+        ctx[C_ALLOC_INSTAB] = 0.0
 
         return ctx
 
