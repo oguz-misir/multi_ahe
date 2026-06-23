@@ -47,14 +47,12 @@ from m_ahe_mrta_msgs.msg import (
 # AHE constants
 # ---------------------------------------------------------------------------
 
-K = 7  # number of strategy agents
+K = 5  # number of strategy agents (v4.6: energy/resource hormonları kaldırıldı)
 
 HEURISTIC_NAMES = [
     'SpatialOpportunist',
     'CriticalityGuardian',
     'TemporalRegulator',
-    'ResourceDistributor',
-    'EnergyConservator',
     'StabilityController',
     'RecoveryCoordinator',
 ]
@@ -63,51 +61,40 @@ HEURISTIC_NAMES = [
 H_SPATIAL = 0
 H_CRIT = 1
 H_TEMP = 2
-H_RES = 3
-H_ENERGY = 4
-H_STAB = 5
-H_RECOV = 6
+H_STAB = 3
+H_RECOV = 4
 
-# Context vector dimensions (0-based)
+# Context vector dimensions (0-based) — 4-dim (battery/workload/instab kaldırıldı)
 C_TASK_DENSITY = 0
 C_ROBOT_AVAIL = 1
-C_BATT_RISK = 2
-C_DEADLINE = 3
-C_FAILURE = 4
-C_WORKLOAD_VAR = 5
-C_ALLOC_INSTAB = 6
+C_DEADLINE = 2
+C_FAILURE = 3
 
 # ---------------------------------------------------------------------------
 # Cooperation matrix A  (A[i,j] > 0: h_j reinforces h_i)
 # ---------------------------------------------------------------------------
 A = np.zeros((K, K))
-A[H_RECOV, H_ENERGY] = 0.30   # Recovery ← Energy Conservator
 A[H_TEMP,  H_CRIT]   = 0.20   # Temporal  ← Criticality Guardian
 A[H_RECOV, H_STAB]   = 0.20   # Recovery  ← Stability Controller
-A[H_RES,   H_SPATIAL] = 0.20  # Resource  ← Spatial Opportunist
 
 # ---------------------------------------------------------------------------
 # Suppression matrix S  (S[i,j] > 0: h_j suppresses h_i)
 # ---------------------------------------------------------------------------
 S = np.zeros((K, K))
 S[H_SPATIAL, H_TEMP]   = 0.30  # Spatial suppressed by Temporal (deadline)
-S[H_SPATIAL, H_ENERGY] = 0.30  # Spatial suppressed by Energy (battery risk)
-S[H_RES,     H_CRIT]   = 0.20  # Resource suppressed by Criticality Guardian
 
 # ---------------------------------------------------------------------------
 # Context prototype vectors v_i  (K×K, row i = prototype for h_i)
 # Each value in [0,1]; high = "h_i is effective in this context dimension"
 # ---------------------------------------------------------------------------
 V = np.array([
-    # td   ra   br   dp   fr   wv   ai
-    [0.7, 0.7, 0.1, 0.1, 0.1, 0.3, 0.1],   # Spatial Opportunist
-    [0.3, 0.5, 0.1, 0.8, 0.2, 0.1, 0.2],   # Criticality Guardian
-    [0.5, 0.5, 0.1, 0.9, 0.1, 0.1, 0.1],   # Temporal Regulator
-    [0.8, 0.3, 0.1, 0.3, 0.1, 0.9, 0.3],   # Resource Distributor
-    [0.3, 0.3, 0.9, 0.2, 0.2, 0.2, 0.2],   # Energy Conservator
-    [0.3, 0.3, 0.3, 0.3, 0.8, 0.3, 0.3],   # Stability Controller
-    [0.3, 0.2, 0.3, 0.2, 0.9, 0.3, 0.8],   # Recovery Coordinator
-])  # shape (K, 7_context_dims)
+    # td   ra   dp   fr
+    [0.7, 0.7, 0.1, 0.1],   # Spatial Opportunist
+    [0.3, 0.5, 0.8, 0.2],   # Criticality Guardian
+    [0.5, 0.5, 0.9, 0.1],   # Temporal Regulator
+    [0.3, 0.3, 0.3, 0.8],   # Stability Controller
+    [0.3, 0.2, 0.2, 0.9],   # Recovery Coordinator
+])  # shape (K, 4_context_dims)
 
 # ---------------------------------------------------------------------------
 # Heuristic-to-cost-weight mapping matrix M  (7_weights × K)
@@ -115,14 +102,14 @@ V = np.array([
 # Row = cost weight dimension, Col = heuristic
 # ---------------------------------------------------------------------------
 M = np.array([
-    # so    cg    tr    rd    ec    sc    rc
-    [0.9,  0.1,  0.1,  0.3,  0.3,  0.3,  0.3],  # w_d (distance)
-    [0.1,  0.9,  0.5,  0.1,  0.1,  0.5,  0.1],  # w_p (priority)
-    [0.1,  0.1,  0.1,  0.1,  0.9,  0.3,  0.3],  # w_b (battery)
-    [0.1,  0.1,  0.1,  0.9,  0.1,  0.1,  0.3],  # w_l (load)
-    [0.1,  0.1,  0.1,  0.1,  0.3,  0.9,  0.9],  # w_f (failure)
-    [0.1,  0.5,  0.9,  0.1,  0.1,  0.1,  0.1],  # w_t (deadline)
-    [0.1,  0.1,  0.1,  0.1,  0.3,  0.3,  0.9],  # w_r (recovery)
+    # so    cg    tr    sc    rc
+    [0.9,  0.1,  0.1,  0.3,  0.3],  # w_d (distance)
+    [0.1,  0.9,  0.5,  0.5,  0.1],  # w_p (priority)
+    [0.1,  0.1,  0.1,  0.3,  0.3],  # w_b (battery)
+    [0.1,  0.1,  0.1,  0.1,  0.3],  # w_l (load)
+    [0.1,  0.1,  0.1,  0.9,  0.9],  # w_f (failure)
+    [0.1,  0.5,  0.9,  0.1,  0.1],  # w_t (deadline)
+    [0.1,  0.1,  0.1,  0.3,  0.9],  # w_r (recovery)
 ])  # shape (7_weights, K)
 
 # Dominance update hyperparameters
@@ -236,9 +223,7 @@ class EcosystemManagerNode(Node):
             ['timestamp_s',
              'dominant_heuristic', 'dominant_value',
              'context_task_density', 'context_robot_avail',
-             'context_battery_risk', 'context_deadline',
-             'context_failure_rate', 'context_workload_var',
-             'context_alloc_instab',
+             'context_deadline', 'context_failure_rate',
              'w_d', 'w_p', 'w_b', 'w_l', 'w_f', 'w_t', 'w_r']
             + [f'd_{h.lower()}' for h in HEURISTIC_NAMES]
         )
@@ -314,16 +299,18 @@ class EcosystemManagerNode(Node):
     # ------------------------------------------------------------------
 
     def _compute_context(self) -> np.ndarray:
-        ctx = np.zeros(7)
+        # 4-boyutlu context: [td, ra, dp, fr]. battery/workload/instab boyutları
+        # ablasyonda gereksiz çıktı (Δfitness=0) → kaldırıldı (makale §III-A).
+        ctx = np.zeros(4)
         robot_count = max(1, self._robot_count)
 
         active_tasks = [t for t in self._pool if t.active and not t.completed]
         active_count = len(active_tasks)
 
-        # C0: task_density
+        # c1: task_density
         ctx[C_TASK_DENSITY] = min(1.0, active_count / robot_count)
 
-        # C1: robot_availability
+        # c2: robot_availability
         avail = sum(
             1 for r in self._robots
             if (s := self._robot_states.get(r)) is not None
@@ -331,34 +318,20 @@ class EcosystemManagerNode(Node):
         )
         ctx[C_ROBOT_AVAIL] = avail / robot_count
 
-        # C2 (battery_risk), C5 (workload_variance) ve C6 (allocation_instability)
-        # DEVRE DIŞI: bağlam ablasyonu bu üç sinyalin GEREKSİZ olduğunu gösterdi
-        # (çıkarılınca fitness değişimi 0.000). Sıfırda bırakılır ve (daha pahalı
-        # olan) hesapları atlanır → dört bilgilendirici sinyal kalır: görev
-        # yoğunluğu, robot uygunluğu, deadline baskısı, arıza oranı.
-        ctx[C_BATT_RISK] = 0.0
-
-        # C3: deadline_pressure
-        # For now use a simple proxy: fraction of active tasks with non-zero deadline
-        # A proper implementation uses clock vs deadline comparison
-        now_s = self.get_clock().now().nanoseconds / 1e9
+        # c3: deadline_pressure (fraction of active tasks near their deadline)
         near_deadline = sum(
             1 for t in active_tasks
             if t.deadline > 0 and t.deadline < 60.0
         )
         ctx[C_DEADLINE] = near_deadline / max(1, active_count)
 
-        # C4: failure_rate
+        # c4: failure_rate
         failed_stuck = sum(
             1 for r in self._robots
             if (s := self._robot_states.get(r)) is not None
             and (s.failure_flag or s.navigation_state in (2, 3))  # STUCK or FAILED
         )
         ctx[C_FAILURE] = failed_stuck / robot_count
-
-        # C5 (workload_variance), C6 (allocation_instability): DEVRE DIŞI (yukarı bak).
-        ctx[C_WORKLOAD_VAR] = 0.0
-        ctx[C_ALLOC_INSTAB] = 0.0
 
         return ctx
 
@@ -406,7 +379,6 @@ class EcosystemManagerNode(Node):
         boost[H_STAB]  = failure_rate * 0.4
         # Suppress spatially-greedy heuristics during failure (they ignore robot state)
         boost[H_SPATIAL] = -failure_rate * 0.3
-        boost[H_RES]     = -failure_rate * 0.2
 
         return boost
 
