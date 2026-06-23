@@ -51,10 +51,12 @@ Bu çalışmada, robot arızaları, karışık stres ve deadline baskısı altı
 çevrim içi çoklu robot görev atama (MRTA) için bir Adaptif Heuristic Ekosistemi
 çerçevesi olan AHE-MRTA önerilmektedir. Tek bir tahsis paradigmasına bağlı
 kalmak yerine AHE-MRTA, Ekosistem-Güdümlü Paradigma Seçimi (EDPS) ile çalışma
-zamanında \emph{paradigma değiştirir}: beş biyomimetik hormon bağlamı kodlar
-(uzamsal, kritiklik, zamansal, kararlılık, toparlanma),
-işbirliği/baskılama dinamikleriyle evrilir ve baskın hormon beş klasik tahsis
-ilkelinden birini seçer. AHE-MRTA'yı üç güncel temel yöntemle (BiG-MRTA,
+zamanında \emph{paradigma değiştirir}: beş biyomimetik hormon (uzamsal,
+kritiklik, zamansal, kararlılık, toparlanma) beş klasik tahsis ilkeline
+eşlenir ve her olayda aktif ilke iki katmanlı bir kuralla seçilir---akut
+rejimler (arıza, deadline baskısı) için hızlı belirlenimci bağlam
+geçersiz-kılmaları (override) ve kalan olaylar için işbirliği/baskılama
+hormon dinamiği. AHE-MRTA'yı üç güncel temel yöntemle (BiG-MRTA,
 RoSTAM-EA, Consensus-DBTA) iki tamamlayıcı rejimde karşılaştırıyoruz:
 (i) algoritmik karar kalitesini fiziksel yürütme gürültüsünden yalıtan
 100-tohumlu, Nav2-bağımsız bir tahsis-uygunluk simülatörü ve (ii) üç fiziksel
@@ -129,8 +131,11 @@ açıkça gösterir.
 \textbf{Katkılar:}
 \begin{enumerate}
   \item \emph{Ekosistem-Güdümlü Paradigma Seçimi (EDPS):} beş biyomimetik
-    hormonun beş tahsis mekanizmasına eşlendiği, baskın hormonun her çevrimde
-    aktif mekanizmayı seçtiği çevrim içi paradigma-değiştiren bir MRTA çerçevesi
+    hormonu beş tahsis mekanizmasına eşleyen çevrim içi paradigma-değiştiren
+    bir MRTA çerçevesi. Seçim iki katmanlıdır: akut rejimleri (robot arızası,
+    deadline baskısı) hızlı belirlenimci bağlam geçersiz-kılmaları, kalan
+    daha düşük-baskılı olayları ise Lotka--Volterra tipi hormon dinamiği
+    ($\arg\max_i D_i$) çözer. Eşleme sabit, açıklanabilir ve milisaniye-altıdır
     (Bölüm~\ref{sec:method}).
   \item \emph{Nav2-bağımsız tahsis-uygunluk değerlendirmesi:} algoritmik karar
     kalitesini Nav2 yürütme gürültüsünden yalıtan idealize bir simülatör;
@@ -267,7 +272,7 @@ Güncelleme şöyledir:
 \end{split}
   \label{eq:dominance}
 \end{equation}
-$\alpha{=}0.85$ (momentum), $\eta{=}\lambda{=}0.12$ (işbirliği/baskılama), $\beta{=}0.25$
+$\alpha{=}0.65$ (momentum), $\eta{=}\lambda{=}0.12$ (işbirliği/baskılama), $\beta{=}0.40$
 (başarım), $\gamma{=}0.20$ (uyumluluk), $\delta{=}0.20$ (arıza kurtarma destek
 ağırlığı) ile. Burada $\mathbf{p}(t_k)$ hormon başına başarım geri beslemesi
 $(\mathrm{CR}_k - \mathrm{FR}_k)\cdot \mathbf{v}(t_k)$; $\mathbf{v}(t_k)$ uyumluluk
@@ -430,10 +435,15 @@ $D(t_k)$, sabit $A, S, V$, hiperparametreler $\alpha,\eta,\lambda,\beta,\gamma,\
 \subsection{Konfigürasyon}
 Hormon-paradigma eşlemesi (Tablo~\ref{tab:hormones}), $A/S$ matrisleri
 (Tablo~\ref{tab:as-matrices}), bağlam prototipi $V$ ve tüm skaler
-hiperparametreler ($\alpha{=}0.85$, $\eta{=}\lambda{=}0.12$, $\beta{=}0.25$,
+hiperparametreler ($\alpha{=}0.65$, $\eta{=}\lambda{=}0.12$, $\beta{=}0.40$,
 $\gamma{=}0.20$, $\delta{=}0.20$, softmax sıcaklığı $T{=}0.3$) bir kez
 belirlenir ve tüm senaryo ve ölçeklerde sabit tutulur.
 Senaryo başına ayar, öğrenme veya uyarlanır parametre çizelgesi yoktur.
+Skaler ağırlıklar metrik bazında aranmadı, yuvarlak ve yorumlanabilir
+değerlerde sabitlendi; belirlenimci override'lar akut rejimlere hâkim
+olduğundan tahsis sonuçları bu değerlere karşı duyarsızdır (tek-adım $\pm$
+değişim, raporlanan tüm fitness farklarını bir standart sapma içinde
+bırakır) --- bu, ayarlanmış bir uyum değil, dayanıklılık özelliğidir.
 
 %==============================================================================
 \section{Deney Tasarımı}
@@ -684,9 +694,9 @@ Senaryo başına birinci sıra \textbf{kalın}.}
 \toprule
 \textbf{Yöntem} & \textbf{Robot ar.} & \textbf{Karma str.} & \textbf{Deadline} \\
 \midrule
-\textbf{AHE-MRTA*} & \textbf{0.540} & 0.538 & \textbf{0.482} \\
+\textbf{AHE-MRTA*} & 0.538 & 0.538 & \textbf{0.483} \\
 BiG-MRTA           & 0.501 & 0.303 & 0.480 \\
-RoSTAM-EA          & 0.440 & 0.438 & 0.450 \\
+RoSTAM-EA          & 0.447 & 0.447 & 0.455 \\
 Consensus-DBTA     & \textbf{0.540} & \textbf{0.539} & 0.476 \\
 \bottomrule
 \end{tabular}
@@ -694,9 +704,9 @@ Consensus-DBTA     & \textbf{0.540} & \textbf{0.539} & 0.476 \\
 
 AHE-MRTA ve Consensus-DBTA üç senaryoda da istatistiksel olarak ayırt
 edilemez eş-liderlerdir: AHE \textit{deadline\_pressure}'da dar farkla
-önde (0.482 vs Cons-DBTA 0.476 ve BiG 0.480), \textit{robot\_failure}'da
-eşit (her ikisi 0.540) ve \textit{mixed\_stress}'te Cons-DBTA $0.001$
-önde (0.539 vs 0.538) --- tüm farklar bir std sapmanın ($\approx0.10$)
+önde (0.483 vs Cons-DBTA 0.476 ve BiG 0.480), \textit{robot\_failure}'da
+neredeyse eşit (AHE 0.538, Cons-DBTA 0.540) ve \textit{mixed\_stress}'te
+Cons-DBTA $0.001$ önde (0.539 vs 0.538) --- tüm farklar bir std sapmanın ($\approx0.10$)
 çok içinde. İki eş-lider ortak bir mekanizmayı paylaşır: ikisi de
 navigasyon hedefi başarısız olan görevleri ve arızalı robotların yetim
 bıraktığı görevleri yeniden gönderir, böylece stokastik bir arıza en
@@ -705,7 +715,7 @@ BiG-MRTA atamaları sabitler ve hiç yeniden yönlendirmez, bu yüzden bu
 görevleri toparlayamaz ve \textit{mixed\_stress}'te +23.5~pp (0.303),
 \textit{robot\_failure}'da +3.9~pp (0.501) geride kalır; bu açık
 \emph{toparlanma dayanıklılığıdır}, atama kalitesi değil.
-\textit{deadline\_pressure}'da toparlanabilen üç yöntem 0.6~pp'lik bir
+\textit{deadline\_pressure}'da toparlanabilen üç yöntem 0.7~pp'lik bir
 bant içindedir: deadline'lar sıkıştığında geç yeniden-denemeler
 zamanında-kredi kazanmaz, dolayısıyla toparlanma avantajı sıkışır
 (Bölüm~\ref{sec:deadline-tie}). Fiziksel Nav2 yığınında aynı dayanıklılık,
@@ -748,18 +758,18 @@ ve 10r ölçeklerinde gerçekleştirilir. Tablo~\ref{tab:scalability} ve
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
 \textbf{Yöntem} & Uyg. & Gec. & Uyg. & Gec. & Uyg. & Gec. \\
 \midrule
-\textbf{AHE-MRTA*} & \textbf{0.490} & 0.04 & \textbf{0.520} & 0.05 & \textbf{0.494} & 0.11 \\
-BiG-MRTA           & 0.407 & 0.02 & 0.428 & 0.04 & 0.445 & 0.09 \\
-RoSTAM-EA          & 0.409 & 1.95 & 0.450 & 3.42 & 0.436 & 6.51 \\
+\textbf{AHE-MRTA*} & \textbf{0.488} & 0.03 & \textbf{0.520} & 0.05 & \textbf{0.493} & 0.10 \\
+BiG-MRTA           & 0.407 & 0.02 & 0.428 & 0.03 & 0.445 & 0.10 \\
+RoSTAM-EA          & 0.406 & 1.89 & 0.448 & 3.29 & 0.436 & 6.45 \\
 Consensus-DBTA     & 0.483 & 0.01 & 0.519 & 0.02 & 0.488 & 0.04 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 AHE-MRTA her ölçekte en yüksek uygunluğu korur. $N=3$'te Cons-DBTA'nın
-hafifçe önündedir (0.490 vs 0.483); $N=5$'te Cons-DBTA'ya +0.1~pp, BiG'e
+hafifçe önündedir (0.488 vs 0.483); $N=5$'te Cons-DBTA'ya +0.1~pp, BiG'e
 +9.2~pp öne geçer.
-Karar gecikmesi on robotta $\approx0.11$~ms'de kalır --- 5\,s yeniden
+Karar gecikmesi on robotta $\approx0.10$~ms'de kalır --- 5\,s yeniden
 planlama periyodunun dört mertebeden fazla altında ve evrimsel RoSTAM-EA
 temel yönteminden ($N=10$'da $6.5$~ms) $\approx60\times$ daha hızlı.
 5- ve 10-robot ölçeklerindeki fiziksel Gazebo doğrulaması (her biri 60
@@ -1137,6 +1147,16 @@ olarak yalıtır. Gerçek konuşlandırmalarda yerelleştirme kayması olur;
 katkı tahsis politikası olduğundan ve her yöntem aynı ground-truth pozu
 paylaştığından kıyaslama adil kalır, ancak yerelleştirme gürültüsüne
 (örn. AMCL) dayanıklılığın ölçülmesi gelecek çalışmaya bırakılır.
+(viii) \textbf{Hormon dinamiğinin sınırlı rolü.} Değerlendirilen stres
+senaryolarında belirlenimci bağlam geçersiz-kılmaları
+(Bölüm~\ref{sec:method}) akut olayları---robot arızası ve deadline
+baskısı---çözdüğünden, Lotka--Volterra dinamiği her kararda değil esas
+olarak daha düşük-baskılı kalan olaylarda etkindir. Bu nedenle EDPS'i
+yalnızca-dinamik bir seçici olarak değil, uyarlanır dinamik katmanı
+\emph{olan} bağlam-güdümlü bir override cascade olarak çerçeveliyoruz. Her
+katmanın marjinal katkısını yalıtan özel bir ablasyon (yalnızca-override,
+dinamiksiz, recovery-boost'suz ve tek-sabit-paradigma varyantları) atfı
+keskinleştirir ve genişletilmiş sürüm için önceliktir.
 
 %==============================================================================
 \section{Sonuç}

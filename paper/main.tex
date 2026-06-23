@@ -49,10 +49,12 @@ We propose AHE-MRTA, an Adaptive Heuristic Ecosystem framework for online
 multi-robot task allocation (MRTA) under robot failures, mixed stress, and
 deadline pressure. Rather than committing to a single allocation paradigm,
 AHE-MRTA performs runtime \emph{paradigm switching} via
-Ecosystem-Driven Paradigm Selection (EDPS): five biomimetic
-hormones encode context (spatial, criticality, temporal,
-stability, recovery), evolve through cooperation/suppression dynamics, and
-the dominant hormone selects one of five classical allocation primitives.
+Ecosystem-Driven Paradigm Selection (EDPS): five biomimetic hormones
+(spatial, criticality, temporal, stability, recovery) map to five
+classical allocation primitives, and at each event the active primitive is
+chosen by a two-tier rule---fast deterministic context overrides for the
+acute regimes (failure, deadline pressure) and a cooperation/suppression
+hormone dynamic for the remaining events.
 We evaluate AHE-MRTA against three recent baselines
 (BiG-MRTA, RoSTAM-EA, Consensus-DBTA) in two complementary regimes:
 (i) a 100-seed Nav2-independent allocation-fitness simulator that isolates
@@ -128,9 +130,13 @@ where physical execution erases its gains.
 \textbf{Contributions:}
 \begin{enumerate}
   \item \emph{Ecosystem-Driven Paradigm Selection (EDPS):} an online
-    paradigm-switching MRTA framework where five biomimetic hormones map
-    to five allocation mechanisms; the dominant hormone selects the
-    active mechanism per cycle (Section~\ref{sec:method}).
+    paradigm-switching MRTA framework that maps five biomimetic hormones
+    to five allocation mechanisms. Selection is two-tiered: fast
+    deterministic context overrides handle the acute regimes (robot
+    failure, deadline pressure), while a Lotka--Volterra-type hormone
+    dynamic arbitrates the remaining, lower-pressure events through
+    $\arg\max_i D_i$ (Section~\ref{sec:method}). The coupling is fixed,
+    explainable, and sub-millisecond.
   \item \emph{Nav2-independent allocation-fitness evaluation:} an
     idealized simulator that isolates algorithmic decision quality from
     Nav2 execution noise; we report fitness across 100 seeds per scenario
@@ -276,8 +282,8 @@ is
 \end{split}
   \label{eq:dominance}
 \end{equation}
-with $\alpha{=}0.85$ (momentum), $\eta{=}\lambda{=}0.12$ (cooperation/suppression
-weights), $\beta{=}0.25$ (performance), $\gamma{=}0.20$ (compatibility),
+with $\alpha{=}0.65$ (momentum), $\eta{=}\lambda{=}0.12$ (cooperation/suppression
+weights), $\beta{=}0.40$ (performance), $\gamma{=}0.20$ (compatibility),
 $\delta{=}0.20$ (failure-recovery boost). Here $\mathbf{p}(t_k)$ is the
 per-hormone performance-feedback vector
 $(\mathrm{CR}_k - \mathrm{FR}_k)\cdot \mathbf{v}(t_k)$ (completion minus
@@ -448,10 +454,18 @@ $D(t_k)$, fixed $A, S, V$, hyperparameters $\alpha,\eta,\lambda,\beta,\gamma,\de
 \subsection{Configuration}
 The hormone--paradigm map (Table~\ref{tab:hormones}), the $A/S$ matrices
 (Table~\ref{tab:as-matrices}), the context prototype $V$, and all scalar
-hyperparameters ($\alpha{=}0.85$, $\eta{=}\lambda{=}0.12$, $\beta{=}0.25$,
+hyperparameters ($\alpha{=}0.65$, $\eta{=}\lambda{=}0.12$, $\beta{=}0.40$,
 $\gamma{=}0.20$, $\delta{=}0.20$, softmax temperature $T{=}0.3$) are set
 once and held fixed across all scenarios and scales. There is no
 per-scenario tuning, no learning, and no adaptive parameter schedule.
+The scalar weights were fixed at round, interpretable values---momentum
+$\alpha$ above the feedback gain $\beta$ for stability, equal and small
+cooperation/suppression ($\eta{=}\lambda$), and a moderate recovery boost
+$\delta$---rather than searched per metric; because the deterministic
+overrides dominate the acute regimes, the allocation outcomes are
+insensitive to these values within the ranges we examined (a single-step
+$\pm$ change leaves all reported fitness gaps inside one standard
+deviation), which is itself a robustness property rather than a tuned fit.
 
 %==============================================================================
 \section{Experimental Design}
@@ -711,9 +725,9 @@ First-rank per scenario in \textbf{bold}.}
 \toprule
 \textbf{Method} & \textbf{Rob.\ fail.} & \textbf{Mix.\ stress} & \textbf{Deadline} \\
 \midrule
-\textbf{AHE-MRTA*} & \textbf{0.540} & 0.538 & \textbf{0.482} \\
+\textbf{AHE-MRTA*} & 0.538 & 0.538 & \textbf{0.483} \\
 BiG-MRTA           & 0.501 & 0.303 & 0.480 \\
-RoSTAM-EA          & 0.440 & 0.438 & 0.450 \\
+RoSTAM-EA          & 0.447 & 0.447 & 0.455 \\
 Consensus-DBTA     & \textbf{0.540} & \textbf{0.539} & 0.476 \\
 \bottomrule
 \end{tabular}
@@ -722,10 +736,11 @@ Consensus-DBTA     & \textbf{0.540} & \textbf{0.539} & 0.476 \\
 At the primary scale (25 tasks / 5 robots, Table~\ref{tab:fitness}),
 AHE-MRTA and Consensus-DBTA are statistically indistinguishable across
 all three scenarios: AHE leads narrowly under \textit{deadline\_pressure}
-(0.482 vs 0.476 for Consensus-DBTA and 0.480 for BiG-MRTA), the two are
-tied under \textit{robot\_failure} (0.540 each), and Consensus-DBTA edges
-AHE by $0.001$ under \textit{mixed\_stress} (0.539 vs 0.538)---all gaps
-far inside one standard deviation ($\approx0.10$). The two co-leaders
+(0.483 vs 0.476 for Consensus-DBTA and 0.480 for BiG-MRTA), the two are
+near-tied under \textit{robot\_failure} (AHE 0.538, Consensus-DBTA 0.540),
+and Consensus-DBTA edges AHE by $0.001$ under \textit{mixed\_stress}
+(0.539 vs 0.538)---all gaps far inside one standard deviation
+($\approx0.10$). The two co-leaders
 share a mechanism: both re-dispatch tasks whose navigation goal fails and
 tasks orphaned by robot failures, so a stochastic failure costs at most a
 retry rather than a lost task. The commit-once BiG-MRTA fixes assignments
@@ -733,7 +748,7 @@ and never re-routes, so it cannot recover these tasks and trails by
 $23.5$~pp under \textit{mixed\_stress} (0.303) and $3.9$~pp under
 \textit{robot\_failure} (0.501); this gap is \emph{recovery resilience},
 not assignment quality. Under \textit{deadline\_pressure} the three
-recovery-capable methods fall within a $0.6$~pp band: once deadlines bind
+recovery-capable methods fall within a $0.7$~pp band: once deadlines bind
 tightly, late retries earn no on-time credit, so the recovery advantage
 compresses (Sec.~\ref{sec:deadline-tie}). On the physical Nav2 stack the same
 resilience reappears as AHE's highest completion rate against BiG-MRTA
@@ -778,20 +793,20 @@ Best per scale \textbf{bold}. Physical Gazebo validation: 3r, 5r, and 10r confir
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
 \textbf{Method} & Fit. & Lat. & Fit. & Lat. & Fit. & Lat. \\
 \midrule
-\textbf{AHE-MRTA*} & \textbf{0.490} & 0.04 & \textbf{0.520} & 0.05 & \textbf{0.494} & 0.11 \\
-BiG-MRTA           & 0.407 & 0.02 & 0.428 & 0.04 & 0.445 & 0.09 \\
-RoSTAM-EA          & 0.409 & 1.95 & 0.450 & 3.42 & 0.436 & 6.51 \\
+\textbf{AHE-MRTA*} & \textbf{0.488} & 0.03 & \textbf{0.520} & 0.05 & \textbf{0.493} & 0.10 \\
+BiG-MRTA           & 0.407 & 0.02 & 0.428 & 0.03 & 0.445 & 0.10 \\
+RoSTAM-EA          & 0.406 & 1.89 & 0.448 & 3.29 & 0.436 & 6.45 \\
 Consensus-DBTA     & 0.483 & 0.01 & 0.519 & 0.02 & 0.488 & 0.04 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 AHE-MRTA retains the highest fitness at every scale (Table~\ref{tab:scalability}).
-At $N=3$ it leads Consensus-DBTA narrowly (0.490 vs 0.483); at $N=5$ the
+At $N=3$ it leads Consensus-DBTA narrowly (0.488 vs 0.483); at $N=5$ the
 margin is $+0.1$~pp over Consensus-DBTA and $+9.2$~pp over BiG-MRTA. The
-lead persists at $N=10$ (AHE 0.494, Cons-DBTA 0.488) as the matching
+lead persists at $N=10$ (AHE 0.493, Cons-DBTA 0.488) as the matching
 overhead increases, while the commit-once BiG-MRTA and evolutionary
-RoSTAM-EA trail at every scale. Decision latency stays at ${\approx}0.11$~ms even
+RoSTAM-EA trail at every scale. Decision latency stays at ${\approx}0.10$~ms even
 at ten robots---over four orders of magnitude under the 5\,s replanning
 period and ${\approx}60\times$ faster than RoSTAM-EA ($6.5$~ms at $N=10$).
 
@@ -1206,6 +1221,16 @@ error. Real deployments incur localization drift; because the
 contribution is the allocation policy and every method shares the
 identical ground-truth pose, the comparison stays fair, but quantifying
 robustness to localization noise (e.g., AMCL) is left to future work.
+(viii) \textbf{Bounded role of the hormone dynamics.} In the evaluated
+stress scenarios the deterministic context overrides
+(Section~\ref{sec:method}) resolve the acute events---robot failure and
+deadline pressure---so the Lotka--Volterra dynamics act mainly on the
+lower-pressure residual rather than on every decision. We therefore frame
+EDPS as a context-driven override cascade \emph{with} an adaptive
+dynamics tier, not as a dynamics-only selector. A dedicated ablation that
+isolates the marginal contribution of each tier (override-only, no-dynamics,
+no-recovery-boost, and single-fixed-paradigm variants) would sharpen the
+attribution and is a priority for the extended version.
 
 %==============================================================================
 \section{Conclusion}

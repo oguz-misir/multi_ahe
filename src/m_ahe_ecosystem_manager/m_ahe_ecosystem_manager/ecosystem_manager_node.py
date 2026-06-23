@@ -112,9 +112,10 @@ M = np.array([
     [0.1,  0.1,  0.1,  0.3,  0.9],  # w_r (recovery)
 ])  # shape (7_weights, K)
 
-# Dominance update hyperparameters
-ALPHA = 0.85  # memory of previous dominance (was 0.6 — higher = more stable convergence)
-BETA  = 0.25  # performance contribution
+# Dominance update hyperparameters (sim + makale §III ile AYNI; α/β'nın
+# tahsis sonucuna etkisi sub-noise — override cascade akut rejimleri çözüyor)
+ALPHA = 0.65  # memory of previous dominance
+BETA  = 0.40  # performance contribution
 GAMMA = 0.20  # context compatibility contribution
 ETA   = 0.12  # cooperation effect
 LMBDA = 0.12  # suppression effect

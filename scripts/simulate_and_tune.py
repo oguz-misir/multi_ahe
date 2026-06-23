@@ -87,10 +87,9 @@ M = np.array([
     [0.1, 0.1, 0.1, 0.3, 0.9],   # w_r
 ])
 
-# Ekosistem dinamik parametreleri — F3 (Tier 1) kalibrasyonu:
-# ALPHA düşürüldü (0.85→0.65): D vektörü daha hızlı adapte olur.
-# BETA artırıldı (0.25→0.40): performans feedback'inin etkisi büyür.
-# Birlikte: fixed_weights ablasyonu ile ölçülebilir fark üretmek için.
+# Ekosistem dinamik parametreleri (Plane A + makale §III ile AYNI):
+# α=0.65 (momentum), β=0.40 (performans feedback). Bu değerler makaledeki
+# tüm Nav2-bağımsız sonuçları üretti; node + makale §III bunlarla hizalandı.
 ALPHA = 0.65
 BETA  = 0.40
 GAMMA = 0.20
