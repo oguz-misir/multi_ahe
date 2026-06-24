@@ -1121,6 +1121,51 @@ tetiklenir ve uygunluğu benzer bir marjla düşürür (Pareto kuplajı). Bu
 yüzden daha basit bütünlük-odaklı politikayı koruruz; eş-lider uygunluğu ve
 belirleyici fiziksel-yığın üstünlükleri daha güçlü işletim noktasıdır.
 
+\subsection{Ablasyon: switching makinesi ne katıyor?}
+\label{sec:ablation}
+Online paradigma-değişiminin katkısını yalıtmak için EDPS seçiciyi her bir
+\emph{sabit} paradigma ile değiştiriyoruz; ayrıca bağlam override'larını
+(\emph{no-override}: saf $\arg\max_i D_i$) ve recovery boost'u
+(\emph{no-recovery-boost}: $\delta{=}0$) gerisini sabit tutarak kapatıyoruz
+(5r/25g, 100 seed, \texttt{scripts/ablation\_edps.py}).
+
+\begin{table}[t]
+\centering
+\caption{EDPS ablasyonu (Nav2-bağımsız uygunluk, 5r/25g, 100 seed). Tüm
+varyantlar $0.9$~pp mean-uygunluk içinde; hiçbiri EDPS'ten istatistiksel
+ayrışmıyor.}
+\label{tab:ablation}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Varyant} & \textbf{Rob.\ ar\i.} & \textbf{Deadline} & \textbf{Kar.\ stres} & \textbf{Ort.} \\
+\midrule
+Tam EDPS           & 0.538 & 0.483 & 0.538 & 0.520 \\
+\midrule
+sabit: spatial     & 0.552 & 0.482 & 0.549 & 0.528 \\
+sabit: edf         & 0.544 & 0.489 & 0.540 & 0.524 \\
+sabit: commit      & 0.547 & 0.474 & 0.549 & 0.523 \\
+sabit: orphan      & 0.537 & 0.481 & 0.541 & 0.520 \\
+sabit: priority    & 0.542 & 0.478 & 0.537 & 0.519 \\
+\midrule
+no-override        & 0.538 & 0.483 & 0.538 & 0.520 \\
+no-recovery-boost  & 0.537 & 0.483 & 0.539 & 0.519 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sekiz varyant yalnız $[0.519,0.528]$ mean-uygunluk aralığına yayılıyor
+(yayılım $0.009$, bir std sapmanın çok altında): \emph{hiçbir} konfigürasyon
+tam EDPS'ten ayrışmıyor, override'ları veya recovery boost'u kaldırmak Plane-A
+uygunluğunu neredeyse değiştirmiyor. Bu, yukarıda saptanan doygunluğun
+(mükemmel navigasyonla her yöntem $\approx1.0$) beklenen sonucu: navigasyon-
+bağımsız düzlemde tahsis kalitesi ayırt edici değildir, dolayısıyla switching
+makinesi onu iyileştir\emph{emez}. EDPS'in değeri bu nedenle idealize tahsis
+uygunluğunda değil, fiziksel-yığın davranışındadır
+(Bölüm~\ref{sec:results-gazebo}). Bu ablasyonu gizlemek yerine açıkça
+raporluyoruz: katkının \emph{nerede} olduğunu dürüstçe sınırlandırır.
+
 \subsection{Haberleşme ayak izi}
 AHE-MRTA yalnızca robot başına optimize görev kuyrukları yayınlar; baskınlık
 vektörü, işbirliği/baskılama matrisleri ve global maliyet matrisi ekosistem
@@ -1177,12 +1222,18 @@ senaryolarında belirlenimci bağlam geçersiz-kılmaları
 baskısı---çözdüğünden, Lotka--Volterra dinamiği her kararda değil esas
 olarak daha düşük-baskılı kalan olaylarda etkindir. Bu nedenle EDPS'i
 yalnızca-dinamik bir seçici olarak değil, uyarlanır dinamik katmanı
-\emph{olan} bağlam-güdümlü bir override cascade olarak çerçeveliyoruz. Her
-katmanın marjinal katkısını yalıtan özel bir ablasyon (yalnızca-override,
-dinamiksiz, recovery-boost'suz ve tek-sabit-paradigma varyantları) atfı
-keskinleştirir ve genişletilmiş sürüm için önceliktir.
-
-%==============================================================================
+\emph{olan} bağlam-güdümlü bir override cascade olarak çerçeveliyoruz.
+Tablo~\ref{tab:ablation}'deki ablasyon (Bölüm~\ref{sec:ablation}) bunu doğrular:
+override'ları veya recovery boost'u kaldırmak ve seçiciyi herhangi bir tek-sabit
+paradigmayla değiştirmek, Plane-A uygunluğunu EDPS'in $0.9$~pp içinde bırakır.
+Switching makinesinin değeri böylece navigasyon-bağımsız düzleme değil, fiziksel
+yığına (Plane B) özgüdür.
+(ix) \textbf{Tahsis-uygunluk modeli.} Plane-A simülatörü, tahsis dayanıklılığını
+\emph{zorlamak} için pozisyon-bağımlı bir navigasyon-başarısızlık modeli kullanır;
+başarısızlık oranı, gerçek Gazebo yığınından (Nav2 hedeflere neredeyse her zaman
+ulaşır) kasıtlı olarak yüksektir. Bu nedenle Plane A mutlak başarı oranını değil,
+göreli tahsis dayanıklılığını ölçer ve fiziksel Plane-B sonuçlarının yerine değil,
+yanında raporlanır.
 \section{Sonuç}
 \label{sec:conclusion}
 

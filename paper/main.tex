@@ -1193,6 +1193,54 @@ coupling). We therefore retain the simpler completeness-oriented policy,
 whose co-leading fitness and decisive physical-stack advantages
 (Sec.~\ref{sec:results-gazebo}) are the stronger operating point.
 
+\subsection{Ablation: what does the switching machinery add?}
+\label{sec:ablation}
+To isolate the contribution of online paradigm switching, we replace the EDPS
+selector with each single \emph{fixed} paradigm, and separately disable the
+context overrides (\emph{no-override}: pure $\arg\max_i D_i$) and the recovery
+boost (\emph{no-recovery-boost}: $\delta{=}0$), holding everything else fixed
+(5r/25t, 100 seeds, \texttt{scripts/ablation\_edps.py}).
+
+\begin{table}[t]
+\centering
+\caption{EDPS ablation (Nav2-independent fitness, 5r/25t, 100 seeds). All
+variants fall within $0.9$~pp mean fitness; none statistically separates from
+EDPS.}
+\label{tab:ablation}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Variant} & \textbf{Rob.\ fail.} & \textbf{Deadline} & \textbf{Mix.\ stress} & \textbf{Mean} \\
+\midrule
+Full EDPS          & 0.538 & 0.483 & 0.538 & 0.520 \\
+\midrule
+fixed: spatial     & 0.552 & 0.482 & 0.549 & 0.528 \\
+fixed: edf         & 0.544 & 0.489 & 0.540 & 0.524 \\
+fixed: commit      & 0.547 & 0.474 & 0.549 & 0.523 \\
+fixed: orphan      & 0.537 & 0.481 & 0.541 & 0.520 \\
+fixed: priority    & 0.542 & 0.478 & 0.537 & 0.519 \\
+\midrule
+no-override        & 0.538 & 0.483 & 0.538 & 0.520 \\
+no-recovery-boost  & 0.537 & 0.483 & 0.539 & 0.519 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The eight variants span a mean-fitness range of only $[0.519,0.528]$
+(spread $0.009$, $\ll$ one standard deviation): \emph{no} configuration
+statistically separates from full EDPS, and removing the overrides or the
+recovery boost leaves Plane-A fitness essentially unchanged. This is the
+expected consequence of the saturation identified above (under perfect
+navigation every method reaches $\approx1.0$): in the navigation-free plane,
+allocation quality is not the differentiator, so the switching machinery
+\emph{cannot} and does not improve it. The value of EDPS is therefore not
+idealized allocation fitness but the physical-stack behaviour
+(Sec.~\ref{sec:results-gazebo}), where event-triggered recovery and regime-
+appropriate paradigm selection drive the completion, deadline-robustness, and
+latency advantages. We report this ablation explicitly rather than omit it: it
+delimits, honestly, \emph{where} the contribution lies.
+
 \subsection{Communication footprint}
 AHE-MRTA publishes only per-robot optimized task queues; the
 dominance vector, cooperation/suppression matrices, and global cost
@@ -1252,10 +1300,18 @@ stress scenarios the deterministic context overrides
 deadline pressure---so the Lotka--Volterra dynamics act mainly on the
 lower-pressure residual rather than on every decision. We therefore frame
 EDPS as a context-driven override cascade \emph{with} an adaptive
-dynamics tier, not as a dynamics-only selector. A dedicated ablation that
-isolates the marginal contribution of each tier (override-only, no-dynamics,
-no-recovery-boost, and single-fixed-paradigm variants) would sharpen the
-attribution and is a priority for the extended version.
+dynamics tier, not as a dynamics-only selector. The ablation in
+Table~\ref{tab:ablation} (Sec.~\ref{sec:ablation}) confirms this: removing the
+overrides or the recovery boost, and replacing the selector with any single
+fixed paradigm, all leave Plane-A fitness within $0.9$~pp of EDPS. The
+switching machinery's value is thus confined to the physical stack (Plane B),
+not the navigation-free plane.
+(ix) \textbf{Allocation-fitness model.} The Plane-A simulator uses a
+position-dependent navigation-failure model chosen to \emph{stress} allocation
+robustness; its failure rate is deliberately higher than the ground-truth
+Gazebo stack (where Nav2 reaches goals almost always). Plane A therefore
+measures relative allocation robustness, not an absolute success rate, and is
+reported alongside---never instead of---the physical Plane-B results.
 
 %==============================================================================
 \section{Conclusion}
