@@ -5,7 +5,6 @@ Generate the paper figure set from processed CSV files.
 Produces exactly the figures referenced by paper/main.tex / main_tr.tex:
 
   system_overview.png                  (static diagram)
-  adaptive_ecosystem_mechanism.png     (static diagram)
   fitness_comparison.png               (sim_fitness.csv)
   scalability_panel.png                (sim_scalability.csv)
   baseline_comparison_multi_metric.png (all_summary.csv, 3r)
@@ -17,6 +16,8 @@ Produces exactly the figures referenced by paper/main.tex / main_tr.tex:
 
 scenario_maps_panel.png is produced by scripts/generate_scenario_maps.py;
 gazebo_rviz_combined.png is composed from Gazebo/RViz screen captures.
+Figure 1 (fig1.drawio / fig1.drawio.png) is a hand-authored draw.io asset
+under paper/figure/, edited directly rather than generated here.
 
 Usage:
     python3 scripts/plot_results.py \
@@ -99,7 +100,7 @@ SERIES7 = ["#E69F00", "#56B4E9", "#009E73", "#F0E442",
 # Active 4-vector configuration: 5 reachable paradigms (d_0 spatial, d_1
 # criticality, d_2 temporal, d_5 stability, d_6 recovery); d_3/d_4
 # (resource/energy) are dormant under the zeroed battery/workload signals.
-HEURISTIC_COLS = ["d_0", "d_1", "d_2", "d_5", "d_6"]
+HEURISTIC_COLS = ["d_0", "d_1", "d_2", "d_3", "d_4"]
 HEURISTIC_LABELS = [
     "Spatial", "Criticality", "Temporal", "Stability", "Recovery",
 ]
@@ -141,6 +142,12 @@ def _bar_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
                   edgecolor="black", error_kw={"linewidth": 0.8})
     for b, w in zip(bars, edge_w):
         b.set_linewidth(w)
+    # numeric value label above each bar (above the error-bar cap)
+    for b, mn, sd in zip(bars, means, stds):
+        ax.annotate(f"{mn:.3g}", xy=(b.get_x() + b.get_width() / 2.0, mn + sd),
+                    xytext=(0, 2), textcoords="offset points",
+                    ha="center", va="bottom", fontsize=6.5, fontweight="bold")
+    ax.margins(y=0.18)  # headroom so the top label is not clipped
     ax.set_xticks(x)
     ax.set_xticklabels([METHOD_LABELS.get(m, m) for m in valid_methods],
                        rotation=45, ha="right")
@@ -149,7 +156,11 @@ def _bar_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
         ylabel += " (log)"
     ax.set_ylabel(ylabel)
     arrow = "$\\uparrow$" if higher_better else "$\\downarrow$"
-    ax.set_title(f"{ylabel.split(' (log)')[0]} ({arrow} better)", fontsize=9)
+    # The metric name already lives on the (vertical) y-axis label; keeping it
+    # in the title too made the title wider than the narrow panel and collided
+    # with the neighbouring column. Title now carries only the optimisation
+    # direction, so adjacent panels never overlap.
+    ax.set_title(f"{arrow} better", fontsize=9)
     return bars
 
 
@@ -181,6 +192,16 @@ def _box_panel(ax, df, methods, metric, ylabel, log_y: bool = False):
         jitter = rng.uniform(-0.14, 0.14, size=len(vals))
         ax.scatter(i + jitter, vals, s=13, color=c, edgecolor="black",
                    linewidth=0.4, zorder=3)
+
+    # numeric median label (white background so it stays readable over the
+    # box and the jittered points)
+    for i, vals in enumerate(data):
+        if len(vals):
+            med = float(np.median(vals))
+            ax.text(i, med, f"{med:.3g}", ha="center", va="bottom",
+                    fontsize=6.5, fontweight="bold", zorder=5,
+                    bbox=dict(boxstyle="round,pad=0.1", fc="white",
+                              ec="none", alpha=0.78))
 
     ax.set_xticks(range(len(valid)))
     ax.set_xticklabels([METHOD_LABELS_SHORT.get(m, m) for m in valid],
@@ -299,68 +320,6 @@ def plot_system_overview(out_dir: Path, dpi: int) -> None:
     print(f"[OK]  {out_path}")
 
 
-def plot_adaptive_ecosystem_mechanism(out_dir: Path, dpi: int) -> None:
-    # Wide, short left-to-right pipeline intended to span both columns
-    # (figure*). Notation matches Eq. (2) in the paper.
-    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 2.7))
-    ax.set_xlim(0, 16)
-    ax.set_ylim(0, 6.4)
-    ax.axis("off")
-    ax.grid(False)
-
-    BLUE, PINK, YELLOW, GREEN, RED = (
-        "#cfe2f3", "#fde0ec", "#fff2cc", "#d9ead3", "#f4cccc")
-
-    row_y, row_h = 2.7, 1.7
-    cy = row_y + row_h / 2  # vertical center of the pipeline
-
-    # 1. Operating State Vector
-    _orect(ax, 0.2, row_y, 2.9, row_h,
-           "Operating State $c(t)\\in[0,1]^4$\ndensity, availability,\ndeadline, failure",
-           BLUE, 7.2)
-    # 2. Dominance update (Eq. 2)
-    _orect(ax, 4.0, row_y, 4.3, row_h,
-           "Dominance update\n"
-           r"$D_{k{+}1}{=}\mathrm{clip}_{[0,1]}[(1{-}\alpha)D_k$" + "\n"
-           r"$+\,\alpha A c - S D_k c^{\top}]$",
-           YELLOW, 7.4)
-    # 3. Argmax selector
-    _orect(ax, 9.2, row_y, 2.7, row_h,
-           "Select paradigm\n$p^*=\\arg\\max_i D_i$", GREEN, 7.6)
-    # 4. Allocator
-    _orect(ax, 12.8, row_y, 3.0, row_h,
-           "AHE Allocator\nrun $p^*$, publish\nper-robot queues", RED, 7.4, ec="#c0392b")
-
-    # pipeline arrows (straight, single row)
-    _harrow(ax, 3.1, 4.0, cy, lbl="$c(t)$")
-    _harrow(ax, 8.3, 9.2, cy, lbl="$D_{k+1}$")
-    _harrow(ax, 11.9, 12.8, cy, lbl="$p^*$", color="#c0392b")
-
-    # Fixed matrices feed the dominance box from below (orthogonal, no cross)
-    _orect(ax, 4.0, 0.2, 4.3, 1.3,
-           "Fixed matrices: cooperation $A_{5\\times5}$, suppression $S_{5\\times5}$",
-           PINK, 7.2)
-    _varrow(ax, 6.15, 1.5, row_y, lbl="$A,S$", side="right")
-
-    # Event trigger feeds the context box from above (orthogonal, no cross)
-    _orect(ax, 0.2, 5.0, 2.9, 1.2,
-           "Event trigger\n(failure / new task / deadline)", "#fce5cd", 7.2,
-           ec="#e69138")
-    _varrow(ax, 1.65, 5.0, row_y + row_h, color="#e69138", side="left")
-
-    # 5 paradigms listed under the selector (label only, no extra arrows)
-    ax.text(10.55, 1.4,
-            "greedy · priority-LSA ·\nEDF · sticky · rescue",
-            ha="center", va="center", fontsize=6.8, color="#38761d", style="italic")
-    _varrow(ax, 10.55, row_y, 1.9, color="#38761d", side="right", lbl="")
-
-    fig.tight_layout(pad=0.2)
-    out_path = out_dir / "adaptive_ecosystem_mechanism.png"
-    fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
-    plt.close(fig)
-    print(f"[OK]  {out_path}")
-
-
 # ── Data-driven figures ─────────────────────────────────────────────────────────
 
 def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path,
@@ -380,7 +339,7 @@ def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path,
         ("mean_decision_latency_ms","Decision Latency (ms)",   False, True),
     ]
 
-    fig, axes = plt.subplots(2, 3, figsize=(DOUBLE_COL_W, 4.8))
+    fig, axes = plt.subplots(2, 3, figsize=(DOUBLE_COL_W + 0.6, 5.2))
     axes = axes.flatten()
 
     if df_summary is None or df_summary.empty:
@@ -400,7 +359,7 @@ def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path,
             _bar_panel(ax, sub, methods, metric, ylabel, higher_better,
                        log_y=log_y)
 
-    fig.tight_layout()
+    fig.tight_layout(w_pad=1.6, h_pad=2.0)
     out_path = out_dir / out_name
     fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
@@ -427,8 +386,11 @@ def plot_failure_recovery(df_summary: Optional[pd.DataFrame],
         if "task_completion_rate" in rf.columns:
             _bar_panel(axes[1], rf, methods, "task_completion_rate",
                        "Completion Rate", True)
-        _bar_panel(axes[2], rf, methods, "exec_preemptions",
-                   "Execution Preemptions", False)
+        # Execution preemptions are 0 for every method at this scale (no method
+        # interrupts an in-flight task), so that panel cannot discriminate;
+        # show the corrected re-dispatch rate instead (Sec. discussion).
+        _bar_panel(axes[2], rf, methods, "redispatch_per_task",
+                   "Re-dispatch / Task", False)
 
     fig.tight_layout()
     out_path = out_dir / "failure_recovery.png"
@@ -449,7 +411,7 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
     Panels (c-e): recovery-time / replanning / instability bars.
     """
     fig = plt.figure(figsize=(DOUBLE_COL_W + 2.5, 7.0))
-    gs = fig.add_gridspec(3, 2, hspace=0.55, wspace=0.30,
+    gs = fig.add_gridspec(3, 2, hspace=0.85, wspace=0.30,
                           width_ratios=[1.25, 1.0],
                           left=0.07, right=0.98, top=0.96, bottom=0.06)
 
@@ -488,13 +450,17 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
         ax_dom.set_title("(a) Dominance evolution (robot failure, AHE-MRTA*)",
                          fontsize=9)
 
-        if df_alloc is not None and not df_alloc.empty:
-            ae = df_alloc[df_alloc["strategy"] == PROPOSED]
-            rf_events = ae[ae["event_type"].str.contains("robot_failure", na=False)]
+        # Failure injection time of THIS representative run. The event is logged
+        # in df_alloc with column 'timestamp_s' (not 'time'); read it for the
+        # selected experiment_id rather than falling back to a hard-coded value.
+        if (df_alloc is not None and not df_alloc.empty
+                and "experiment_id" in subset.columns):
+            rep_eid = subset["experiment_id"].iloc[0]
+            rf_events = df_alloc[(df_alloc["experiment_id"] == rep_eid) &
+                                 df_alloc["event_type"].astype(str)
+                                 .str.contains("robot_failure", na=False)]
             if not rf_events.empty:
-                fail_t = rf_events.iloc[0].get("time", None)
-        if fail_t is None and len(t):
-            fail_t = 360.0  # scenario definition: t = 0.3 * T_max at 3r
+                fail_t = float(rf_events["timestamp_s"].iloc[0])
         if fail_t is not None:
             ax_dom.axvline(fail_t, color="black", linestyle=":", alpha=0.8,
                            linewidth=1.2, label="Failure injection")
@@ -514,22 +480,49 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
         if "target_count" in scen_df.columns and (scen_df["target_count"] == 15).any():
             scen_df = scen_df[scen_df["target_count"] == 15]
         if time_col and not scen_df.empty:
+            t0_map = scen_df[scen_df[event_col] == "activated"].groupby("experiment_id")[time_col].min()
+            t0_map = t0_map.combine_first(scen_df.groupby("experiment_id")[time_col].min())
+            scen_df = scen_df.copy()
+            scen_df["time_rel"] = scen_df.apply(lambda r: r[time_col] - t0_map.get(r["experiment_id"], 0.0), axis=1)
+
+            max_t = scen_df["time_rel"].max()
             for method in _ordered_methods(scen_df):
                 mdf = scen_df[(scen_df["strategy"] == method)
                               & (scen_df[event_col] == "completed")]
                 if mdf.empty:
                     continue
                 n_exp = mdf["experiment_id"].nunique() if "experiment_id" in mdf.columns else 1
-                t_sorted = np.sort(mdf[time_col].dropna().values)
+                t_sorted = np.sort(mdf["time_rel"].dropna().values)
                 cumulative = np.arange(1, len(t_sorted) + 1) / max(n_exp, 1)
-                ax_cum.plot(t_sorted, cumulative,
+                t_sorted = np.insert(t_sorted, 0, 0.0)
+                cumulative = np.insert(cumulative, 0, 0.0)
+                
+                # Extend to max_t so the line doesn't abruptly end
+                if len(t_sorted) > 0 and t_sorted[-1] < max_t:
+                    t_sorted = np.append(t_sorted, max_t)
+                    cumulative = np.append(cumulative, cumulative[-1])
+
+                ax_cum.step(t_sorted, cumulative, where='post',
                             label=METHOD_LABELS.get(method, method),
                             color=METHOD_PALETTE.get(method, "#999999"),
                             linewidth=2.0 if method == PROPOSED else 1.2)
                 drew_cum = True
     if drew_cum:
-        if fail_t is not None:
-            ax_cum.axvline(fail_t, color="black", linestyle=":", alpha=0.8,
+        # (b) pools several runs whose injection times differ; mark the median
+        # injection time rather than the single representative run used in (a).
+        fail_t_b = fail_t
+        if df_alloc is not None and not df_alloc.empty:
+            rf_b = df_alloc[df_alloc["event_type"].astype(str)
+                            .str.contains("robot_failure", na=False)]
+            if "scenario" in rf_b.columns:
+                rf_b = rf_b[rf_b["scenario"] == "robot_failure"]
+            if "target_count" in rf_b.columns and (rf_b["target_count"] == 15).any():
+                rf_b = rf_b[rf_b["target_count"] == 15]
+            if not rf_b.empty:
+                fail_t_b = float(rf_b.groupby("experiment_id")["timestamp_s"]
+                                 .min().median())
+        if fail_t_b is not None:
+            ax_cum.axvline(fail_t_b, color="black", linestyle=":", alpha=0.8,
                            linewidth=1.2)
         ax_cum.set_ylabel("Avg cumul. tasks")
         ax_cum.set_xlabel("Time (s)")
@@ -539,10 +532,15 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
         ax_cum.text(0.5, 0.5, "No task-event data", ha="center", va="center",
                     transform=ax_cum.transAxes)
 
-    # Right: recovery metrics — robot_failure scenario only
+    # Right: recovery metrics at the 3-robot scale (all three densities pooled →
+    # n=15 per method, matching the caption). Filtering to a single density gave
+    # n=5, where boxes degenerate into solid blocks; pooling all scales instead
+    # leaks 10-robot runs. robot_count==3 is the correct "3-robot scale, n=15".
     if df_summary is not None and not df_summary.empty:
         rf_sum = df_summary[df_summary["scenario"] == "robot_failure"] \
             if "scenario" in df_summary.columns else df_summary
+        if "robot_count" in rf_sum.columns and (rf_sum["robot_count"] == 3).any():
+            rf_sum = rf_sum[rf_sum["robot_count"] == 3]
         if rf_sum.empty:
             rf_sum = df_summary
         methods = _ordered_methods(rf_sum)
@@ -550,9 +548,11 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
                    "Recovery Time (s)")
         ax_rec.set_title("(c) Failure recovery time ($\\downarrow$ better)",
                          fontsize=10)
-        _box_panel(ax_replan, rf_sum, methods, "exec_preemptions",
-                   "Exec Preemptions", log_y=False)
-        ax_replan.set_title("(d) Execution preemptions ($\\downarrow$ better)",
+        # Execution preemptions are 0 for every method at 3r/5r; show average
+        # task delay (a discriminating cost metric) instead of an empty panel.
+        _box_panel(ax_replan, rf_sum, methods, "average_task_delay",
+                   "Avg Task Delay (s)", log_y=False)
+        ax_replan.set_title("(d) Avg task delay ($\\downarrow$ better)",
                             fontsize=10)
         _box_panel(ax_inst, rf_sum, methods, "redispatch_per_task",
                    "Re-dispatch / Task", log_y=False)
@@ -719,6 +719,9 @@ def plot_scalability_panel(processed_dir: Path, out_dir: Path, dpi: int) -> None
         ax.set_xlabel("Robot count $N$")
         ax.set_ylabel(ylabel)
         ax.set_xticks(robots)
+        if col == "latency":
+            ax.set_yscale("log")
+            ax.set_ylabel(ylabel + " (log)")
         ax.set_title(f"({chr(97 + k)})", fontsize=9, loc="left")
     axes[0].legend(loc="best", frameon=False, ncol=2, fontsize=8)
     fig.tight_layout()
@@ -732,12 +735,15 @@ def plot_task_completion_timeline(df_task: Optional[pd.DataFrame],
                                   out_dir: Path, dpi: int) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(DOUBLE_COL_W, 3.0))
 
+    if df_task is not None and "robot_count" in df_task.columns:
+        df_task = df_task[df_task["robot_count"] == 3]
+
     event_col = "event" if df_task is not None and "event" in df_task.columns else "status"
     time_col = next((c for c in ["timestamp_s", "completed_rel", "time_s"]
                      if df_task is not None and c in df_task.columns), None)
 
     for k, (ax, scenario) in enumerate(zip(axes, ["robot_failure", "mixed_stress"])):
-        ax.set_title(f"({chr(97 + k)}) {scenario.replace('_', ' ').title()}",
+        ax.set_title(f"({chr(97 + k)}) {scenario.replace('_', ' ').title()} (3-Robot)",
                      fontsize=9)
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Avg cumul. completed tasks")
@@ -754,15 +760,29 @@ def plot_task_completion_timeline(df_task: Optional[pd.DataFrame],
                     transform=ax.transAxes)
             continue
 
+        t0_map = scen_df[scen_df[event_col] == "activated"].groupby("experiment_id")[time_col].min()
+        t0_map = t0_map.combine_first(scen_df.groupby("experiment_id")[time_col].min())
+        scen_df = scen_df.copy()
+        scen_df["time_rel"] = scen_df.apply(lambda r: r[time_col] - t0_map.get(r["experiment_id"], 0.0), axis=1)
+
         methods = _ordered_methods(scen_df)
+        max_t = scen_df["time_rel"].max()
         for method in methods:
             mdf = scen_df[(scen_df["strategy"] == method) & (scen_df[event_col] == "completed")]
             if mdf.empty:
                 continue
             n_exp = mdf["experiment_id"].nunique() if "experiment_id" in mdf.columns else 1
-            t_sorted = np.sort(mdf[time_col].dropna().values)
+            t_sorted = np.sort(mdf["time_rel"].dropna().values)
             cumulative = np.arange(1, len(t_sorted) + 1) / max(n_exp, 1)
-            ax.plot(t_sorted, cumulative,
+            t_sorted = np.insert(t_sorted, 0, 0.0)
+            cumulative = np.insert(cumulative, 0, 0.0)
+            
+            # Extend to max_t so the line doesn't abruptly end
+            if len(t_sorted) > 0 and t_sorted[-1] < max_t:
+                t_sorted = np.append(t_sorted, max_t)
+                cumulative = np.append(cumulative, cumulative[-1])
+
+            ax.step(t_sorted, cumulative, where='post',
                     label=METHOD_LABELS.get(method, method),
                     color=METHOD_PALETTE.get(method, "#999999"),
                     linewidth=2.0 if method == PROPOSED else 1.3)
@@ -780,7 +800,7 @@ def plot_task_completion_timeline(df_task: Optional[pd.DataFrame],
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate paper figures from processed CSVs.")
     parser.add_argument("--processed-dir", default="results/processed")
-    parser.add_argument("--output-dir", default="results/paper_figures")
+    parser.add_argument("--output-dir", default="paper/figure")
     parser.add_argument("--dpi", type=int, default=300)
     args = parser.parse_args()
 
@@ -802,19 +822,27 @@ def main() -> None:
 
     # Static diagrams
     plot_system_overview(out_dir, dpi)
-    plot_adaptive_ecosystem_mechanism(out_dir, dpi)
+    # Figure 1 (adaptive_ecosystem_mechanism / fig1.drawio) is a hand-authored
+    # draw.io asset under paper/figure/, not generated here.
 
     # Nav2-independent simulator figures
     plot_fitness_comparison(processed_dir, out_dir, dpi)
     plot_scalability_panel(processed_dir, out_dir, dpi)
 
-    # Gazebo benchmark figures
-    plot_baseline_comparison(df_summary, out_dir, dpi,
+    # Gazebo benchmark figures. The multi-metric and failure-recovery figures
+    # are reported at the PRIMARY 5-robot / 25-task scale; all_summary.csv pools
+    # all scales, so filter here to match the captions (otherwise 3r/5r/10r mix).
+    df_primary = df_summary
+    if (df_summary is not None and
+            {"robot_count", "target_count"}.issubset(df_summary.columns)):
+        df_primary = df_summary[(df_summary["robot_count"] == 5) &
+                                (df_summary["target_count"] == 25)]
+    plot_baseline_comparison(df_primary, out_dir, dpi,
                              "baseline_comparison_multi_metric.png",
                              scenarios=["robot_failure", "mixed_stress"])
     plot_baseline_comparison(df_10r, out_dir, dpi,
                              "baseline_comparison_10r.png")
-    plot_failure_recovery(df_summary, out_dir, dpi)
+    plot_failure_recovery(df_primary, out_dir, dpi)
     plot_dominance_recovery_panel(df_eco, df_alloc, df_summary, df_task, out_dir, dpi)
     plot_communication_footprint(df_comm, out_dir, dpi)
     plot_task_completion_timeline(df_task, out_dir, dpi)

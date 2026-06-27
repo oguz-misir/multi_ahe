@@ -1,4 +1,4 @@
-"""big_mrta — Online Weighted Bipartite Graph MRTA (Ghassemi & Chowdhury, 2022).
+"""big_mrta — Online weighted bipartite-graph MRTA (Ghassemi & Chowdhury, 2022, RAS; disaster-response, dynamic deadlines).
 
 Adaptation for AHE-MRTA TurtleBot/Nav2 benchmark:
   - UAV range → simulated battery margin

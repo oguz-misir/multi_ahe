@@ -32,6 +32,12 @@ G1_BASELINES = ["big_mrta", "rostam_ea", "consensus_dbta"]
 G2_BASELINES = G1_BASELINES   # robot_failure + mixed_stress
 G3_BASELINES = ["big_mrta", "rostam_ea", "consensus_dbta"]  # deadline_pressure
 
+# Primary Gazebo scale for the headline main/deadline tables (Table tab:scales).
+# all_summary.csv pools every scale (3r/5r/10r); without this filter the
+# descriptive means would mix scales and contradict the "5-robot primary" caption.
+PRIMARY_ROBOTS = 5
+PRIMARY_TASKS  = 25
+
 METHOD_LABELS = {
     "ahe_mrta_v3":                  "AHE-MRTA*",
     "big_mrta":                     "BiG-MRTA",
@@ -205,6 +211,33 @@ def _get_stars(tests, scenario, baseline, metric):
     return "" if s in ("ns", "—") else s
 
 
+# higher-is-better direction per metric column (from METRICS)
+HIGHER_BETTER = {col: hb for col, _, hb in METRICS}
+
+
+def _best_set(sub, methods, col, dec):
+    """Methods whose *displayed* value (rounded to `dec`) is best for `col`.
+
+    Direction comes from HIGHER_BETTER. Bolding is by best value, not by
+    method: the winning cell is emphasised even when it is a baseline. Returns
+    an empty set when every method ties (nothing to distinguish) so we do not
+    bold, e.g., an all-zero preemption column.
+    """
+    mn_col = f"{col}_mean"
+    if mn_col not in sub.columns:
+        return set()
+    vals = {}
+    for m in methods:
+        r = sub[sub["strategy"] == m]
+        if r.empty or pd.isna(r[mn_col].iloc[0]):
+            continue
+        vals[m] = round(float(r[mn_col].iloc[0]), dec)
+    if len(set(vals.values())) <= 1:        # all equal / nothing to rank
+        return set()
+    tgt = max(vals.values()) if HIGHER_BETTER.get(col, True) else min(vals.values())
+    return {m for m, v in vals.items() if v == tgt}
+
+
 def build_main_table(desc, tests):
     metrics_show = [
         ("task_completion_rate",   "CR$\\uparrow$",    3),
@@ -216,7 +249,8 @@ def build_main_table(desc, tests):
     methods_g2 = [PROPOSED] + G2_BASELINES
     col_hdrs = [m[1] for m in metrics_show]
     caption = (
-        "Main comparison at the 5-robot (primary) scale; task densities 15/25 pooled, $n{=}10$ runs per cell. "
+        "Main comparison at the primary 5-robot / 25-task scale; $n{=}5$ runs (seeds) per cell. "
+        "Best value per column (within scenario) in \\textbf{bold}. "
         "Significance vs AHE-MRTA*: $^{*}p{<}0.05$, $^{**}p{<}0.01$, "
         "$^{***}p{<}0.001$ (Mann--Whitney U, Bonferroni-corrected within each scenario family of 21 tests)."
     )
@@ -229,13 +263,17 @@ def build_main_table(desc, tests):
         out += (f"\\multicolumn{{{ncols}}}{{l}}"
                 f"{{\\textit{{Scenario: {sc_label}}}}} \\\\\n")
         sub = desc[desc["scenario"] == scenario]
+        best = {col: _best_set(sub, methods_g2, col, dec)
+                for col, _, dec in metrics_show}
         for method in methods_g2:
             row = sub[sub["strategy"] == method]
             if row.empty:
                 continue
-            bold = method == PROPOSED
+            is_proposed = method == PROPOSED
             label = METHOD_LABELS.get(method, method)
-            cells = [f"\\textbf{{{label}}}" if bold else label]
+            # method name stays bold for the proposed row (row highlight);
+            # value bolding below is independent and tracks the best cell.
+            cells = [f"\\textbf{{{label}}}" if is_proposed else label]
             for col, _, dec in metrics_show:
                 mn_col = f"{col}_mean"
                 sd_col = f"{col}_std"
@@ -244,8 +282,8 @@ def build_main_table(desc, tests):
                     continue
                 mn = row[mn_col].iloc[0]
                 sd = row[sd_col].iloc[0] if sd_col in row.columns else np.nan
-                stars = "" if bold else _get_stars(tests, scenario, method, col)
-                cells.append(_cell(mn, sd, dec, bold, stars))
+                stars = "" if is_proposed else _get_stars(tests, scenario, method, col)
+                cells.append(_cell(mn, sd, dec, method in best[col], stars))
             out += " & ".join(cells) + " \\\\\n"
         if si < len(scenarios) - 1:
             out += "\\midrule\n"
@@ -266,18 +304,20 @@ def build_deadline_table(desc, tests):
     sub = desc[desc["scenario"] == scenario]
     col_hdrs = [m[1] for m in metrics_show]
     caption = (
-        "Deadline scenario results (deadline\\_pressure) at the 5-robot (primary) scale; task densities 15/25 pooled, $n{=}10$ runs per cell. "
-        "DVR: deadline violation rate. "
+        "Deadline scenario results (deadline\\_pressure) at the primary 5-robot / 25-task scale; $n{=}5$ runs (seeds) per cell. "
+        "DVR: deadline violation rate. Best value per column in \\textbf{bold}. "
         "Significance vs AHE-MRTA* (Bonferroni-corrected Mann-Whitney U)."
     )
     out = _tex_header(caption, "tab:deadline", col_hdrs, wide=True)
+    best = {col: _best_set(sub, methods, col, dec)
+            for col, _, dec in metrics_show}
     for method in methods:
         row = sub[sub["strategy"] == method]
         if row.empty:
             continue
-        bold = method == PROPOSED
+        is_proposed = method == PROPOSED
         label = METHOD_LABELS.get(method, method)
-        cells = [f"\\textbf{{{label}}}" if bold else label]
+        cells = [f"\\textbf{{{label}}}" if is_proposed else label]
         for col, _, dec in metrics_show:
             mn_col, sd_col = f"{col}_mean", f"{col}_std"
             if mn_col not in row.columns:
@@ -285,8 +325,8 @@ def build_deadline_table(desc, tests):
                 continue
             mn = row[mn_col].iloc[0]
             sd = row[sd_col].iloc[0] if sd_col in row.columns else np.nan
-            stars = "" if bold else _get_stars(tests, scenario, method, col)
-            cells.append(_cell(mn, sd, dec, bold, stars))
+            stars = "" if is_proposed else _get_stars(tests, scenario, method, col)
+            cells.append(_cell(mn, sd, dec, method in best[col], stars))
         out += " & ".join(cells) + " \\\\\n"
     out += _tex_footer(wide=True)
     return out
@@ -346,14 +386,23 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--processed-dir", default="results/processed")
     parser.add_argument("--output-dir",    default="results/stats")
+    # LaTeX tables now live alongside the paper; CSV artefacts stay in --output-dir.
+    parser.add_argument("--table-dir",      default="paper/table")
     args = parser.parse_args()
 
     processed_dir = Path(args.processed_dir)
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    table_dir = Path(args.table_dir)
+    table_dir.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_csv(processed_dir / "all_summary.csv")
-    print(f"Loaded {len(df)} experiments  "
+    print(f"Loaded {len(df)} experiments (all scales)")
+    # Restrict the headline main/deadline tables to the primary scale.
+    if {"robot_count", "target_count"}.issubset(df.columns):
+        df = df[(df["robot_count"] == PRIMARY_ROBOTS) &
+                (df["target_count"] == PRIMARY_TASKS)].copy()
+    print(f"Primary scale {PRIMARY_ROBOTS}r/{PRIMARY_TASKS}t -> {len(df)} experiments  "
           f"({df['strategy'].nunique()} strategies, {df['scenario'].nunique()} scenarios)\n")
 
     # Descriptive stats
@@ -368,12 +417,12 @@ def main():
     all_tests.to_csv(out_dir / "stat_tests.csv", index=False)
     print(f"[OK] stat_tests.csv  ({len(all_tests)} tests)")
 
-    # LaTeX tables
-    (out_dir / "latex_main_table.tex").write_text(build_main_table(desc, g2))
-    print("[OK] latex_main_table.tex")
+    # LaTeX tables (written to paper/table, \input by the papers)
+    (table_dir / "latex_main_table.tex").write_text(build_main_table(desc, g2))
+    print(f"[OK] {table_dir}/latex_main_table.tex")
 
-    (out_dir / "latex_deadline_table.tex").write_text(build_deadline_table(desc, g3))
-    print("[OK] latex_deadline_table.tex")
+    (table_dir / "latex_deadline_table.tex").write_text(build_deadline_table(desc, g3))
+    print(f"[OK] {table_dir}/latex_deadline_table.tex")
 
     # Human-readable summary
     summary = build_summary(all_tests, desc)

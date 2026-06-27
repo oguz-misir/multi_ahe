@@ -1,0 +1,30 @@
+\begin{table}[t]
+\centering
+\caption{Effect sizes (Cliff's $\delta$) of AHE-MRTA* vs each baseline on primary metrics. $\delta>0$ favors AHE-MRTA*. $^{*}p{<}0.05$ (Mann--Whitney U, Bonferroni-corrected within scenario family).}
+\label{tab:effectsize}
+\small
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Metric} & \textbf{vs} & \textbf{BiG} & \textbf{RoSTAM} & \textbf{Cons-DBTA} \\
+\midrule
+\multicolumn{5}{l}{\textit{Scenario: robot\_failure}} \\
+CR & $\delta$ & +0.60 & +0.00 & +0.00 \\
+DVR & $\delta$ & +0.48 & +1.00 & +0.68 \\
+RecT & $\delta$ & -0.28 & +0.36 & +0.44 \\
+Churn & $\delta$ & -0.08 & +0.76 & +0.64 \\
+\midrule
+\multicolumn{5}{l}{\textit{Scenario: mixed\_stress}} \\
+CR & $\delta$ & +1.00 & +0.00 & +0.00 \\
+DVR & $\delta$ & +0.40 & +0.28 & +0.92 \\
+RecT & $\delta$ & -0.28 & -0.36 & +0.20 \\
+Churn & $\delta$ & +0.44 & +0.92 & +0.92 \\
+\midrule
+\multicolumn{5}{l}{\textit{Scenario: deadline\_pressure}} \\
+CR & $\delta$ & +1.00 & +0.00 & +0.00 \\
+DVR & $\delta$ & -0.56 & -0.00 & -0.08 \\
+RecT & $\delta$ & -0.00 & -0.00 & -0.00 \\
+Churn & $\delta$ & -0.00 & -0.00 & -0.00 \\
+\bottomrule
+\end{tabular}
+\\[2pt]\footnotesize Positive $\delta$ = AHE-MRTA* better; magnitude $|\delta|{>}0.47$ = large.
+\end{table}

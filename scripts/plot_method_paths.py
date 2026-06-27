@@ -13,6 +13,7 @@ trajectories always align with the map. Spurious uninitialised (~origin) poses
 are dropped.
 
 Usage: python3 scripts/plot_method_paths.py <run_dir> <out.png> ["Title"]
+  The paper uses paper/figure/grid_r5t25_mixed_stress.png as <out.png>.
 """
 import sys, csv, glob, os, math, statistics
 import numpy as np

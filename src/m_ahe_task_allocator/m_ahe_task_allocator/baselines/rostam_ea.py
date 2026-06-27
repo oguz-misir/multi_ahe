@@ -1,4 +1,4 @@
-"""rostam_ea — RoSTAM-EA: self-adaptive evolutionary MRTA (Arif & Haider, 2024).
+"""rostam_ea — RoSTAM-EA: evolutionary online MRTA baseline (Ozalp et al., 2024, IDT; DOI 10.3233/IDT-230693).
 
 Two-part chromosome: [task_permutation | robot_partition_counts]
 Fitness: makespan + penalty*deadline_violations + workload_variance_weight

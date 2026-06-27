@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\caption{Five hormones, five allocation paradigms.}
+\label{tab:hormones}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Hormone} & \textbf{Paradigm} & \textbf{Inner mechanism} \\
+\midrule
+H\_SPATIAL & spatial\_greedy   & nearest-feasible + reject \\
+H\_CRIT    & priority\_first   & priority-tiered LSA \\
+H\_TEMP    & edf\_strict       & EDF bipartite (multi-phase) \\
+H\_STAB    & commit\_once      & hard sticky, no reassign \\
+H\_RECOV   & orphan\_first     & orphan rescue + bipartite \\
+\bottomrule
+\end{tabular}
+\end{table}
