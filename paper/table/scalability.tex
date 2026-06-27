@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\caption{Scalability (Nav2-independent sim, 100 seeds, fixed density 5 tasks/robot,
+mean over scenarios). Fitness $\uparrow$, latency (ms) $\downarrow$.
+Best per scale \textbf{bold}. Physical Gazebo validation: 3r, 5r, and 10r confirmed.}
+\label{tab:scalability}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l cc cc cc}
+\toprule
+& \multicolumn{2}{c}{\textbf{3 robots}} & \multicolumn{2}{c}{\textbf{5 robots}} & \multicolumn{2}{c}{\textbf{10 robots}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+\textbf{Method} & Fit. & Lat. & Fit. & Lat. & Fit. & Lat. \\
+\midrule
+\textbf{AHE-MRTA*} & \textbf{0.488} & 0.04 & \textbf{0.520} & 0.05 & \textbf{0.493} & 0.11 \\
+BiG-MRTA           & 0.407 & 0.02 & 0.428 & 0.04 & 0.445 & 0.10 \\
+RoSTAM-EA          & 0.405 & 1.94 & 0.449 & 3.37 & 0.439 & 6.57 \\
+Consensus-DBTA     & 0.483 & \textbf{0.01} & 0.519 & \textbf{0.02} & 0.488 & \textbf{0.04} \\
+\bottomrule
+\end{tabular}
+\end{table}

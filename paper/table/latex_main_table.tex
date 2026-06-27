@@ -1,0 +1,24 @@
+\begin{table*}[t]
+\centering
+\caption{Main comparison at the primary 5-robot / 25-task scale; $n{=}5$ runs (seeds) per cell. Significance vs AHE-MRTA*: $^{*}p{<}0.05$, $^{**}p{<}0.01$, $^{***}p{<}0.001$ (Mann--Whitney U, Bonferroni-corrected within each scenario family of 21 tests).}
+\label{tab:main_comparison}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Method} & \textbf{CR$\uparrow$} & \textbf{Delay$\downarrow$(s)} & \textbf{RecT$\downarrow$(s)} & \textbf{Preempt$\downarrow$} & \textbf{Churn$\downarrow$} \\
+\midrule
+\multicolumn{6}{l}{\textit{Scenario: robot\_failure}} \\
+\textbf{AHE-MRTA*} & \textbf{1.000 $\pm$ 0.000} & 101.2 $\pm$ 12.5 & 73.3 $\pm$ 14.2 & 0.00 $\pm$ 0.00 & \textbf{0.024 $\pm$ 0.022} \\
+BiG-MRTA & 0.960 $\pm$ 0.049 & 89.3 $\pm$ 39.8 & \textbf{63.6 $\pm$ 19.1} & 0.00 $\pm$ 0.00 & \textbf{0.024 $\pm$ 0.036} \\
+RoSTAM-EA & \textbf{1.000 $\pm$ 0.000} & 88.5 $\pm$ 6.9 & 87.5 $\pm$ 22.7 & 0.00 $\pm$ 0.00 & 0.088 $\pm$ 0.052 \\
+Cons-DBTA & \textbf{1.000 $\pm$ 0.000} & \textbf{75.2 $\pm$ 13.7} & 102.9 $\pm$ 41.6 & 0.00 $\pm$ 0.00 & 0.064 $\pm$ 0.036 \\
+\midrule
+\multicolumn{6}{l}{\textit{Scenario: mixed\_stress}} \\
+\textbf{AHE-MRTA*} & \textbf{1.000 $\pm$ 0.000} & 51.7 $\pm$ 4.3 & 35.4 $\pm$ 19.2 & 0.00 $\pm$ 0.00 & \textbf{0.016 $\pm$ 0.022} \\
+BiG-MRTA & 0.728 $\pm$ 0.066 & 252.7 $\pm$ 50.2 & 29.3 $\pm$ 20.0 & 0.00 $\pm$ 0.00 & 0.032 $\pm$ 0.030 \\
+RoSTAM-EA & \textbf{1.000 $\pm$ 0.000} & \textbf{50.7 $\pm$ 8.8} & \textbf{27.7 $\pm$ 15.7} & 0.00 $\pm$ 0.00 & 0.096 $\pm$ 0.046 \\
+Cons-DBTA & \textbf{1.000 $\pm$ 0.000} & 60.4 $\pm$ 10.2 & 58.8 $\pm$ 40.9 & 0.00 $\pm$ 0.00 & 0.096 $\pm$ 0.046 \\
+\bottomrule
+\end{tabular}
+\end{table*}

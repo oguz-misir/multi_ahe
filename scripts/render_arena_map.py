@@ -12,7 +12,7 @@ import numpy as np
 PGM = 'src/m_ahe_nav2_config/maps/obstacle_map.pgm'
 RES = 0.05
 ORIGIN = (-10.0, -10.0)
-OUT = 'results/figures/arena_occupancy_map.png'
+OUT = 'paper/figure/arena_occupancy_map.png'
 
 
 def read_pgm(path):

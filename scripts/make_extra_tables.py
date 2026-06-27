@@ -8,8 +8,10 @@ import pandas as pd
 from pathlib import Path
 
 PROC = Path("results/processed")
-STATS = Path("results/stats")
+STATS = Path("results/stats")          # data artefacts (stat_tests.csv) read from here
 STATS.mkdir(exist_ok=True)
+TABLE_DIR = Path("paper/table")        # LaTeX tables written next to the paper
+TABLE_DIR.mkdir(parents=True, exist_ok=True)
 
 METHOD_ORDER = ["ahe_mrta_v3", "big_mrta", "rostam_ea", "consensus_dbta"]
 METHOD_LABEL = {
@@ -34,7 +36,11 @@ df = pd.read_csv(PROC / "all_summary.csv")
 
 # ---- 1. Efficiency table ----
 def efficiency_table(scen_label_map, caption, label, fname):
-    g = df.groupby(["scenario", "strategy"]).agg(
+    # Efficiency table is reported at the 3-robot scale (densities 9/15/24
+    # pooled, n=15 per cell). all_summary.csv pools all scales, so filter here;
+    # without it the means would mix 3r/5r/10r and contradict the caption.
+    src = df[df["robot_count"] == 3] if "robot_count" in df.columns else df
+    g = src.groupby(["scenario", "strategy"]).agg(
         wlb=("workload_balance", "mean"),
         lat=("mean_decision_latency_ms", "mean"),
         msg=("communication_messages", "mean"),
@@ -49,24 +55,38 @@ def efficiency_table(scen_label_map, caption, label, fname):
         r"\textbf{Lat$\downarrow$(ms)} & \textbf{Msgs$\downarrow$} & "
         r"\textbf{Dist$\downarrow$(m)} \\", r"\midrule",
     ]
+    # (column key, decimals, higher_is_better) — drives best-cell bolding
+    col_spec = [("wlb", 3, True), ("lat", 2, False),
+                ("msg", 0, False), ("dist", 1, False)]
     for sc in SCEN_ORDER:
         lines.append(rf"\multicolumn{{5}}{{l}}{{{scen_label_map[sc]}}} \\")
         sub = g[g.scenario == sc].set_index("strategy")
+        # bold the best cell per column (direction-aware, on displayed value);
+        # the AHE row name stays bold via METHOD_LABEL, but values are only
+        # emphasised where they are actually best — even for a baseline.
+        best = {}
+        for key, dec, higher in col_spec:
+            vals = {m: round(float(sub.loc[m, key]), dec)
+                    for m in METHOD_ORDER if m in sub.index}
+            if len(set(vals.values())) <= 1:
+                best[key] = set()
+            else:
+                tgt = max(vals.values()) if higher else min(vals.values())
+                best[key] = {m for m, v in vals.items() if v == tgt}
         for m in METHOD_ORDER:
             if m not in sub.index:
                 continue
             r = sub.loc[m]
-            bold = m == "ahe_mrta_v3"
-            fmt = (lambda x: rf"\textbf{{{x}}}") if bold else (lambda x: x)
+            cell = lambda key, x, _m=m: rf"\textbf{{{x}}}" if _m in best[key] else x
             lines.append(
-                f"{METHOD_LABEL[m]} & {fmt(f'{r.wlb:.3f}')} & "
-                f"{fmt(f'{r.lat:.2f}')} & {fmt(f'{r.msg:.0f}')} & "
-                f"{fmt(f'{r.dist:.1f}')} \\\\"
+                f"{METHOD_LABEL[m]} & {cell('wlb', f'{r.wlb:.3f}')} & "
+                f"{cell('lat', f'{r.lat:.2f}')} & {cell('msg', f'{r.msg:.0f}')} & "
+                f"{cell('dist', f'{r.dist:.1f}')} \\\\"
             )
         if sc != SCEN_ORDER[-1]:
             lines.append(r"\midrule")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]
-    (STATS / fname).write_text("\n".join(lines))
+    (TABLE_DIR / fname).write_text("\n".join(lines))
     print(f"[OK] {fname}")
 
 # ---- 2. Effect-size table (Cliff's delta) ----
@@ -108,7 +128,7 @@ def effect_size_table(scen_label_map, caption, label, fname, note):
             lines.append(r"\midrule")
     lines += [r"\bottomrule", r"\end{tabular}",
               rf"\\[2pt]\footnotesize {note}", r"\end{table}", ""]
-    (STATS / fname).write_text("\n".join(lines))
+    (TABLE_DIR / fname).write_text("\n".join(lines))
     print(f"[OK] {fname}")
 
 # EN
@@ -116,7 +136,8 @@ efficiency_table(
     SCEN_LABEL,
     "Efficiency metrics (Gazebo, 3-robot scale; densities 9/15/24 pooled, $n{=}15$ per cell). "
     "WLBal: Jain workload balance; Lat: mean decision latency; "
-    "Msgs: allocation messages; Dist: total travel distance.",
+    "Msgs: allocation messages; Dist: total travel distance. "
+    "Best value per column (within scenario) in \\textbf{bold}.",
     "tab:efficiency", "latex_efficiency_table.tex")
 effect_size_table(
     SCEN_LABEL,
@@ -131,7 +152,8 @@ efficiency_table(
     SCEN_LABEL_TR,
     "Verimlilik metrikleri (Gazebo, 3 robot, 15 g\\\"orev, 5 tohum). "
     "WLBal: Jain i\\c{s} y\\\"uk\\\"u dengesi; Lat: ortalama karar gecikmesi; "
-    "Msgs: tahsis mesajlar\\i; Dist: toplam yol mesafesi.",
+    "Msgs: tahsis mesajlar\\i; Dist: toplam yol mesafesi. "
+    "Her s\\\"utunda en iyi de\\u{g}er \\textbf{kal\\i n}.",
     "tab:efficiency", "latex_efficiency_table_tr.tex")
 effect_size_table(
     SCEN_LABEL_TR,

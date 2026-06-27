@@ -1,0 +1,25 @@
+\begin{table}[t]
+\centering
+\caption{EDPS ablasyonu (Nav2-bağımsız uygunluk, 5r/25g, 100 seed). Tüm
+varyantlar $0.9$~pp mean-uygunluk içinde; hiçbiri EDPS'ten istatistiksel
+ayrışmıyor.}
+\label{tab:ablation}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Varyant} & \textbf{Rob.\ ar\i.} & \textbf{Deadline} & \textbf{Kar.\ stres} & \textbf{Ort.} \\
+\midrule
+Tam EDPS           & 0.538 & 0.483 & 0.538 & 0.520 \\
+\midrule
+sabit: spatial     & 0.552 & 0.482 & 0.549 & 0.528 \\
+sabit: edf         & 0.544 & 0.489 & 0.540 & 0.524 \\
+sabit: commit      & 0.547 & 0.474 & 0.549 & 0.523 \\
+sabit: orphan      & 0.537 & 0.481 & 0.541 & 0.520 \\
+sabit: priority    & 0.542 & 0.478 & 0.537 & 0.519 \\
+\midrule
+no-override        & 0.538 & 0.483 & 0.538 & 0.520 \\
+no-recovery-boost  & 0.537 & 0.483 & 0.539 & 0.519 \\
+\bottomrule
+\end{tabular}
+\end{table}

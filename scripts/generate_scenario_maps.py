@@ -138,7 +138,11 @@ def main():
     fig.suptitle('AHE-MRTA — Ortam senaryo haritaları (robot × görev ölçekleri)',
                  fontsize=13, y=1.02)
     plt.tight_layout()
-    out = os.path.join(OUTDIR, 'scenario_maps_panel.png')
+    # The combined panel is the figure the paper uses, so it lives in the
+    # canonical paper/figure dir; the per-scale maps above stay in results/.
+    panel_dir = os.path.join(ROOT, 'paper/figure')
+    os.makedirs(panel_dir, exist_ok=True)
+    out = os.path.join(panel_dir, 'scenario_maps_panel.png')
     fig.savefig(out, dpi=150, bbox_inches='tight')
     plt.close(fig)
     print(f'Saved: {out}')

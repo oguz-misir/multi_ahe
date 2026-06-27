@@ -891,9 +891,9 @@ def tune_parameter(param_name: str, values: List[float],
         elif param_name == 'beta':   kwargs['beta']  = val
         elif param_name == 'gamma':  kwargs['gamma'] = val
 
-        summ = benchmark(['full_ahe_mrta'], scenario, n_seeds,
+        summ = benchmark(['ahe_mrta_v3'], scenario, n_seeds,
                          n_robots=n_robots, n_tasks=n_tasks, **kwargs)
-        s = summ['full_ahe_mrta']
+        s = summ['ahe_mrta_v3']
         delta = s['completion_rate'] - base_comp
         marker = ' ← BEST' if val == values[0] else ''
         print(f"  {val:>8.3f}  {s['completion_rate']:>15.3f}  "
