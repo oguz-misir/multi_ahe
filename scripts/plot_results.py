@@ -4,7 +4,6 @@ Generate the paper figure set from processed CSV files.
 
 Produces exactly the figures referenced by paper/main.tex / main_tr.tex:
 
-  system_overview.png                  (static diagram)
   fitness_comparison.png               (sim_fitness.csv)
   scalability_panel.png                (sim_scalability.csv)
   baseline_comparison_multi_metric.png (all_summary.csv, 3r)
@@ -16,8 +15,8 @@ Produces exactly the figures referenced by paper/main.tex / main_tr.tex:
 
 scenario_maps_panel.png is produced by scripts/generate_scenario_maps.py;
 gazebo_rviz_combined.png is composed from Gazebo/RViz screen captures.
-Figure 1 (fig1.drawio / fig1.drawio.png) is a hand-authored draw.io asset
-under paper/figure/, edited directly rather than generated here.
+Figures 1 and 2 (fig1.drawio / fig2.drawio, + their .drawio.png exports) are
+hand-authored draw.io assets under paper/figure/, edited directly here.
 
 Usage:
     python3 scripts/plot_results.py \
@@ -247,77 +246,6 @@ def _varrow(ax, x, y1, y2, color="#444", lw=1.3, lbl="", side="right",
         ha = "left" if side == "right" else "right"
         ax.text(x + dx, (y1 + y2) / 2, lbl, ha=ha, va="center",
                 fontsize=7.2, color=color)
-
-
-def plot_system_overview(out_dir: Path, dpi: int) -> None:
-    # Wide, short layout intended to span both columns (figure*).
-    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 2.9))
-    ax.set_xlim(0, 16)
-    ax.set_ylim(0, 7.2)
-    ax.axis("off")
-    ax.grid(False)
-
-    BLUE, GREEN, ORANGE, PURPLE, YELLOW, GREY = (
-        "#cfe2f3", "#d9ead3", "#ffe0b2", "#e1bee7", "#fff2cc", "#efefef")
-
-    # Top row: control plane (left to right pipeline)
-    _orect(ax, 0.3, 4.2, 3.2, 1.5,
-           "Task Manager\n(goal pool, batch\nrelease, deadlines)", BLUE, 7.6)
-    _orect(ax, 4.4, 4.2, 3.6, 1.5,
-           "Ecosystem Manager\noperating state $c(t)$ $\\rightarrow$ dominance\n$D(t)$ $\\rightarrow$ paradigm $p^*$",
-           GREEN, 7.6)
-    _orect(ax, 8.9, 4.2, 3.2, 1.5,
-           "AHE Allocator\nrun $p^*$, build\nper-robot queues", ORANGE, 7.6)
-
-    # control-plane arrows (straight, same row)
-    _harrow(ax, 3.5, 4.4, 4.95, lbl="tasks")
-    _harrow(ax, 8.0, 8.9, 4.95, lbl="$D(t)$")
-
-    # Distribution bus: allocator drops down to a horizontal bus,
-    # then one straight arrow per robot (no crossing fan).
-    bus_y = 3.1
-    _varrow(ax, 10.5, 4.2, bus_y + 0.05, color="#c0392b",
-            lbl="queues", side="right")
-    ax.plot([1.4, 10.5], [bus_y, bus_y], color="#c0392b", lw=1.3)
-
-    robots_x = [1.4, 4.6, 7.8]
-    for rx in robots_x:
-        _orect(ax, rx - 1.1, 1.5, 2.2, 1.2,
-               "Robot Iface\n(Nav2 client)", PURPLE, 7.2)
-        ax.annotate("", xy=(rx, 2.7), xytext=(rx, bus_y),
-                    arrowprops=dict(arrowstyle="-|>", color="#c0392b", lw=1.2,
-                                    shrinkA=0, shrinkB=0))
-
-    # Execution layer
-    _orect(ax, 0.3, 0.1, 11.8, 0.9,
-           "Nav2 + Gazebo Harmonic   (TurtleBot3 Waffle Pi, headless)",
-           YELLOW, 7.6)
-    for rx in robots_x:
-        _varrow(ax, rx, 1.5, 1.0, color="#555", two_way=True)
-
-    # Feedback path (execution feedback -> context): clean top route that
-    # touches no box. right side up, across the very top, down into EM.
-    GR = "#2e7d32"
-    ax.annotate("", xy=(15.3, 2.1), xytext=(8.9, 2.1),
-                arrowprops=dict(arrowstyle="-", color=GR, lw=1.2))
-    ax.plot([15.3, 15.3], [2.1, 6.7], color=GR, lw=1.2)
-    ax.annotate("", xy=(6.2, 6.7), xytext=(15.3, 6.7),
-                arrowprops=dict(arrowstyle="-", color=GR, lw=1.2))
-    ax.annotate("", xy=(6.2, 5.7), xytext=(6.2, 6.7),
-                arrowprops=dict(arrowstyle="-|>", color=GR, lw=1.2))
-    ax.text(15.45, 4.2, "execution\nfeedback", fontsize=7.2,
-            color=GR, ha="left", va="center")
-
-    # Logger (separate, bottom-right)
-    _orect(ax, 12.9, 0.1, 3.0, 0.9, "Evaluation\nLogger (CSV)", GREY, 7.4)
-    ax.annotate("", xy=(12.9, 0.55), xytext=(12.1, 0.55),
-                arrowprops=dict(arrowstyle="-|>", color="#555", lw=1.0))
-
-    fig.tight_layout(pad=0.2)
-    out_path = out_dir / "system_overview.png"
-    fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
-    plt.close(fig)
-    print(f"[OK]  {out_path}")
 
 
 # ── Data-driven figures ─────────────────────────────────────────────────────────
@@ -820,10 +748,8 @@ def main() -> None:
     df_eco      = _load(processed_dir, "all_ecosystem_metrics.csv")
     df_10r      = _load(processed_dir / "gazebo_10r", "all_summary.csv")
 
-    # Static diagrams
-    plot_system_overview(out_dir, dpi)
-    # Figure 1 (adaptive_ecosystem_mechanism / fig1.drawio) is a hand-authored
-    # draw.io asset under paper/figure/, not generated here.
+    # Figures 1 and 2 (fig1.drawio / fig2.drawio) are hand-authored draw.io
+    # assets under paper/figure/, edited directly rather than generated here.
 
     # Nav2-independent simulator figures
     plot_fitness_comparison(processed_dir, out_dir, dpi)
