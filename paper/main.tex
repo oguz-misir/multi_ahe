@@ -765,6 +765,19 @@ the fleet (AHE-MRTA and Consensus-DBTA spread robots across the arena
 to cover all waypoints, whereas the commit-once BiG-MRTA leaves more
 of the map uncovered).
 
+Figure~\ref{fig:deployment} complements this static-map view with a
+live snapshot of the largest 10-robot configuration, captured mid-run
+under AHE-MRTA on a \textit{dynamic\_task\_arrival} instance. The
+Gazebo Harmonic physics view shows all ten TurtleBot3 robots dispersed
+across the arena toward their assigned waypoints, while the concurrent
+RViz view renders the shared occupancy map overlaid with every robot's
+current Nav2 global plan (one colour per robot) and ground-truth pose.
+The two panels share the same arena geometry and make the per-event,
+work-conserving dispatch directly visible: at any instant the fleet is
+fanned out across both lanes rather than queued behind a single
+corridor, which is how the ecosystem keeps fleet capacity occupied as
+new tasks arrive.
+
 \begin{figure*}[t]
   \centering
   \begin{minipage}[b]{0.30\textwidth}
@@ -792,6 +805,34 @@ of the map uncovered).
   commit-once BiG-MRTA leaves more of the arena uncovered.}
   \label{fig:setup-paths}
 \end{figure*}
+
+\begin{figure}[t]
+  \centering
+  \begin{minipage}[b]{0.495\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{gazebo_10r_example.png}\\[2pt]
+    {\small (a) Gazebo Harmonic --- 3-D physics}
+  \end{minipage}\hfill
+  \begin{minipage}[b]{0.495\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{rviz_10r_example.png}\\[2pt]
+    {\small (b) RViz --- map + live Nav2 plans}
+  \end{minipage}
+  \caption{Representative live snapshot of the largest (10-robot)
+  deployment executing under AHE-MRTA on a
+  \textit{dynamic\_task\_arrival} instance.
+  \textbf{(a)} Gazebo Harmonic 3-D physics: the ten TurtleBot3
+  Waffle\,Pi robots (blue) dispersed across the $20{\times}20$~m
+  inspection arena---divider walls, square pillars, and cylinder
+  obstacles (orange)---each driving to an assigned inspection waypoint.
+  \textbf{(b)} The concurrent RViz view in the shared map frame: the
+  pre-built occupancy map overlaid with each robot's current Nav2
+  global plan (one colour per robot) and ground-truth pose. The
+  colour-coded plans show the fleet fanned out across both lanes---the
+  visual signature of the ecosystem's per-event, work-conserving
+  dispatch.}
+  \label{fig:deployment}
+\end{figure}
 
 \input{table/latex_main_table.tex}
 
