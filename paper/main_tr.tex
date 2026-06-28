@@ -725,6 +725,19 @@ dağıttığını ortaya koyar (AHE-MRTA ve Consensus-DBTA tüm noktaları
 kapsamak için robotları yayar, commit-once BiG-MRTA arenanın daha çoğunu
 kapsamasız bırakır).
 
+Şekil~\ref{fig:deployment} bu durağan-harita görünümünü, en büyük
+10-robot yapılandırmasının AHE-MRTA altında bir
+\textit{dynamic\_task\_arrival} örneğinde koşma anında alınmış canlı bir
+anlık görüntüsüyle tamamlar. Gazebo Harmonic fiziksel görünümü on
+TurtleBot3 robotun tümünün arenaya, atanmış denetim noktalarına doğru
+dağıldığını gösterir; eşzamanlı RViz görünümü ise paylaşılan işgal
+haritasını her robotun güncel Nav2 küresel planı (robot başına bir renk)
+ve ground-truth poz\-uyla bindirir. İki panel aynı arena geometrisini
+paylaşır ve olay-başına, iş-koruyan dağıtımı doğrudan görünür kılar:
+herhangi bir anda filo tek bir koridorda kuyruğa girmek yerine her iki
+şeride yayılmıştır; ekosistem yeni görevler geldikçe filo kapasitesini
+böyle meşgul tutar.
+
 \begin{figure*}[t]
   \centering
   \begin{minipage}[b]{0.30\textwidth}
@@ -744,6 +757,34 @@ kapsamasız bırakır).
   \textbf{(b)} AHE-MRTA ve Consensus-DBTA filoyu tüm noktaları kapsayacak şekilde yayar; commit-once BiG-MRTA arenanın daha çoğunu kapsamasız bırakır.}
   \label{fig:setup-paths}
 \end{figure*}
+
+\begin{figure}[t]
+  \centering
+  \begin{minipage}[b]{0.495\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{gazebo_10r_example.png}\\[2pt]
+    {\small (a) Gazebo Harmonic --- 3B fizik}
+  \end{minipage}\hfill
+  \begin{minipage}[b]{0.495\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{rviz_10r_example.png}\\[2pt]
+    {\small (b) RViz --- harita + canlı Nav2 planları}
+  \end{minipage}
+  \caption{En büyük (10-robot) dağıtımın AHE-MRTA altında bir
+  \textit{dynamic\_task\_arrival} örneğinde koşma anında alınmış temsilî
+  canlı anlık görüntüsü.
+  \textbf{(a)} Gazebo Harmonic 3B fizik: on TurtleBot3 Waffle\,Pi robotu
+  (mavi) $20{\times}20$~m denetim arenasına---bölme duvarları, kare
+  sütunlar ve silindir engeller (turuncu)---dağılmış, her biri atanmış
+  bir denetim noktasına ilerliyor.
+  \textbf{(b)} Eşzamanlı RViz görünümü (paylaşılan harita çerçevesinde):
+  önceden oluşturulmuş işgal haritası, her robotun güncel Nav2 küresel
+  planı (robot başına bir renk) ve ground-truth pozuyla bindirilmiş.
+  Renk-kodlu planlar filonun her iki şeride yayıldığını
+  gösterir---ekosistemin olay-başına, iş-koruyan dağıtımının görsel
+  imzası.}
+  \label{fig:deployment}
+\end{figure}
 
 \input{table/latex_main_table.tex}
 
