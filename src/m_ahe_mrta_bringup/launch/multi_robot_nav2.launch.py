@@ -344,6 +344,11 @@ def _launch_setup(context, *_args, **_kwargs):
         stagger_eager_s = 10.0
         lc_offset_s = 20.0
         for idx, (robot_ns, (sx, sy)) in enumerate(zip(namespaces, positions)):
+            # NOTE: peer-scan obstacle sources (other_namespaces) are intentionally
+            # NOT used: each robot's Nav2 stack remaps /tf -> /robot_N/tf, so a
+            # robot's TF buffer has no transforms for peer base_scan frames and
+            # cannot place their scans. Each robot already detects peers via its
+            # OWN laser (now fed into the global obstacle_layer too).
             params_file = _make_nav2_params(template, robot_ns, map_yaml, sx, sy)
             eager_delay = idx * stagger_eager_s
             lifecycle_delay = eager_delay + lc_offset_s

@@ -118,12 +118,18 @@ local_costmap:
       width: 3
       height: 3
       resolution: 0.05
-      robot_radius: 0.14
+      # TurtleBot3 Waffle Pi footprint: SDF collision box is 0.266x0.266 m
+      # (circumscribed radius ~0.19-0.24 m). The previous 0.14 was the *burger*
+      # radius and made Nav2 underestimate the body → corners clipped walls and
+      # other robots. 0.22 is the ROBOTIS-official waffle radius.
+      robot_radius: 0.22
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.40
+        # > robot_radius so the controller keeps a real safety buffer around
+        # the (now correctly sized) footprint in the crowded arena.
+        inflation_radius: 0.45
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: true
@@ -151,21 +157,43 @@ global_costmap:
     ros__parameters:
       use_sim_time: true
       transform_tolerance: 5.0
-      update_frequency: 1.0
-      publish_frequency: 1.0
+      # raised from 1.0: the obstacle_layer must refresh fast enough that the
+      # global planner sees moving peers before routing through them.
+      update_frequency: 2.0
+      publish_frequency: 2.0
       global_frame: robot_1/map
       robot_base_frame: robot_1/base_link
-      robot_radius: 0.14
+      robot_radius: 0.22
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "inflation_layer"]
+      # obstacle_layer added: the static map only contains the arena/obstacles
+      # baked at build time. Without a live laser layer here, the global planner
+      # never routed around OTHER ROBOTS or any obstacle not in the map, so all
+      # robots funnelled into the same chokepoint and jammed. The laser obstacle
+      # layer lets the global plan replan around dynamic obstacles (peers) and
+      # any unmapped obstacle within sensor range.
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: scan
+          data_type: "LaserScan"
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          raytrace_max_range: 3.5
+          raytrace_min_range: 0.0
+          obstacle_max_range: 3.0
+          obstacle_min_range: 0.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.30
+        inflation_radius: 0.45
       always_send_full_costmap: true
 
 map_server:
