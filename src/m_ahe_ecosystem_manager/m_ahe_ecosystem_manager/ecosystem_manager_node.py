@@ -2,11 +2,11 @@
 Phase 8 — AHE-MRTA Ecosystem Manager Node
 
 Implements all five core AHE mechanisms:
-  1. Context vector  C_t  (7 dimensions)
-  2. Dominance vector  D(t)  (K=7 strategy agents)
+  1. Context vector  C_t  (4 dimensions)
+  2. Dominance vector  D(t)  (K=5 strategy agents)
   3. Context compatibility  K_i(C_t)
-  4. Cooperation matrix  A  (7×7)
-  5. Suppression matrix  S  (7×7)
+  4. Cooperation matrix  A  (5×5)
+  5. Suppression matrix  S  (5×5)
   6. Dominance update equation
   7. Allocation weight generation  W(t) = softmax(M · D(t))
 
@@ -141,6 +141,16 @@ def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (na * nb))
 
 
+def _deadline_pressure(tasks, now: float, horizon: float = 60.0) -> float:
+    """Fraction of active tasks whose *remaining* deadline is within horizon."""
+    active = [t for t in tasks if t.active and not t.completed]
+    if not active:
+        return 0.0
+    near = sum(1 for t in active
+               if t.deadline > 0 and (float(t.deadline) - now) <= horizon)
+    return near / len(active)
+
+
 # ---------------------------------------------------------------------------
 # Node
 # ---------------------------------------------------------------------------
@@ -174,6 +184,10 @@ class EcosystemManagerNode(Node):
         self._feedback: dict[str, Optional[LocalExecutionFeedback]] = {
             r: None for r in self._robots
         }
+        # Failures injected by ExperimentRunner are logical fleet failures;
+        # the robot process keeps publishing normal status, so the allocation
+        # event is the authoritative signal for the ecosystem context.
+        self._externally_failed: set[str] = set()
 
         # Tracking for instability
         self._completed_this_cycle: int = 0
@@ -249,6 +263,8 @@ class EcosystemManagerNode(Node):
             self._failed_this_cycle += 1
 
     def _event_cb(self, msg: AllocationEvent) -> None:
+        if msg.event_type == 'robot_failure' and msg.robot_id:
+            self._externally_failed.add(msg.robot_id)
         if msg.trigger_replan:
             self._reassigned_this_cycle += 1
 
@@ -314,23 +330,23 @@ class EcosystemManagerNode(Node):
         # c2: robot_availability
         avail = sum(
             1 for r in self._robots
-            if (s := self._robot_states.get(r)) is not None
-            and s.availability_state == 0
+            if r not in self._externally_failed
+            and (s := self._robot_states.get(r)) is not None
+            and s.availability_state != 2
+            and s.navigation_state not in (2, 3)
         )
         ctx[C_ROBOT_AVAIL] = avail / robot_count
 
-        # c3: deadline_pressure (fraction of active tasks near their deadline)
-        near_deadline = sum(
-            1 for t in active_tasks
-            if t.deadline > 0 and t.deadline < 60.0
-        )
-        ctx[C_DEADLINE] = near_deadline / max(1, active_count)
+        # c3: deadline_pressure uses remaining slack, not the absolute ROS time.
+        now = self.get_clock().now().nanoseconds / 1e9
+        ctx[C_DEADLINE] = _deadline_pressure(active_tasks, now)
 
         # c4: failure_rate
         failed_stuck = sum(
             1 for r in self._robots
-            if (s := self._robot_states.get(r)) is not None
-            and (s.failure_flag or s.navigation_state in (2, 3))  # STUCK or FAILED
+            if r in self._externally_failed or (
+                (s := self._robot_states.get(r)) is not None
+                and (s.failure_flag or s.navigation_state in (2, 3)))
         )
         ctx[C_FAILURE] = failed_stuck / robot_count
 
@@ -371,8 +387,9 @@ class EcosystemManagerNode(Node):
         boost = np.zeros(K)
         failure_rate = sum(
             1 for r in self._robots
-            if (s := self._robot_states.get(r)) is not None
-            and s.failure_flag
+            if r in self._externally_failed or (
+                (s := self._robot_states.get(r)) is not None
+                and (s.failure_flag or s.navigation_state in (2, 3)))
         ) / max(1, self._robot_count)
 
         # Boost Recovery and Stability when failures are active

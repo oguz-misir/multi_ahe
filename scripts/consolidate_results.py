@@ -63,6 +63,28 @@ def inject_meta(df: pd.DataFrame, meta: dict, exp_id: str) -> pd.DataFrame:
     return df
 
 
+def _jain(values) -> float:
+    xs = [max(0.0, float(v)) for v in values]
+    total = sum(xs)
+    sum_sq = sum(v * v for v in xs)
+    return ((total * total) / (len(xs) * sum_sq)
+            if xs and total > 0.0 and sum_sq > 0.0 else 0.0)
+
+
+def inject_corrected_workload_balance(df: pd.DataFrame, exp_dir: Path) -> None:
+    """Replace the historical variance transform with the true Jain index."""
+    workload_path = exp_dir / 'robot_workload.csv'
+    if not workload_path.exists() or df.empty:
+        return
+    workload = pd.read_csv(workload_path)
+    if 'tasks_completed' not in workload.columns:
+        return
+    if ('workload_balance' in df.columns
+            and 'workload_balance_legacy_variance' not in df.columns):
+        df['workload_balance_legacy_variance'] = df['workload_balance']
+    df['workload_balance'] = _jain(workload['tasks_completed'].tolist())
+
+
 def consolidate(raw_dir: Path, processed_dir: Path) -> None:
     processed_dir.mkdir(parents=True, exist_ok=True)
 
@@ -86,6 +108,7 @@ def consolidate(raw_dir: Path, processed_dir: Path) -> None:
                 df = pd.read_csv(fpath)
                 df = inject_meta(df, meta, exp_id)
                 if fname == "summary.csv":
+                    inject_corrected_workload_balance(df, exp_dir)
                     stab = compute_for_exp(exp_dir)
                     if stab:
                         df["exec_preemptions"] = stab["exec_preemptions"]

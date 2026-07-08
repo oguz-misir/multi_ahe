@@ -1,0 +1,25 @@
+\begin{table*}[t]
+\centering
+\caption{Fresh matched F45--F58 Gazebo+Nav2 validation
+(5 robots / 25 tasks, 5 common seeds per scenario, both arms from the same
+source snapshot). Arrows show F45$\rightarrow$F58 means; $J_{\rm act}$ is
+the Jain index excluding permanently failed robots.}
+\label{tab:f58-gazebo}
+\small
+\setlength{\tabcolsep}{3.8pt}
+\begin{tabular}{lccccccc}
+\toprule
+Scenario & CR & DVR & Delay (s) & Distance (m) & $J_{\rm act}$ & Decision (ms) & Gate \\
+\midrule
+Robot failure
+  & 1.000$\to$1.000 & .016$\to$.000 & 95.52$\to$94.01
+  & 167.03$\to$166.47 & .966$\to$.973 & .49$\to$17.44 & Pass \\
+Mixed stress
+  & 1.000$\to$1.000 & .296$\to$.256 & 54.24$\to$52.37
+  & 157.96$\to$149.61 & .961$\to$.985 & .45$\to$16.97 & Pass \\
+Deadline pressure
+  & 1.000$\to$1.000 & .312$\to$.216 & 77.18$\to$70.49
+  & 146.87$\to$133.53 & .978$\to$.987 & .68$\to$21.16 & Pass \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -1,0 +1,30 @@
+\begin{table}[t]
+\centering
+\caption{F58 (P0 geodezik oracle + P1R terminal yük onarımı) Nav2-bağımsız
+allocation-only sonuçları (hücre başına 100 tohum). Navigasyon deterministik
+olarak başarılıdır; mesafe, ortak şişirilmiş occupancy map üzerindeki geodezik
+yol uzunluğudur.}
+\label{tab:f58-allocation}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrrrrrrr}
+\toprule
+\textbf{Ölçek} & \textbf{Senaryo} & \textbf{Fit.} & \textbf{CR} & \textbf{DVR} &
+\textbf{Jain$_{aktif}$} & \textbf{Jain$_{mesafe}$} & \textbf{Gecikme (s)} &
+\textbf{Mesafe} & \textbf{Karar (ms)} \\
+\midrule
+3r/15g & Robot arızası & 1.000 & 1.000 & 0.000 & 0.991 & 0.833 & 40.2 & 154.1 & 0.063 \\
+3r/15g & Karışık stres & 1.000 & 1.000 & 0.000 & 0.992 & 0.835 & 40.0 & 153.6 & 0.063 \\
+3r/15g & Deadline baskısı & 1.000 & 1.000 & 0.000 & 0.988 & 0.965 & 65.8 & 155.5 & 0.061 \\
+\midrule
+5r/25g & Robot arızası & 1.000 & 1.000 & 0.000 & 0.986 & 0.841 & 30.8 & 186.5 & 0.086 \\
+5r/25g & Karışık stres & 1.000 & 1.000 & 0.000 & 0.985 & 0.843 & 30.5 & 184.6 & 0.086 \\
+5r/25g & Deadline baskısı & 1.000 & 1.000 & 0.000 & 0.984 & 0.954 & 60.5 & 233.5 & 0.078 \\
+\midrule
+10r/50g & Robot arızası & 1.000 & 1.000 & 0.000 & 0.982 & 0.862 & 31.6 & 284.1 & 0.200 \\
+10r/50g & Karışık stres & 1.000 & 1.000 & 0.000 & 0.985 & 0.861 & 31.4 & 284.1 & 0.201 \\
+10r/50g & Deadline baskısı & 1.000 & 1.000 & 0.000 & 0.990 & 0.944 & 57.1 & 432.0 & 0.132 \\
+\bottomrule
+\end{tabular}}
+\end{table}

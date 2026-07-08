@@ -1,6 +1,49 @@
 # AHE-MRTA — Durum (v4.5 ADİL-PAYDA PİVOTU)
 
-**Son güncelleme:** 2026-06-20 | **Durum:** Sim metodoloji TAMAM; Gazebo yeniden-koşum bekliyor
+## ⟹ CHECKPOINT (2026-06-29) — F45 REFERANS + GERÇEK ALLOCATION-ONLY AYRIMI
+
+- Aktif yöntem **F45/v4.5**; `F53_FAIR_ANTI_IDLE=False`. F53 başarı iddiası ve
+  F53 Gazebo yeniden-koşum planı iptal edildi.
+- Eski “Nav2-bağımsız” sim varsayılanı gerçekte konuma bağlı nav başarı zarı +
+  30 s timeout kullanıyordu. Gerçek allocation-only düzlem `ideal_nav=True` olmalıdır.
+- F45 allocation-only, 5r/25g, 100 tohum: failure/mixed/deadline fitness ve CR
+  `1.000`; aktif Jain `.984/.986/.973`; tüm-filo Jain `.864/.866/.973`.
+  Failure'daki fark 45. saniyede kasıtlı kapatılan robotu içerir.
+- F54 completion-borcu, competency subsidy, üretken-robot tavanı, round-robin,
+  F55 konveks efor ve F56 adaptif cap tarandı; bağımsız holdout'ta adalet kazanımı
+  doğrulanmadığı için aktif koda alınmadı.
+- Başarısız deneme sayacı `RobotState.failed_tasks` olarak taşınıyor; bu yalnız
+  tanı/gelecek robot-görev reachability modeli içindir, allocation bonusu değildir.
+- Güncel rapor: `docs/F45_FAIRNESS_DEEP_DIVE.md`; tekrar üretim:
+  `scripts/validate_f45_allocation.py`.
+- Sonraki yöntem kolu: occupancy-map/Nav2 yol maliyeti + robot-görev çiftine özgü
+  başarısızlık karantinası + ε-sınırlı ikinci-aşama denge onarımı.
+
+**Son güncelleme:** 2026-06-29 | **Durum:** F45 kilitli; allocation-only doğrulandı; reachability kolu bekliyor
+
+## ⟹ TARİHSEL/REDDEDİLEN (2026-06-28) — F53 ADİL BACKFILL
+
+- F53: sabit robot-listesi sırasını kaldıran görev-öncelikli backfill; en hızlı adayın 2 m
+  çevresinde exact completion → travel → robot-id tie-break, yakın incumbent korunur.
+- 100-tohum SIM (5r/25g): ortalama Jain 0.727→0.733; deadline Jain 0.779→0.794,
+  CR 0.573→0.585, delay 485.5→481.4, distance 869.7→775.3, churn 0.995→0.668;
+  fitness/DVR değişimi ≤0.002.
+- Holdout seed101--200: üç senaryoda raporlanan hiçbir metrik yön olarak gerilemedi;
+  deadline Jain +.025, CR +.013, distance -91.0, churn -.256.
+- İkinci holdout seed201--300: Jain üç senaryoda +.001/+.001/+.013; mesafe
+  -14.33/-14.32/-87.18. Holm sonrası üç mesafe, deadline CR ve deadline churn anlamlı;
+  Jain artışları pozitif fakat bu 100 tohumda tek başına anlamlı değil.
+- Ölçek denetimi: 10r/50g'de Jain üç senaryoda +.001/+.010/+.038; 3r/15g'de
+  deadline +.015, fakat failure/mixed -0.003/-0.005 küçük-filo takası açıkça kaydedildi.
+- Plane B düzeltmeleri: `deadline-now≤60`; enjekte `robot_failure` c4'e kalıcı taşınır;
+  availability BUSY robotları dışlamaz. Plane A c1 paydası robot sayısına hizalandı.
+- Metrik: Plane A+B gerçek Jain; aktif-robot Jain + mesafe Jain eklendi; eski variance dönüşümü
+  `workload_balance_legacy_variance` adıyla korunur.
+- Gazebo smoke deadline 3r/15g seed1: 15/15, CR=1, Jain=.974, distance-Jain=.996,
+  distance=113.66 m, latency=.43 ms; context_deadline=1 ve TemporalRegulator doğrulandı.
+- Tarihsel rapor: `docs/AHE_FAIRNESS_IMPROVEMENT_RESEARCH.md`. F53 aktif yöntem değildir.
+- Emekliye ayrılan tarihsel araçlar: `run_f53_gazebo_validation.sh`,
+  `compare_f53_gazebo.py`, `validate_f53_sim.py`; aktif karar üretiminde kullanılmaz.
 
 ## ⟹ CHECKPOINT (2026-06-20) — v4.5 ADİL-PAYDA + ALGO RAFİNE (sim tamam, Gazebo bekliyor)
 **Kullanıcı direktifi (remote-control):** tüm metrikleri iyileştir + bütün deneyleri sıfırdan

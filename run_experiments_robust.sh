@@ -291,6 +291,11 @@ run_one() {
 
     local log_file="$RESULTS_DIR/${eid}.log"
     local exp_dir="$RESULTS_DIR/${eid}"
+    # Retry markers describe the previous attempt, not the experiment ID
+    # forever.  Clear them immediately before a fresh launch so a successful
+    # retry cannot remain falsely labelled as a startup/time-jump failure.
+    mkdir -p "$exp_dir"
+    rm -f "$exp_dir/STARTUP_FAILED" "$exp_dir/INVALID_TIMEJUMP"
     local gz_gui_arg="false"
     if [ "$record_this" -eq 1 ]; then
         gz_gui_arg="true"
@@ -314,6 +319,22 @@ run_one() {
         local ec=$?
         [ $ec -eq 124 ] && echo "   ⚠ Timeout (${TIMEOUT_SEC}s geçti)" \
                         || echo "   ✗ Hata (exit=$ec) — log: $log_file"
+    fi
+
+    # A hard-killed previous Gazebo process can keep publishing an old /clock,
+    # producing hundreds of thousands of TF "jump back in time" warnings and
+    # a formally complete but physically invalid run.  Quarantine such output;
+    # skip-done will rerun it on the next campaign invocation.
+    local time_jumps=0
+    if [ -f "$log_file" ]; then
+        time_jumps=$(grep -c "Detected jump back in time" "$log_file" 2>/dev/null || true)
+    fi
+    if [ "$time_jumps" -gt "${MAX_TIME_JUMPS:-5}" ]; then
+        echo "   ✗ INVALID — TF time jumps: $time_jumps"
+        printf 'tf_time_jumps=%s\n' "$time_jumps" > "$exp_dir/INVALID_TIMEJUMP"
+        if [ -f "$done_file" ]; then
+            mv "$done_file" "$exp_dir/DONE.invalid_timejump"
+        fi
     fi
 
     if [ "$record_this" -eq 1 ]; then

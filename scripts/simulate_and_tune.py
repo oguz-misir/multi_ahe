@@ -35,13 +35,14 @@ sys.path.insert(0, os.path.join(_repo, 'src', 'm_ahe_task_allocator'))
 sys.path.insert(0, os.path.join(_repo, 'src', 'm_ahe_ecosystem_manager'))
 
 from m_ahe_task_allocator.baselines.base_allocator import (
-    AllocationResult, EcosystemContext, RobotState, TaskState,
+    AllocationResult, EcosystemContext, RobotState, TaskState, jain_index,
 )
 from m_ahe_task_allocator.baselines.ahe_variants import AHEMRTAv3Allocator
 from m_ahe_task_allocator.placement import (
     task_positions as _free_task_positions,
     robot_spawns as _free_robot_spawns,
 )
+from m_ahe_task_allocator.geodesic_cost import geodesic_distance
 from m_ahe_task_allocator.baselines.big_mrta import BigMRTAAllocator
 from m_ahe_task_allocator.baselines.static_weighted import StaticWeightedAllocator
 from m_ahe_task_allocator.baselines.consensus_dbta import ConsensusDBTAAllocator
@@ -121,10 +122,31 @@ def _nav_success_prob(pos: Tuple[float, float], rng: random.Random) -> float:
         return 0.88          # open area: occasional Nav2 planner failure
 
 
-def _nav_time(robot_pos: Tuple[float, float], task_pos: Tuple[float, float]) -> float:
+def _nav_time(robot_pos: Tuple[float, float], task_pos: Tuple[float, float],
+              distance: Optional[float] = None) -> float:
     """Simulated navigation time in seconds."""
-    d = math.hypot(task_pos[0] - robot_pos[0], task_pos[1] - robot_pos[1])
+    d = (math.hypot(task_pos[0] - robot_pos[0], task_pos[1] - robot_pos[1])
+         if distance is None else distance)
     return max(1.0, d / ROBOT_SPEED) + SERVICE_TIME
+
+
+def _execution_distance(start: Tuple[float, float], goal: Tuple[float, float]) -> float:
+    # Measurement oracle is independent from the allocator feature gate, so an
+    # Euclidean F45 and geodesic F58 can be compared on identical ground truth.
+    raw = os.environ.get(
+        'AHE_SIM_GEODESIC_EXECUTION',
+        os.environ.get(
+            'AHE_F58_GEODESIC',
+            '1' if AHEMRTAv3Allocator.F58_GEODESIC_ENABLED else '0')
+    ).strip().lower()
+    if raw in ('1', 'true', 'yes', 'on'):
+        try:
+            resolution = float(os.environ.get(
+                'AHE_F58_GEODESIC_RESOLUTION', '0.10'))
+        except ValueError:
+            resolution = 0.10
+        return geodesic_distance(start, goal, resolution)
+    return math.hypot(goal[0] - start[0], goal[1] - start[1])
 
 
 # Nav2-independent allocation fitness is computed as the priority-weighted
@@ -210,7 +232,8 @@ class EcosystemSimulator:
         n_avail  = sum(1 for r in s.robots if r.available)
         n_robots = max(1, len(s.robots))
 
-        task_density  = min(1.0, len(active) / max(1, s.n_tasks))
+        # Paper Eq. (c1): open tasks per robot, matching EcosystemManagerNode.
+        task_density  = min(1.0, len(active) / n_robots)
         robot_avail   = n_avail / n_robots
         deadline_p    = sum(
             1 for t in active
@@ -442,6 +465,7 @@ def run_simulation(
 
     # Task backoff
     task_fail_count: Dict[str, int] = {}
+    pair_fail_count: Dict[tuple, int] = {}
     task_skip_until: Dict[str, float] = {}
     MAX_RETRIES = 3
     BACKOFF_SEC = 120.0
@@ -457,6 +481,7 @@ def run_simulation(
     deadline_violations = 0
     robot_distances: Dict[str, float] = {r.robot_id: 0.0 for r in robots}
     robot_completed: Dict[str, int]   = {r.robot_id: 0 for r in robots}
+    robot_failed: Dict[str, int]      = {r.robot_id: 0 for r in robots}
     # Nav2-independent allocation fitness = priority-weighted on-time completion
     # achieved in this idealised (navigation-free) model. Higher = better.
     ontime_pri_completed = 0.0
@@ -497,6 +522,9 @@ def run_simulation(
                 failure_risk=max(0.0, 1.0 - sr.battery * 3.0),
                 battery_state=2 if sr.battery < 0.1 else (1 if sr.battery < 0.3 else 0),
                 navigation_state=sr.navigation_state,
+                completed_tasks=robot_completed[r.robot_id],
+                failed_tasks=robot_failed[r.robot_id],
+                travel_distance=robot_distances[r.robot_id],
             ))
 
         now_s = current_t
@@ -505,6 +533,12 @@ def run_simulation(
             if t.active and not t.completed
             and now_s >= task_skip_until.get(t.task_id, 0.0)
         ]
+        for task in eligible:
+            task.failure_by_robot = {
+                rid: pair_fail_count.get((rid, task.task_id), 0)
+                for rid in queues
+                if pair_fail_count.get((rid, task.task_id), 0) > 0
+            }
 
         result: AllocationResult = allocator.allocate(
             rs, eligible, current_t, context=eco_context
@@ -568,6 +602,9 @@ def run_simulation(
                     if job.success:
                         task.completed = True
                         task.active = False
+                        # Plane-A robot pose must advance just as Gazebo does;
+                        # otherwise every route leg incorrectly starts at spawn.
+                        robot.pos = task.position
                         completed_count += 1
                         robot_completed[robot.robot_id] += 1
                         robot.navigation_state = 0
@@ -588,6 +625,9 @@ def run_simulation(
                         robot.navigation_state = 3
                         robot.stuck_until = t + NAV_FAIL_STUCK_SEC
                         task_fail_count[job.task_id] = task_fail_count.get(job.task_id, 0) + 1
+                        pair = (robot.robot_id, job.task_id)
+                        pair_fail_count[pair] = pair_fail_count.get(pair, 0) + 1
+                        robot_failed[robot.robot_id] += 1
                         failed_nav_count += 1
                         if eco:
                             eco.record_outcome(0, 1)
@@ -626,9 +666,8 @@ def run_simulation(
                 if now_s < task_skip_until.get(tid, 0.0):
                     continue
                 # Start navigation
-                dist = math.hypot(task.position[0] - robot.pos[0],
-                                  task.position[1] - robot.pos[1])
-                nav_t = _nav_time(robot.pos, task.position)
+                dist = _execution_distance(robot.pos, task.position)
+                nav_t = _nav_time(robot.pos, task.position, dist)
                 if ideal_nav:
                     # Navigation-independent evaluation: perfect navigation, so
                     # every metric reflects allocation quality alone (robot
@@ -637,7 +676,7 @@ def run_simulation(
                 else:
                     success = rng.random() < _nav_success_prob(task.position, rng)
                     # Timeout: if distance too large, fail
-                    if dist / ROBOT_SPEED > NAV_TIMEOUT:
+                    if not math.isfinite(dist) or dist / ROBOT_SPEED > NAV_TIMEOUT:
                         success = False
                 job = NavJob(
                     task_id=tid,
@@ -666,10 +705,10 @@ def run_simulation(
 
     # Workload balance (Jain's fairness on completed tasks)
     wl = list(robot_completed.values())
-    if sum(wl) > 0:
-        balance = (sum(wl) ** 2) / (len(wl) * sum(w ** 2 for w in wl)) if any(wl) else 0.0
-    else:
-        balance = 0.0
+    balance = jain_index(wl)
+    survivor_wl = [robot_completed[r.robot_id] for r in robots if r.available]
+    active_balance = jain_index(survivor_wl)
+    distance_balance = jain_index(robot_distances.values())
 
     # Completed-only (legacy) delay/DVR — retained for transparency.
     avg_delay_completed = mean(completion_times) if completion_times else 0.0
@@ -711,6 +750,8 @@ def run_simulation(
         'deadline_violation_rate': dvr,
         'deadline_violation_rate_completed': dvr_completed,
         'workload_balance': balance,
+        'workload_balance_active': active_balance,
+        'travel_distance_balance': distance_balance,
         'failure_recovery_time': recovery_time,
         'allocation_instability': instability,
         'mean_decision_latency_ms': mean_latency,
@@ -719,6 +760,8 @@ def run_simulation(
         'alloc_fitness': alloc_fitness,
         'last_dominant': last_dom_heuristic,
         'robot_completed': dict(robot_completed),   # diagnostic: per-robot completions
+        'robot_failed': dict(robot_failed),          # diagnostic: per-robot nav failures
+        'pair_failures': dict(pair_fail_count),      # diagnostic: (robot, task) failures
         'failed_robot': fail_robot_id,
     }
 
@@ -758,12 +801,13 @@ def benchmark(
     exp_duration: float = 900.0,
     verbose: bool = False,
     ideal_nav: bool = False,
+    seed_start: int = 1,
     **eco_kwargs,
 ) -> Dict[str, Dict]:
     results: Dict[str, List[Dict]] = {m: [] for m in methods}
     registry = _make_allocators()
 
-    for seed in range(1, n_seeds + 1):
+    for seed in range(seed_start, seed_start + n_seeds):
         for mname in methods:
             alloc = registry[mname]()
             eco = EcosystemSimulator() if _needs_eco(mname) else None
@@ -790,6 +834,8 @@ def benchmark(
             'avg_delay':            _m('avg_delay'),
             'deadline_violation_rate': _m('deadline_violation_rate'),
             'workload_balance':     _m('workload_balance'),
+            'workload_balance_active': _m('workload_balance_active'),
+            'travel_distance_balance': _m('travel_distance_balance'),
             'instability':          _m('allocation_instability'),
             'instability_std':      _s('allocation_instability'),
             'recovery_time':        mean(recovery_valid) if recovery_valid else -1.0,
