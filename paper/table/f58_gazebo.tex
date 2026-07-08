@@ -1,7 +1,8 @@
 \begin{table*}[t]
 \centering
-\caption{Fresh matched F45--F58 Gazebo+Nav2 validation
-(5 robots / 25 tasks, 5 common seeds per scenario, both arms from the same
+\caption{Matched F45--F58 Gazebo+Nav2 validation
+(5 robots / 25 tasks, 10 common seeds per scenario---the original five
+plus an independent five-seed replication wave---both arms from the same
 source snapshot). Arrows show F45$\rightarrow$F58 means; $J_{\rm act}$ is
 the Jain index excluding permanently failed robots.}
 \label{tab:f58-gazebo}
@@ -12,14 +13,14 @@ the Jain index excluding permanently failed robots.}
 Scenario & CR & DVR & Delay (s) & Distance (m) & $J_{\rm act}$ & Decision (ms) & Gate \\
 \midrule
 Robot failure
-  & 1.000$\to$1.000 & .016$\to$.000 & 95.52$\to$94.01
-  & 167.03$\to$166.47 & .966$\to$.973 & .49$\to$17.44 & Pass \\
+  & 1.000$\to$1.000 & .020$\to$.004 & 95.46$\to$95.00
+  & 172.90$\to$170.17 & .975$\to$.976 & .49$\to$17.07 & Pass \\
 Mixed stress
-  & 1.000$\to$1.000 & .296$\to$.256 & 54.24$\to$52.37
-  & 157.96$\to$149.61 & .961$\to$.985 & .45$\to$16.97 & Pass \\
+  & 1.000$\to$1.000 & .328$\to$.316 & 58.10$\to$54.88
+  & 162.75$\to$152.54 & .962$\to$.985 & .45$\to$16.69 & Pass \\
 Deadline pressure
-  & 1.000$\to$1.000 & .312$\to$.216 & 77.18$\to$70.49
-  & 146.87$\to$133.53 & .978$\to$.987 & .68$\to$21.16 & Pass \\
+  & 1.000$\to$1.000 & .340$\to$.232 & 77.43$\to$68.41
+  & 147.00$\to$126.07 & .971$\to$.987 & .70$\to$22.66 & Pass \\
 \bottomrule
 \end{tabular}
 \end{table*}

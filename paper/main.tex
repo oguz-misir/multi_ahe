@@ -71,12 +71,14 @@ In the allocation-only plane F58 attains
 $\mathrm{fitness}{=}\mathrm{CR}{=}1$ and $\mathrm{DVR}{=}0$ across all
 three scenarios and the 3/5/10-robot scales, with an active-robot Jain
 index of 0.982--0.992 and decision latency of at most 0.201~ms.
-In an additional 30-run fresh matched F45--F58 Gazebo+Nav2 validation,
-F58 passes the pre-registered acceptance gate in all three scenarios:
-under deadline pressure DVR drops from 0.312 to 0.216, delay by 6.7~s,
-and distance by 13.3~m; under mixed stress the active-robot Jain index
-rises by $+0.025$; under robot failure DVR reaches zero and recovery
-shortens by 21~s; decision latency stays within budget at ${\leq}21$~ms.
+In an additional 60-run fresh matched F45--F58 Gazebo+Nav2 validation
+(10 common seeds per scenario), F58 passes the pre-registered acceptance
+gate in all three scenarios with paired-Wilcoxon support: under deadline
+pressure DVR drops from 0.340 to 0.232, delay by 9.0~s, and distance by
+20.9~m (all $p{\leq}0.008$); under mixed stress the active-robot Jain
+index rises by $+0.024$ ($p{=}0.008$); under robot failure recovery
+shortens by 34~s ($p{=}0.037$); decision latency stays within budget at
+${\leq}23$~ms.
 In the physical baseline benchmark the validated F45 configuration leads
 completion with near-zero deadline violations under robot failure at the
 5- and 10-robot scales (CR\,=\,1.000/0.996, DVR\,=\,0.008/0.024); at 10
@@ -156,9 +158,10 @@ where physical execution erases its gains.
     shared occupancy map that never increases predicted deadline misses
     and bounds the total-route increase by $\epsilon{=}0.02$,
     terminal-gated and Nav2-feedback-guarded (P1R); alongside the
-    Nav2-independent gains we report a matched Gazebo validation that
-    passes the pre-registered physical acceptance gate in all three
-    scenarios (Section~\ref{sec:f58}).
+    Nav2-independent gains we report a matched Gazebo validation
+    (10 common seeds per scenario) that passes the pre-registered
+    physical acceptance gate in all three scenarios
+    (Section~\ref{sec:f58}).
   \item \emph{Nav2-independent allocation-only evaluation:} an idealized
     simulator in which navigation succeeds deterministically; we report
     fitness, true Jain indices, and geodesic route cost across three
@@ -963,8 +966,10 @@ new tasks arrive.
 
 To isolate whether F58's (P0+P1R) allocation-only gain transfers to the
 physical stack, rather than reusing old F45 tables we ran both
-configurations fresh from the same source snapshot, on the same 5 common
-seeds and three scenarios (15 F45 + 15 F58). Every run completed 25/25
+configurations fresh from the same source snapshot, on common seeds and
+three scenarios: an initial five-seed wave followed by an independent
+five-seed replication wave (seeds 6--10), pooling to 10 matched seeds
+per scenario (30 F45 + 30 F58 runs). Every run completed 25/25
 tasks; the quality gate detected no TF time jump in any run, and the
 event-integrity audit found no post-completion assignment or resurrection
 of a completed task. The pre-registered promotion gate requires 0.01
@@ -973,27 +978,32 @@ budget on mean decision latency, and improvement in at least two of
 distance, physical redispatch, delay, and makespan.
 
 Table~\ref{tab:f58-gazebo} shows that the gate passes in all three
-scenarios. Under \textit{deadline\_pressure}, F58 keeps CR at 1.000 while
-cutting DVR by 9.6 percentage points (0.312$\to$0.216), mean delay by
-6.7~s, and total distance by 13.3~m---all three 95\% bootstrap confidence
-intervals exclude zero---with makespan and coordination messages also
-improving slightly. Under \textit{mixed\_stress}, distance drops by
-8.4~m (CI excludes zero), the active-robot Jain index rises by $+0.025$
-(CI $[0.008, 0.051]$), and DVR falls by 4 percentage points; the cost is
-$+3.2$ coordination messages per run and a $+4.0$~s makespan whose CI
-includes zero. Under \textit{robot\_failure}, DVR falls from 0.016 to
-0.000, mean failure-recovery time shortens by 21.4~s, and the all-robot
-Jain index rises by $+0.026$ (CI $[0.010, 0.043]$). CR is 1.000 in every
-run of all three scenarios, and decision latency stays within budget at
-17--21~ms (against F45's sub-millisecond latency; the price of the
-geodesic cache plus repair search). The one consistent cost is the
-distance-Jain index ($-0.019$ under deadline pressure, CI excludes
-zero): the repair improves workload fairness and total efficiency at the
-expense of distance balance. Because the paired Wilcoxon floor at
-$n{=}5$ is $p{=}0.0625$, the evidence here is directional consistency
-across five common seeds plus bootstrap confidence intervals rather than
-a significance claim; significance-level support comes from the
-Nav2-independent 100-seed campaign (Section~\ref{sec:results-sim}).
+scenarios at $n{=}10$, and the pooled sample now supports paired
+Wilcoxon significance rather than the directional-consistency evidence
+available at $n{=}5$. Under \textit{deadline\_pressure}, F58 keeps CR at
+1.000 while cutting DVR by 10.8 percentage points (0.340$\to$0.232,
+$p{=}0.008$), mean delay by 9.0~s ($p{=}0.004$), total distance by
+20.9~m ($p{=}0.004$), and coordination messages by 3.5 per run
+($p{=}0.008$); the active-robot Jain index rises by $+0.017$
+($p{=}0.031$) and makespan improves by 11.0~s (CI $[0.4, 20.3]$,
+$p{=}0.061$). Under \textit{mixed\_stress}, distance drops by 10.2~m
+($p{=}0.004$), the active-robot Jain index rises by $+0.024$
+($p{=}0.008$), and mean delay falls by 3.2~s ($p{=}0.049$), with DVR,
+makespan, and coordination messages statistically flat. Under
+\textit{robot\_failure}, mean failure-recovery time shortens by 34.0~s
+(CI $[8.2, 58.2]$, $p{=}0.037$) and DVR falls from 0.020 to 0.004;
+delay, distance, and the Jain indices are statistically flat. CR is
+1.000 in every run of all three scenarios, and decision latency stays
+within budget at 17--23~ms (against F45's sub-millisecond latency; the
+price of the geodesic cache plus repair search). The one consistent cost
+beyond latency is the distance-Jain index ($-0.020$ under deadline
+pressure, $p{=}0.006$): the repair improves workload fairness and total
+efficiency at the expense of distance balance. The replication wave
+alone reproduced every direction of gain (deadline-pressure makespan
+was in fact stronger, $-18.4$~s), and the pooled sample shows no other
+statistically supported regression; the Nav2-independent 100-seed
+campaign (Section~\ref{sec:results-sim}) remains the higher-powered
+evidence.
 
 These results show that the Nav2-independent gains do transfer to the
 physical stack once the terminal-gated repair and the Nav2-feedback
@@ -1424,10 +1434,11 @@ Sub-millisecond decision latency is maintained across all scales
 RoSTAM-EA), at the cost of
 higher makespan and task delay relative to static-commit
 consensus methods under mixed-stress conditions.
-In the additional matched physical campaign, F58 (P1R) passes the
-fairness-guarded promotion gate in all three scenarios: DVR and geodesic
-distance fall, the active-robot Jain index rises, and CR\,=\,1.000 is
-preserved. The four-method Gazebo benchmark is nevertheless produced
+In the additional matched physical campaign (10 common seeds per
+scenario), F58 (P1R) passes the fairness-guarded promotion gate in all
+three scenarios with paired-Wilcoxon support: DVR, delay, and geodesic
+distance fall, the active-robot Jain index rises, failure recovery
+shortens by 34~s, and CR\,=\,1.000 is preserved. The four-method Gazebo benchmark is nevertheless produced
 with the F45 configuration; F58 is reported as a flag-gated, validated
 refinement that does not alter F45 behaviour. We hope the decomposition
 into ideal allocation fitness vs.\ realized Gazebo metrics is useful

@@ -1,7 +1,8 @@
 \begin{table*}[t]
 \centering
-\caption{Taze F45--F58 eşleşmiş Gazebo+Nav2 doğrulaması
-(5 robot / 25 görev, senaryo başına 5 ortak tohum, iki kol aynı kaynak
+\caption{Eşleşmiş F45--F58 Gazebo+Nav2 doğrulaması
+(5 robot / 25 görev, senaryo başına 10 ortak tohum---özgün beş tohum ve
+bağımsız beş-tohumluk replikasyon dalgası---iki kol aynı kaynak
 sürümünden). Oklar F45$\rightarrow$F58 ortalamalarını gösterir; $J_{\rm act}$
 kalıcı arızalı robotları dışlayan Jain indeksidir.}
 \label{tab:f58-gazebo}
@@ -12,14 +13,14 @@ kalıcı arızalı robotları dışlayan Jain indeksidir.}
 Senaryo & CR & DVR & Gecikme (s) & Mesafe (m) & $J_{\rm act}$ & Karar (ms) & Kapı \\
 \midrule
 Robot arızası
-  & 1.000$\to$1.000 & .016$\to$.000 & 95.52$\to$94.01
-  & 167.03$\to$166.47 & .966$\to$.973 & .49$\to$17.44 & Geçti \\
+  & 1.000$\to$1.000 & .020$\to$.004 & 95.46$\to$95.00
+  & 172.90$\to$170.17 & .975$\to$.976 & .49$\to$17.07 & Geçti \\
 Karışık stres
-  & 1.000$\to$1.000 & .296$\to$.256 & 54.24$\to$52.37
-  & 157.96$\to$149.61 & .961$\to$.985 & .45$\to$16.97 & Geçti \\
+  & 1.000$\to$1.000 & .328$\to$.316 & 58.10$\to$54.88
+  & 162.75$\to$152.54 & .962$\to$.985 & .45$\to$16.69 & Geçti \\
 Deadline baskısı
-  & 1.000$\to$1.000 & .312$\to$.216 & 77.18$\to$70.49
-  & 146.87$\to$133.53 & .978$\to$.987 & .68$\to$21.16 & Geçti \\
+  & 1.000$\to$1.000 & .340$\to$.232 & 77.43$\to$68.41
+  & 147.00$\to$126.07 & .971$\to$.987 & .70$\to$22.66 & Geçti \\
 \bottomrule
 \end{tabular}
 \end{table*}
