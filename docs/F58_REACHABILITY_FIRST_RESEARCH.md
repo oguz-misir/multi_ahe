@@ -532,3 +532,38 @@ taşındı** (metod alt-bölümü, allocation-only bölüm yapısı + navigation
 ayrımı, Gazebo doğrulama alt-bölümü, abstract/katkı/sonuç). TR 21 sf,
 EN 20 sf, 0 çözümsüz ref. F58 bayrakları çalışma zamanında hâlâ default
 OFF; dört-yöntem ana kıyaslaması F45 ile üretilmiş halde değişmedi.
+
+## Taze-tohum replikasyonu seed 6-10 + havuzlu n=10 analiz (2026-07-08)
+
+Kullanıcı isteğiyle 5r/25g eşlenik kampanya hiç görülmemiş seed 6-10 ile
+yeni kökte tekrarlandı (30/30 DONE, aynı kaynak sha256 doğrulandı):
+`results/raw/gazebo_f58_replication_s6_10/`, rapor
+`results/stats/gazebo_f58_replication_s6_10/r5t25/REPORT.md`.
+
+**Dalga-2 katı kapı:** deadline_pressure **PASS** (dalga-1'den de güçlü:
+delay −11.3s, DVR .368→.248, makespan −18.4s, mesafe −28.5m — hepsi CI
+0-dışı); mixed_stress **FAIL** (DVR +.016, CI [−.056,+.016] 0'ı içeriyor —
+gürültü; verim kazanımları replike: mesafe −12.1m CI 0-dışı, delay −4.6s,
+makespan −6.0s CI 0-dışı, J_act +.023 CI 0-dışı); robot_failure **FAIL**
+(J_act −.006, CI [−.025,+.009] 0'ı içeriyor — gürültü; toparlanma −46.5s
+CI [26,72]!). Katı kapının sıfır-toleranslı güvenlik sınırları n=5'te tek
+tohum gürültüsüyle tetiklenebiliyor.
+
+**Havuzlu n=10 (dalga1+dalga2, hardlink havuz `_f58_pooled_s1_10`, rapor
+`results/stats/_f58_pooled_s1_10/r5t25/REPORT.md`): ÜÇ SENARYO DA PASS**
+(mixed 4/4 kazanım) ve ilk kez gerçek Wilcoxon anlamlılığıyla:
+
+| Ölçüt (F45→F58, n=10) | robot_failure | mixed_stress | deadline_pressure |
+|---|---|---|---|
+| DVR | .020→.004 (CI 0-dışı) | .328→.316 ns | .340→.232 **p=.008** |
+| Delay | +0.5s ns | −3.2s **p=.049** | −9.0s **p=.004** |
+| Mesafe | −2.7m ns | −10.2m **p=.004** | −20.9m **p=.004** |
+| J_act | +.0004 nötr | +.024 **p=.008** | +.017 **p=.031** |
+| Toparlanma | −34.0s **p=.037** | ns | — |
+| Makespan | ns | ns | −11.0s p=.061 |
+
+Bedel değişmedi: latency 17-23ms (bütçe içi), mesafe-Jain dp'de −.020
+(p=.006). Havuzlu DVR/J_act "gerileme" yok (ms DVR −.012 ns, rf J_act
+nötr) → dalga-2 FAIL'leri gürültü teyitli. SONUÇ: F58 kazanımları tohum
+seçimine bağlı değil; n=10 havuz makale için anlamlılık-düzeyinde fiziksel
+kanıt sağlıyor (n=5 "yön+CI" çekincesi kaldırılabilir).
