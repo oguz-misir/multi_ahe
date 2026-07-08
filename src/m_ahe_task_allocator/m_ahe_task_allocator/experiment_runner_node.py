@@ -59,7 +59,7 @@ from m_ahe_mrta_msgs.msg import (
 
 from .baselines.base_allocator import (
     AllocationResult, EcosystemContext, RobotState as RS, TaskState as TS,
-    cheapest_insertion,
+    cheapest_insertion, jain_index,
 )
 from .baselines.greedy_nearest import GreedyNearestAllocator
 from .baselines.deadline_aware import DeadlineAwareAllocator
@@ -225,9 +225,12 @@ class ExperimentRunnerNode(Node):
         self._tasks_failed_total: int = 0
         self._robot_distances:       Dict[str, float] = {r: 0.0 for r in self._robots}
         self._robot_last_pose:       Dict[str, Optional[tuple]] = {r: None for r in self._robots}
+        self._robot_navigation_effort: Dict[str, float] = {
+            r: 0.0 for r in self._robots}
 
         # Task failure backoff: skip permanently-stuck tasks
         self._task_fail_count:  Dict[str, int]   = {}
+        self._pair_fail_count:  Dict[tuple, int] = {}
         self._task_skip_until:  Dict[str, float] = {}
         self._max_task_retries: int   = 5
         self._task_backoff_sec: float = 30.0
@@ -257,6 +260,9 @@ class ExperimentRunnerNode(Node):
             self.create_subscription(
                 AllocationEvent, f'/{r}/task_feedback',
                 self._task_feedback_cb, 10)
+            self.create_subscription(
+                LocalExecutionFeedback, f'/{r}/local_execution_feedback',
+                lambda msg, rr=r: self._execution_feedback_cb(rr, msg), 10)
 
         # Timers
         self.create_timer(1.0, self._publish_pool)
@@ -460,18 +466,31 @@ class ExperimentRunnerNode(Node):
     def _status_cb(self, robot_id: str, msg: RobotStatusSummary) -> None:
         pose = (msg.current_pose.pose.position.x,
                 msg.current_pose.pose.position.y)
+        current_task_id = msg.current_task_id
+        # Task feedback and periodic RobotStatusSummary are independent ROS
+        # streams.  A completion can therefore be processed while the newest
+        # status still carries the old goal id (occasionally even with
+        # NAVIGATING).  Never let that stale id cross back into the allocator:
+        # it would resurrect completed work through the in-progress lock.
+        current_task = self._task_map.get(current_task_id)
+        if current_task is not None and current_task.completed:
+            current_task_id = ''
         state = RS(
             robot_id=robot_id,
             pose=pose,
             battery=1.0 - msg.battery_state * 0.33,
             available=(msg.availability_state != 2
                        and robot_id not in self._failed_robots),
-            current_task_id=msg.current_task_id,
+            current_task_id=current_task_id,
             queue=list(self._queues.get(robot_id, [])),
             failure_risk=1.0 if msg.failure_flag else 0.0,
             navigation_state=msg.navigation_state,
             failure_flag=msg.failure_flag,
             battery_state=msg.battery_state,
+            completed_tasks=self._robot_tasks_completed.get(robot_id, 0),
+            failed_tasks=self._robot_tasks_failed.get(robot_id, 0),
+            travel_distance=self._robot_distances.get(robot_id, 0.0),
+            navigation_effort=self._robot_navigation_effort.get(robot_id, 0.0),
         )
         self._robot_states[robot_id] = state
 
@@ -480,6 +499,12 @@ class ExperimentRunnerNode(Node):
             self._robot_distances[robot_id] += math.hypot(
                 pose[0] - last[0], pose[1] - last[1])
         self._robot_last_pose[robot_id] = pose
+
+    def _execution_feedback_cb(
+            self, robot_id: str, msg: LocalExecutionFeedback) -> None:
+        """Cache Nav2's current global-path distance for allocator ETA use."""
+        self._robot_navigation_effort[robot_id] = max(
+            0.0, float(msg.navigation_effort))
 
     def _task_feedback_cb(self, msg: AllocationEvent) -> None:
         tid = msg.task_id
@@ -506,6 +531,12 @@ class ExperimentRunnerNode(Node):
                     q.remove(tid)
             self._robot_tasks_completed[msg.robot_id] = (
                 self._robot_tasks_completed.get(msg.robot_id, 0) + 1)
+            # Make exact feedback authoritative immediately, without waiting
+            # for the robot's next periodic status publication.
+            robot_state = self._robot_states.get(msg.robot_id)
+            if (robot_state is not None
+                    and robot_state.current_task_id == tid):
+                robot_state.current_task_id = ''
             self._tasks_completed_total += 1
             self._log_task_event(tid, 'completed', msg.robot_id)
 
@@ -519,6 +550,8 @@ class ExperimentRunnerNode(Node):
                 self._robot_tasks_failed.get(msg.robot_id, 0) + 1)
             self._tasks_failed_total += 1
             self._task_fail_count[tid] = self._task_fail_count.get(tid, 0) + 1
+            pair = (msg.robot_id, tid)
+            self._pair_fail_count[pair] = self._pair_fail_count.get(pair, 0) + 1
             if self._task_fail_count[tid] >= self._max_task_retries:
                 skip_until = self.get_clock().now().nanoseconds / 1e9 + self._task_backoff_sec
                 self._task_skip_until[tid] = skip_until
@@ -557,6 +590,11 @@ class ExperimentRunnerNode(Node):
         for r in self._robots:
             state = self._robot_states.get(r)
             if state is not None:
+                # Runner-owned counters are fresher than the periodic status
+                # message and provide exact feedback to fairness-aware policies.
+                state.completed_tasks = self._robot_tasks_completed.get(r, 0)
+                state.failed_tasks = self._robot_tasks_failed.get(r, 0)
+                state.travel_distance = self._robot_distances.get(r, 0.0)
                 robots.append(state)
             else:
                 robots.append(RS(
@@ -588,6 +626,12 @@ class ExperimentRunnerNode(Node):
                  and now_s >= self._task_skip_until.get(t.task_id, 0.0)]
         if not tasks:
             return
+        for task in tasks:
+            task.failure_by_robot = {
+                rid: self._pair_fail_count.get((rid, task.task_id), 0)
+                for rid in self._robots
+                if self._pair_fail_count.get((rid, task.task_id), 0) > 0
+            }
 
         result: AllocationResult = self._allocator.allocate(
             robots, tasks,
@@ -596,6 +640,16 @@ class ExperimentRunnerNode(Node):
         )
         self._alloc_count += 1
         self._alloc_latencies.append(result.latency_ms)
+
+        # Final integration boundary: never publish a waypoint that exact task
+        # feedback has already closed, even if a third-party allocator returns
+        # stale internal state.  This also keeps assignment-event metrics
+        # semantically exact.
+        open_ids = {t.task_id for t in self._tasks if t.active and not t.completed}
+        result.queues = {
+            rid: [tid for tid in tids if tid in open_ids]
+            for rid, tids in result.queues.items()
+        }
 
         for rid, tids in result.queues.items():
             self._queues[rid] = list(tids)
@@ -766,8 +820,10 @@ class ExperimentRunnerNode(Node):
         self._eco_writer = csv.writer(self._eco_file)
         self._eco_writer.writerow([
             'timestamp_s', 'dominant_heuristic', 'dominant_value',
+            'context_task_density', 'context_robot_avail',
+            'context_deadline', 'context_failure_rate',
             'w_d', 'w_p', 'w_b', 'w_l', 'w_f', 'w_t', 'w_r',
-        ] + [f'd_{i}' for i in range(7)])
+        ] + [f'd_{i}' for i in range(5)])
 
     def _write_metadata(self) -> None:
         meta = {
@@ -829,15 +885,17 @@ class ExperimentRunnerNode(Node):
 
     def _log_ecosystem(self, msg: EcosystemState, dom_idx: int) -> None:
         ts = self.get_clock().now().nanoseconds / 1e9
-        names = list(msg.heuristic_names) if msg.heuristic_names else [str(i) for i in range(7)]
+        names = list(msg.heuristic_names) if msg.heuristic_names else [str(i) for i in range(5)]
         dom_name = names[dom_idx] if dom_idx < len(names) else str(dom_idx)
         dom_val = msg.dominance_values[dom_idx] if msg.dominance_values else 0.0
         weights = list(msg.allocation_weights) if msg.allocation_weights else [0.0] * 7
-        doms = list(msg.dominance_values) if msg.dominance_values else [0.0] * 7
+        context = list(msg.context_vector) if msg.context_vector else [0.0] * 4
+        doms = list(msg.dominance_values) if msg.dominance_values else [0.0] * 5
         self._eco_writer.writerow(
             [f'{ts:.3f}', dom_name, f'{dom_val:.4f}']
+            + [f'{c:.4f}' for c in context[:4]]
             + [f'{w:.4f}' for w in weights[:7]]
-            + [f'{d:.4f}' for d in doms[:7]]
+            + [f'{d:.4f}' for d in doms[:5]]
         )
         self._eco_file.flush()
 
@@ -918,11 +976,19 @@ class ExperimentRunnerNode(Node):
         dl_viol_rate = dl_violated / max(1, dl_tasks)
         dl_viol_rate_completed = dl_violated_completed / max(1, completed)
 
-        # Workload balance: 1 / (1 + variance)
+        # Workload balance: true Jain index, identical to Plane A.  Preserve
+        # the historical variance transform under an explicit legacy name so
+        # previous campaigns remain auditable without calling it Jain.
         workload = [self._robot_tasks_completed.get(r, 0) for r in self._robots]
         mean_w = sum(workload) / max(1, len(workload))
         wv = sum((w - mean_w) ** 2 for w in workload) / max(1, len(workload))
-        wb = 1.0 / (1.0 + wv)
+        wb_legacy = 1.0 / (1.0 + wv)
+        wb = jain_index(workload)
+        active_workload = [self._robot_tasks_completed.get(r, 0)
+                           for r in self._robots if r not in self._failed_robots]
+        wb_active = jain_index(active_workload)
+        distance_balance = jain_index(
+            self._robot_distances.get(r, 0.0) for r in self._robots)
 
         # Failure recovery time
         fail_rec_time = 0.0
@@ -972,6 +1038,9 @@ class ExperimentRunnerNode(Node):
             'deadline_violation_rate_completed': f'{dl_viol_rate_completed:.4f}',
             'total_travel_distance': f'{total_dist:.2f}',
             'workload_balance': f'{wb:.4f}',
+            'workload_balance_active': f'{wb_active:.4f}',
+            'workload_balance_legacy_variance': f'{wb_legacy:.4f}',
+            'travel_distance_balance': f'{distance_balance:.4f}',
             'failure_recovery_time': f'{fail_rec_time:.2f}',
             'replanning_frequency': f'{replan_freq:.2f}',
             'allocation_instability': f'{alloc_inst:.4f}',

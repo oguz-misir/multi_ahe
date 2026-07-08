@@ -54,16 +54,30 @@ Ecosystem-Driven Paradigm Selection (EDPS): five biomimetic hormones
 classical allocation primitives, and at each event the active primitive is
 chosen by a two-tier rule---fast deterministic context overrides for the
 acute regimes (failure, deadline pressure) and a cooperation/suppression
-hormone dynamic for the remaining events.
+hormone dynamic for the remaining events. The F58 extension replaces the
+Euclidean cost with a cached geodesic path cost on the shared occupancy
+map and repairs the primary plan for min--max load only within a
+deadline/distance efficiency envelope; the repair is restricted to the
+terminal phase of the campaign and bound by a remaining-makespan guard
+derived from Nav2 feedback.
 We evaluate AHE-MRTA against three recent baselines
-(BiG-MRTA, RoSTAM-EA, Consensus-DBTA) in two complementary regimes:
-(i) a 100-seed Nav2-independent allocation-fitness simulator that isolates
-algorithmic decision quality from physical execution noise, and (ii) a
+(BiG-MRTA, RoSTAM-EA, Consensus-DBTA) in three complementary regimes:
+(i) a 100-seed allocation-only/Nav2-independent simulator that isolates
+algorithmic decision quality from physical execution noise, (ii) a
+separate navigation proxy with stochastic goal failure, and (iii) a
 300-experiment Gazebo Harmonic benchmark at three physical scales
 (3, 5, and 10 TurtleBot3 robots running the ROS\,2 Jazzy Nav2 stack).
-In the simulator, AHE-MRTA and the strongest consensus baseline are
-statistical co-leaders (AHE first under deadline pressure, tied under
-robot failure, within $0.001$ under mixed stress). On the physical stack, AHE-MRTA leads
+In the allocation-only plane F58 attains
+$\mathrm{fitness}{=}\mathrm{CR}{=}1$ and $\mathrm{DVR}{=}0$ across all
+three scenarios and the 3/5/10-robot scales, with an active-robot Jain
+index of 0.982--0.992 and decision latency of at most 0.201~ms.
+In an additional 30-run fresh matched F45--F58 Gazebo+Nav2 validation,
+F58 passes the pre-registered acceptance gate in all three scenarios:
+under deadline pressure DVR drops from 0.312 to 0.216, delay by 6.7~s,
+and distance by 13.3~m; under mixed stress the active-robot Jain index
+rises by $+0.025$; under robot failure DVR reaches zero and recovery
+shortens by 21~s; decision latency stays within budget at ${\leq}21$~ms.
+In the physical baseline benchmark the validated F45 configuration leads
 completion with near-zero deadline violations under robot failure at the
 5- and 10-robot scales (CR\,=\,1.000/0.996, DVR\,=\,0.008/0.024); at 10
 robots it attains the highest completion rate in every scenario
@@ -137,9 +151,18 @@ where physical execution erases its gains.
     dynamic arbitrates the remaining, lower-pressure events through
     $\arg\max_i D_i$ (Section~\ref{sec:method}). The coupling is fixed,
     explainable, and sub-millisecond.
-  \item \emph{Nav2-independent allocation-fitness evaluation:} an
-    idealized simulator that isolates algorithmic decision quality from
-    Nav2 execution noise; we report fitness across 100 seeds per scenario
+  \item \emph{Geodesic, efficiency-guarded fairness extension (F58):} a
+    lexicographic min--max load repair with cached geodesic ETA on the
+    shared occupancy map that never increases predicted deadline misses
+    and bounds the total-route increase by $\epsilon{=}0.02$,
+    terminal-gated and Nav2-feedback-guarded (P1R); alongside the
+    Nav2-independent gains we report a matched Gazebo validation that
+    passes the pre-registered physical acceptance gate in all three
+    scenarios (Section~\ref{sec:f58}).
+  \item \emph{Nav2-independent allocation-only evaluation:} an idealized
+    simulator in which navigation succeeds deterministically; we report
+    fitness, true Jain indices, and geodesic route cost across three
+    scales and 100 seeds per scenario
     (Section~\ref{sec:results-sim}).
   \item \emph{Full Gazebo Harmonic + ROS\,2 Jazzy Nav2 validation} with
     300 experiments across three stress scenarios and three physical
@@ -306,6 +329,58 @@ $\hat u_\tau = u_\tau\big(1+\zeta\,e^2\big)$ with
 $e=(u_\tau-u_0)/(1-u_0)$, so at-risk \emph{unassigned} tasks are pulled
 forward while on-time incumbents are exempt (a churn brake).
 
+\subsection{F58: Geodesic ETA and epsilon-bounded load repair}
+\label{sec:f58}
+The Euclidean distance of the F45 core can under-estimate true route time
+on an obstacle-rich map. F58-P0 uses the same \texttt{obstacle\_map.pgm}
+map as Gazebo and a 0.55~m inflated occupancy mask. Let $d_G$ denote the
+shortest-path length found by sparse Dijkstra on the eight-connected
+free-cell graph and cached over start/goal cells. With robot $r$'s current
+queue $Q_r=(q_1,\ldots,q_k)$, the arrival estimate for candidate $\tau$ is
+\begin{equation}
+ a_{r,\tau}=t_k+\frac{d_G(p_r,p_{q_1})+
+ \sum_{i=1}^{k-1}d_G(p_{q_i},p_{q_{i+1}})+d_G(p_{q_k},p_\tau)}{v_r}
+ +\sum_{i=1}^{k}(s_{q_i}+h),
+ \label{eq:f58-eta}
+\end{equation}
+where with an empty queue the sum contains only $d_G(p_r,p_\tau)$. If no
+path exists the pair is infeasible. The hard deadline gate, the rescue
+decision, the F27 reassignment margin, and the paradigm costs therefore
+all share one route metric.
+
+F58-P1 performs a bounded move search only over new tasks after EDPS
+produces the primary plan $x^0$. Let $B_r(x)$ be the sum of the active
+robot's realised travel plus its committed route and service load. The
+repair solves
+\begin{equation}
+ \min_x\;\max_{r\in\mathcal R^{\rm av}} B_r(x)
+ \quad\text{s.t.}\quad
+ M(x)\le M(x^0),\quad D_G(x)\le(1+\epsilon)D_G(x^0),
+ \label{eq:f58-repair}
+\end{equation}
+where $M$ is the predicted number of deadline misses, $D_G$ the total
+geodesic distance, and $\epsilon=0.02$. Ties are broken by the predicted
+active-robot Jain index, load range, and distance, in that order; no
+incumbent or currently executing Nav2 goal is cancelled for fairness. A
+final safety pass enforces single ownership per task and keeps a healthy
+in-flight task locked to its current owner. F58 changes neither the
+hormones nor the paradigm library; it only adds the shared cost oracle
+and the safe post-EDPS repair.
+
+F58-P1R adds two guards that make the repair compatible with physical
+execution. \emph{Terminal activation}: the repair opens only once the
+number of remaining active tasks falls to three times the number of
+healthy robots; mid-campaign moves disturb queue stability under Nav2,
+while end-of-tail imbalance becomes visible only in this phase.
+\emph{Nav2-feedback remaining-makespan guard}: the
+\texttt{navigation\_effort} measurement already published by the robot
+interface (remaining distance along the global path, consistent with the
+Nav2 \texttt{NavigateToPose} feedback contract) replaces the static
+lattice query for the task currently being executed, and no fairness move
+may increase the fleet's maximum estimated remaining finish time. The
+envelope of Eq.~\eqref{eq:f58-repair} is thus additionally constrained by
+a makespan bound derived from real execution state.
+
 \input{table/as_matrices.tex}
 
 \subsection{Dispatch}
@@ -419,6 +494,9 @@ $D(t_k)$, fixed $A, S, V$, hyperparameters $\alpha,\eta,\lambda,\beta,\gamma,\de
 \STATE $p^* \gets \textsc{ContextOverride}(c)$ \textbf{ if triggered, else } $\arg\max_i D_i$
 \STATE $x \gets \textsc{Paradigm}_{p^*}(\mathcal{R}, \mathcal{T}(t_k))$
   \hfill \COMMENT{Table~\ref{tab:hormones}}
+\STATE $x \gets \textsc{EpsilonLoadRepair}(x,d_G,\epsilon)$
+  \hfill \COMMENT{Eq.~\ref{eq:f58-repair}; P1R terminal gate}
+\STATE $x \gets \textsc{SingleOwnerAndInFlightLock}(x)$
 \STATE \textbf{publish} per-robot task queues from $x$
 \STATE \textbf{return} $D, x$
 \end{algorithmic}
@@ -646,20 +724,62 @@ applied within each scenario family (3~baselines $\times$ 7~metrics =
 $n{=}5$ runs (one density, 25 tasks); the
 3-robot scale pools three densities ($n{=}15$) and the 10-robot scale
 has $n{=}5$. We additionally report Cliff's $\delta$ as an effect-size
-estimate robust to small cells. The 100-seed Nav2-independent simulator
-serves as the primary hypothesis test; Gazebo results serve as
-validation under realistic execution noise.
+estimate robust to small cells. The 100-seed allocation-only simulator
+serves as algorithmic validation and the stochastic navigation proxy as
+a resilience test; Gazebo results serve as validation under realistic
+execution noise.
 
 %==============================================================================
 \section{Allocation-Fitness Results (Nav2-Independent)}
 \label{sec:results-sim}
 
-To isolate allocation and recovery quality from the geometry-dependent
-travel variance introduced by Nav2's local planner, costmap rebuilds,
-and physical motion, we built a Nav2-independent simulator that abstracts
-navigation \emph{cost} as a fixed-time edge in the robot--task graph
-while retaining stochastic navigation \emph{outcomes} (a goal can fail
-with a position-dependent probability and must be re-attempted). Fitness
+In the true Nav2-independent plane every navigation attempt succeeds
+deterministically; injected fleet robot failures are retained as part of
+the scenario. The robot pose advances to the goal after every completed
+task, and both the allocator and the execution oracle use the geodesic
+path length on the same inflated occupancy map. The metrics therefore
+measure allocation, sequencing, and post-failure redistribution quality
+rather than local-planner/recovery noise.
+
+\input{table/f58_allocation.tex}
+
+In Table~\ref{tab:f58-allocation}, F58 preserves
+$\mathrm{fitness}{=}\mathrm{CR}{=}1$ and $\mathrm{DVR}{=}0$ in all nine
+scale--scenario cells. The active-robot Jain index is 0.988--0.992 at 3r,
+0.984--0.986 at 5r, and 0.982--0.990 at 10r; decision latency never
+exceeds 0.201~ms even in the largest 10r/50t cell. Before the
+single-assignment safety pass, six seeds of the 10r development runs
+allowed a task to execute on two robots simultaneously, inflating CR to
+1.02. After the in-flight owner lock was added, these seeds and the full
+10r campaign were re-run, and CR is exactly 1.000 in every F58 cell.
+
+To isolate F58's contribution from F45 we ran a seed-matched campaign in
+four cells: 3r/15t, 5r/25t, and 10r/50t (seeds 1--100), plus a fresh
+5r/25t holdout range never used to select the repair threshold (seeds
+501--600). Both arms share the same geodesic execution oracle; the
+statistics are paired Wilcoxon tests with Holm correction over 10 metric
+families per cell$\times$scenario. Of 120 tests, 51 are significant after
+Holm and 39 of them favour F58: mean delay drops by 0.97--2.25~s, total
+geodesic distance by 10--28~m, and churn decreases, while the
+active-robot Jain index rises by $+0.005$--$0.029$ and the all-robot Jain
+index by $+0.006$--$0.027$ (strongest at 10r/50t; Cliff's $\Delta$ up to
+0.92). The remaining 12 significant differences are all in decision
+latency ($+0.02$--$0.12$~ms, far below the 50~ms budget). Outside latency
+no metric regresses significantly; CR, fitness, and DVR sit at the
+ceiling and are bit-identical in both arms in all four cells. The 3r cell
+is neutral---the terminal repair rarely triggers in a small fleet---and
+the holdout range preserves the main-cell gains.
+This shows that F58's allocation-only gain comes not from completing more
+tasks but from producing the same complete coverage with shorter geodesic
+routes and delays.
+
+\subsection{Separate resilience experiment: navigation-proxy}
+The preceding experiment line simplifies navigation \emph{cost} to a
+fixed-time edge in the robot--task graph while keeping navigation
+\emph{outcomes} position-dependent and stochastic (a goal can fail and
+must be re-attempted). This condition is not purely Nav2-independent; it
+is retained below as a \emph{navigation proxy} that compares only how
+resiliently the methods recover after failed goals. Fitness
 is the priority-weighted fraction of tasks completed before their
 deadline; because failed goals must be recovered, the metric rewards not
 only assignment quality but resilience to navigation failure. With 100
@@ -697,7 +817,7 @@ Figure~\ref{fig:fitness} summarizes:
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.66\textwidth]{fitness_comparison.png}
-  \caption{Nav2-independent allocation fitness (mean $\pm$ std), 100
+  \caption{Stochastic navigation-proxy allocation fitness (mean $\pm$ std), 100
   seeds per cell, 5 robots / 25 tasks (primary scale). AHE-MRTA and
   Consensus-DBTA are statistical co-leaders: AHE leads under
   deadline\_pressure, ties Consensus-DBTA under robot\_failure, and
@@ -706,25 +826,24 @@ Figure~\ref{fig:fitness} summarizes:
   \label{fig:fitness}
 \end{figure}
 
-\subsection{Scalability}
+\subsection{Navigation-proxy scalability (F45)}
 \label{sec:scalability}
 
 Scalability is established in two complementary ways. In the
-navigation-independent plane, the idealised arrival model lets us
+navigation-proxy plane, the simplified arrival model lets us
 sweep robot counts cheaply at high statistical power. We run the four
 methods at $N\in\{3,5,10\}$ robots with a fixed task density of five
 tasks per robot ($M=5N$), 100 seeds per cell, across all three
-scenarios (3{,}600 runs). Table~\ref{tab:scalability} and
+scenarios (3{,}600 runs). Physical Gazebo validation is carried out at
+the 3r, 5r, and 10r scales. Table~\ref{tab:scalability} and
 Figure~\ref{fig:scalability} report the results averaged over scenarios.
 
 \input{table/scalability.tex}
 
 AHE-MRTA retains the highest fitness at every scale (Table~\ref{tab:scalability}).
 At $N=3$ it leads Consensus-DBTA narrowly (0.488 vs 0.483); at $N=5$ the
-margin is $+0.1$~pp over Consensus-DBTA and $+9.2$~pp over BiG-MRTA. The
-lead persists at $N=10$ (AHE 0.493, Cons-DBTA 0.488) as the matching
-overhead increases, while the commit-once BiG-MRTA and evolutionary
-RoSTAM-EA trail at every scale. Decision latency stays at ${\approx}0.10$~ms even
+margin is $+0.1$~pp over Consensus-DBTA and $+9.2$~pp over BiG-MRTA.
+Decision latency stays at ${\approx}0.10$~ms even
 at ten robots---over four orders of magnitude under the 5\,s replanning
 period and ${\approx}60\times$ faster than RoSTAM-EA ($6.5$~ms at $N=10$).
 
@@ -736,7 +855,7 @@ stack; the per-scenario results are reported together with the
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.78\textwidth]{scalability_panel.png}
-  \caption{Scalability versus robot count (Nav2-independent SIM, 100
+  \caption{Scalability versus robot count (stochastic navigation-proxy, 100
   seeds, mean over the three scenarios): (a)~fitness, (b)~completion
   rate, (c)~recovery time, (d)~decision latency. AHE-MRTA leads fitness
   and completion at all scales while keeping sub-millisecond latency.}
@@ -837,6 +956,51 @@ new tasks arrive.
 \input{table/latex_main_table.tex}
 
 \input{table/latex_deadline_table.tex}
+
+\subsection{Matched physical validation of F58}
+\label{sec:f58-gazebo}
+\input{table/f58_gazebo.tex}
+
+To isolate whether F58's (P0+P1R) allocation-only gain transfers to the
+physical stack, rather than reusing old F45 tables we ran both
+configurations fresh from the same source snapshot, on the same 5 common
+seeds and three scenarios (15 F45 + 15 F58). Every run completed 25/25
+tasks; the quality gate detected no TF time jump in any run, and the
+event-integrity audit found no post-completion assignment or resurrection
+of a completed task. The pre-registered promotion gate requires 0.01
+non-inferiority on CR/DVR, no regression in active-robot Jain, a 50~ms
+budget on mean decision latency, and improvement in at least two of
+distance, physical redispatch, delay, and makespan.
+
+Table~\ref{tab:f58-gazebo} shows that the gate passes in all three
+scenarios. Under \textit{deadline\_pressure}, F58 keeps CR at 1.000 while
+cutting DVR by 9.6 percentage points (0.312$\to$0.216), mean delay by
+6.7~s, and total distance by 13.3~m---all three 95\% bootstrap confidence
+intervals exclude zero---with makespan and coordination messages also
+improving slightly. Under \textit{mixed\_stress}, distance drops by
+8.4~m (CI excludes zero), the active-robot Jain index rises by $+0.025$
+(CI $[0.008, 0.051]$), and DVR falls by 4 percentage points; the cost is
+$+3.2$ coordination messages per run and a $+4.0$~s makespan whose CI
+includes zero. Under \textit{robot\_failure}, DVR falls from 0.016 to
+0.000, mean failure-recovery time shortens by 21.4~s, and the all-robot
+Jain index rises by $+0.026$ (CI $[0.010, 0.043]$). CR is 1.000 in every
+run of all three scenarios, and decision latency stays within budget at
+17--21~ms (against F45's sub-millisecond latency; the price of the
+geodesic cache plus repair search). The one consistent cost is the
+distance-Jain index ($-0.019$ under deadline pressure, CI excludes
+zero): the repair improves workload fairness and total efficiency at the
+expense of distance balance. Because the paired Wilcoxon floor at
+$n{=}5$ is $p{=}0.0625$, the evidence here is directional consistency
+across five common seeds plus bootstrap confidence intervals rather than
+a significance claim; significance-level support comes from the
+Nav2-independent 100-seed campaign (Section~\ref{sec:results-sim}).
+
+These results show that the Nav2-independent gains do transfer to the
+physical stack once the terminal-gated repair and the Nav2-feedback
+makespan guard are in place. The four-method comparison above was
+nevertheless produced with the F45 configuration and is unchanged; F58
+is reported as a flag-gated, validated refinement that does not affect
+F45 behaviour.
 
 \paragraph{Where AHE wins.}
 At the 5-robot primary scale AHE-MRTA reaches full completion in every
@@ -1104,15 +1268,15 @@ The empirical answer from our data:
 
 \subsection{Why AHE co-leads rather than dominates the allocation fitness}
 \label{sec:deadline-tie}
-On the Nav2-independent fitness (priority-weighted on-time completion),
-AHE-MRTA and Consensus-DBTA are statistical co-leaders rather than one
-dominating the other (Table~\ref{tab:fitness}). Two mechanisms explain
-why the strongest methods converge. First, the fitness ceiling is set by
-\emph{stochastic, position-dependent navigation failure}, not by
-assignment quality: under an idealized perfect-navigation model every
-method completes all tasks on time (fitness ${\approx}1.0$, even at high
-task density), and the spread between methods opens only once goals can
-fail and must be re-attempted. The binding constraint is therefore
+On the stochastic navigation-proxy fitness (priority-weighted on-time
+completion), AHE-MRTA and Consensus-DBTA are statistical co-leaders
+rather than one dominating the other (Table~\ref{tab:fitness}). Two
+mechanisms explain why the strongest methods converge. First, the fitness
+ceiling is set by \emph{stochastic, position-dependent navigation
+failure}, not by assignment quality: F58 AHE reaches fitness 1.0 in all
+nine scale--scenario cells of the perfect-navigation allocation-only
+model (Table~\ref{tab:f58-allocation}), and the spread in the proxy opens
+only once goals can fail and must be re-attempted. The binding constraint is therefore
 resilience to navigation failure---a capability AHE-MRTA and
 Consensus-DBTA both implement by re-dispatching failed and orphaned
 tasks---so the two converge to the same frontier, while the commit-once
@@ -1235,12 +1399,18 @@ reported alongside---never instead of---the physical Plane-B results.
 \label{sec:conclusion}
 
 We presented AHE-MRTA, an ecosystem-driven paradigm-switching framework
-for online multi-robot task allocation. Across 100-seed Nav2-independent
-simulation, AHE-MRTA and the strongest consensus baseline (Consensus-DBTA)
-are statistical co-leaders---AHE leads under deadline\_pressure, ties
-under robot\_failure, and trails by $0.001$ under mixed\_stress---and
-AHE holds the overall fitness lead through ten robots in a scalability
-sweep. Across a 300-experiment Gazebo
+for online multi-robot task allocation, together with its geodesic,
+efficiency-guarded F58 extension. Across 100-seed true Nav2-independent
+allocation-only simulation, F58 AHE holds fitness and CR at 1.000 and
+DVR at 0.000 across 3/5/10 robots and all three scenarios, with active
+Jain 0.982--0.992 and decision latency of at most 0.201~ms. In a
+four-cell seed-matched F45 comparison (3r/5r/10r plus a fresh holdout;
+51 of 120 tests significant after Holm) delay falls by 1--2.2~s and
+geodesic distance by 10--28~m with CR/DVR unchanged, while the
+active-robot Jain index rises by 0.005--0.029; the only cost is a
+decision-latency increase of up to 0.12~ms. In the separate stochastic
+navigation proxy, F45 AHE and the strongest consensus baseline
+(Consensus-DBTA) are statistical co-leaders. Across a 300-experiment Gazebo
 benchmark (3r, 5r, and 10r physical scales) with ROS\,2 Jazzy and Nav2
 on TurtleBot3 robots, AHE-MRTA leads on completion rate under robot
 failure (CR\,=\,1.000 at 5r and 0.996 at 10r, DVR\,=\,0.008/0.024)
@@ -1253,7 +1423,13 @@ Sub-millisecond decision latency is maintained across all scales
 (${\leq}0.48$~ms, ${\approx}125$--$280{\times}$ faster than
 RoSTAM-EA), at the cost of
 higher makespan and task delay relative to static-commit
-consensus methods under mixed-stress conditions. We hope the decomposition
+consensus methods under mixed-stress conditions.
+In the additional matched physical campaign, F58 (P1R) passes the
+fairness-guarded promotion gate in all three scenarios: DVR and geodesic
+distance fall, the active-robot Jain index rises, and CR\,=\,1.000 is
+preserved. The four-method Gazebo benchmark is nevertheless produced
+with the F45 configuration; F58 is reported as a flag-gated, validated
+refinement that does not alter F45 behaviour. We hope the decomposition
 into ideal allocation fitness vs.\ realized Gazebo metrics is useful
 to other MRTA studies struggling to separate algorithm quality from
 physical execution noise.

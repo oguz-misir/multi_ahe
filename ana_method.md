@@ -46,15 +46,22 @@ Inspection Environments**
 - **Karşılaştırma seti (G1, 4 yöntem):** `ahe_mrta_v3`, `big_mrta`, `rostam_ea`,
   `consensus_dbta`. Ablasyon paper kapsamı dışındadır.
 
-> **Durum (2026-06-23):** Yöntem **v45 (klasik EDPS) KİLİTLENDİ**; F50/F51/F52 reddedildi.
-> Tüm veri TAM (ground-truth), pipeline + makale (EN+TR) güncel. Ayrıntı §13.
+> **Durum (2026-06-29):** Makale sonuç referansı **F45/v45 klasik EDPS**'dir;
+> F53 reddedilmiş tarihsel ablasyondur ve varsayılan kapalıdır. Gerçek Jain ile
+> Plane-A/B bağlam-parite düzeltmeleri korunur. Eski Plane-A üretimi olasılıksal
+> navigasyon proxy'si içerdiğinden allocation-only sonuç `ideal_nav=True` ile ayrı
+> üretilir. Ayrıntı §13 ve `docs/F45_FAIRNESS_DEEP_DIVE.md`.
+> Kodda F58-P0/P1 (geodezik ETA + ε-sınırlı yük onarımı) Plane-A holdout'unu
+> geçtiği için varsayılan adaydır; resmî yönteme terfisi Gazebo kabulünden sonra
+> yapılacaktır. F45 `AHE_F58_GEODESIC=0 AHE_F58_FAIR_REPAIR=0` ile korunur.
 
 | İş | Durum |
 |---|---|
 | Gazebo GT 3r (4 yöntem × 3 senaryo × 5 seed × 3 yoğunluk = 180) | ✓ `results/raw/gazebo` |
 | Gazebo GT 5r/25g (60, birincil) | ✓ `results/raw/gazebo_5r_v45` |
 | Gazebo GT 10r/50g (60) | ✓ `results/raw/gazebo_10r_clean` |
-| Nav2-bağımsız fitness sim (5r/25t, 100 seed) + sweep (3/5/10r) | ✓ `sim_fitness.csv`, `sim_scalability.csv` |
+| Allocation-only sim (5r/25t, 100 seed, `ideal_nav=True`) | ✓ `results/stats/f45_allocation_only` |
+| Eski stochastic navigation proxy | tanısal; `sim_fitness.csv` allocation-only diye kullanılamaz |
 | İstatistik + figür + LaTeX tablo + yol-planları + paper | ✓ derlendi (0 çözümsüz ref) |
 
 **Ana sonuç özeti:** AHE = Consensus-DBTA ile **eş-lider fitness** (Düzlem A, nav-bound tavan)
@@ -423,7 +430,9 @@ değeri asla harmanlanmaz.
 | **recovery_time** | reassign_success_time − failure_detect_time | A+B | ↓ | Dayanıklılık (Fig. 5) |
 | delay | mean(completion − activation) | A+B* | ↓ | Stres altında; *B Nav2-confounded |
 | makespan | son tamamlama zamanı | A+B* | ↓ | Destekleyici; *B confounded |
-| workload_balance | `1/(1+var(completed_per_robot))` | A+B | ↑ | Yük dengesi |
+| workload_balance | Jain: `(Σ completed)^2 / (n Σ completed^2)` | A+B | ↑ | Yük dengesi |
+| workload_balance_active | Jain, kalıcı arızalı robotlar hariç | A+B | ↑ | Fırsat-normalize tanı |
+| travel_distance_balance | robot-başı mesafenin Jain indeksi | A+B | ↑ | Efor-adaleti tanısı |
 | **latency** | allocation döngüsü duvar-saati (ms) | A+B | ↓ | Gerçek-zamanlılık; **robot sayısına karşı** Fig. 6d (O(n³) ölçeklenme) |
 | comm_bytes / msg_count | iletim hacmi | A+B | ↓ | Düşük iletişim |
 | travel_distance | toplam yol | B | ↓ | Sadece destekleyici |
@@ -849,12 +858,41 @@ show. Then stop and report.
 
 ## 13.1. Tamamlanan durum
 
-**Yöntem KİLİTLENDİ: AHE = v45 (klasik EDPS).** F50 (hafif statik seçici), F51 (max-on-time
-route) ve F52 (öncelik-baskın sıralama) sim'de doğrulandı ve **REDDEDİLDİ** (marjinal/zararlı;
-ablasyon bayrakları ve kodları kaldırıldı). Derin iyileştirme analizi (7 bağımsız test): sim
+**Makale anlık görüntüsü: AHE = v45 (klasik EDPS).** F50 (hafif statik seçici), F51
+(max-on-time route) ve F52 (öncelik-baskın sıralama) sim'de doğrulandı ve **REDDEDİLDİ**
+(marjinal/zararlı; ablasyon bayrakları ve kodları kaldırıldı). Derin iyileştirme analizi
+(7 bağımsız test): sim
 fitness **pozisyon-tabanlı nav-failure-bound** (~14/25 tamamlama tavanı tüm yöntemlerde),
 **AHE ≈ Consensus-DBTA Pareto-frontier eşit**; realize edilebilir allocation iyileştirmesi yok
 (p-hacking reddi, projenin tutarlı kalıbı).
+
+**Reddedilen F53 deneyi (2026-06-28):** sabit robot-sırası yanlılığını kaldıran,
+2 m yakın-verimli aday kümesinde exact-completion + travel tie-break kullanan adil backfill.
+100-tohum 5r/25g'de ortalama Jain 0.727→0.733; deadline_pressure Jain 0.779→0.794,
+CR 0.573→0.585, mesafe 869.7→775.3, churn 0.995→0.668; fitness/DVR değişimi ≤0.002.
+3r/15g deadline Gazebo dumanı 15/15 görev, Jain=0.974, latency=0.43 ms tamamlandı.
+Bağımsız 101--200 tohum holdout'unda üç senaryoda da Jain/CR/delay/DVR/mesafe/churn
+yönlerinden hiçbiri gerilemedi; deadline Jain +0.025, CR +0.013, mesafe -91.0, churn -0.256.
+İkinci bağımsız 201--300 holdout'unda Jain farkları +0.001/+0.001/+0.013, mesafe
+farkları -14.33/-14.32/-87.18'dir. Holm düzeltmesi sonrası tüm mesafe farkları ile
+deadline CR/churn anlamlı; Jain farkları pozitif fakat bu blokta tek başına anlamlı
+değildir. Deadline fitness (-0.003) ve DVR (+0.003) küçük ters farkları Holm sonrası
+anlamlı değildir; bu takas sonuç anlatımında korunacaktır.
+Ek ölçek denetiminde 10r/50g Jain farkları robot_failure/mixed/deadline için
++0.001/+0.010/+0.038'dir. 3r/15g deadline Jain +0.015 iken failure/mixed Jain
+-0.003/-0.005'tir; bu küçük-filo takası fiziksel çok-tohum kampanya öncesinde
+olumlu sonuç gibi sunulmayacaktır.
+Ek düzeltmeler: gerçek Jain ortak tanımı; `deadline-now≤60`; enjekte arızanın c4'e iletimi;
+Plane-A yoğunluk paydasının robot sayısına hizalanması. Tam kanıt ve komutlar ayrı araştırma
+notundadır. 2026-06-29 kararıyla bu aday aktif yöntemden çıkarılmıştır.
+
+**F45 kök-neden sonucu (2026-06-29):** eski Plane-A varsayılanı konuma bağlı
+`p_success` ve 30 s timeout içerdiği halde Nav2-bağımsız diye etiketlenmişti.
+`ideal_nav=True` allocation-only koşusunda F45 5r/25g için üç senaryoda CR/fitness
+1.000; aktif Jain robot_failure/mixed/deadline için 0.984/0.986/0.973'tür. F54--F56
+adalet adayları bağımsız holdout'ta doğrulanmadı ve temizlendi. Bundan sonraki
+iyileştirme completion bonusu değil, gerçek yol/reachability maliyeti ve robot-görev
+çiftine özgü başarısızlık hafızasıdır. Tam kayıt `docs/F45_FAIRNESS_DEEP_DIVE.md`.
 
 **Lokalizasyon: ground-truth** (statik `map→odom`, başlangıç pozu). AMCL terk edildi (5r'de
 temelden sapıyor; katkı = allocation, lokalizasyon değil → ground-truth bilimsel savunulabilir,
@@ -912,3 +950,8 @@ güncel hatlarla (yukarıda) genişletilmeli.
 > Sonuç çerçevesi **eş-liderlik** (AHE≈Consensus-DBTA, fitness nav-bound) + Gazebo GT üstünlük
 > (latency/tamamlama/churn). Tüm veri TAM, paper EN+TR derlendi. **Yol-planları** eklendi
 > (`path_grids/`). §1.3 ve §13 güncel duruma çekildi. Dead-end/yedek veriler `results/_depo_archive/`.
+>
+> **Revizyon (2026-06-29):** F53 ve devam fairness yamaları bağımsız holdout'ta
+> reddedildi; aktif yöntem F45'e döndü. Plane-A allocation-only (`ideal_nav=True`) ile
+> stochastic navigation-proxy ayrıldı. Gerçek Jain ve Plane-A/B context-parite
+> düzeltmeleri yöntemden bağımsız doğruluk düzeltmeleri olarak korunur.

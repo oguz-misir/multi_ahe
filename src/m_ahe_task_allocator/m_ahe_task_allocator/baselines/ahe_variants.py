@@ -56,8 +56,9 @@ import numpy as np
 
 from .base_allocator import (
     AllocationResult, BaseAllocator, EcosystemContext,
-    RobotState, TaskState, cheapest_insertion, measure, queue_endpoint,
+    RobotState, TaskState, cheapest_insertion, jain_index, measure, queue_endpoint,
 )
+from ..geodesic_cost import geodesic_distance
 
 # Fallback fixed weights (önceden ahe_allocator_node.py'den import ediliyordu;
 # Phase 7/8 tek-düğümlü kod kaldırıldıktan sonra buraya taşındı).
@@ -424,6 +425,62 @@ class AHEMRTAv3Allocator(BaseAllocator):
     # kuyruk-uzunluğu cezası (saniye/görev) eklenir → Jain dengesi ↑.
     # 0 → davranış değişmez.
     FAIR_LAMBDA_S = 0.0    # REDDEDİLDİ: 12.0 recovery'yi bozdu (rf 33.6→47.1; orphan yayılması=F45 sorunu), WLBal net iyileşmedi
+    # F53 (Opportunity-Constrained Completion Fairness): exact cumulative
+    # completions are used only to break near-arrival ties for NEW work.  The
+    # bonus is never applied to an incumbent (no fairness-induced churn), to a
+    # failed/stuck robot, or to a robot outside FAIR_ARRIVAL_SLACK_S of the
+    # fastest candidate (no long cross-arena assignment merely for equality).
+    # Direct cost bonuses remain disabled: the reproducible sweep showed that
+    # low completions can be a symptom of poor reachability, so rewarding them
+    # in every LSA can hurt both fairness and throughput.  The validated F53
+    # operating point is the bounded anti-idle tie-break below.
+    FAIR_COMPLETION_COST = 0.0       # dimensionless bonus / completion deficit
+    FAIR_COMPLETION_SECONDS = 0.0    # greedy-path bonus seconds / deficit
+    FAIR_ARRIVAL_SLACK_S = 15.0
+    FAIR_MAX_COST_BONUS = 0.30
+    FAIR_MAX_SECONDS_BONUS = 15.0
+    # F53 is retained only for historical ablation.  It is not part of the
+    # active method: independent holdout did not establish a reliable Jain gain.
+    F53_FAIR_ANTI_IDLE = False
+    F53_ANTI_IDLE_KEEP_INCUMBENT = True
+    FAIR_ANTI_IDLE_SLACK_M = 2.0
+    # F57 (Robot-Task Reachability Memory): a failure is remembered for the
+    # specific robot-task pair, not as a global robot incompetence score.  A
+    # repeatedly failing pair is quarantined only while a healthier alternative
+    # exists; if every robot has the same evidence the task remains dispatchable.
+    # Default OFF keeps the published F45 reference bit-identical.
+    F57_PAIR_MEMORY_ENABLED = False
+    F57_PAIR_FAILURE_PENALTY = 0.25
+    F57_QUARANTINE_AFTER = 2
+    # F58 (Geodesic-Risk Lexicographic Repair), stage P0/P1.  Allocation-only
+    # holdout passed, but the paired Gazebo+Nav2 campaign did not preserve
+    # active Jain in any scenario.  Keep the published F45 reference as the
+    # safe default; validation drivers enable F58 explicitly through env vars.
+    F58_GEODESIC_ENABLED = False
+    F58_GEODESIC_RESOLUTION = 0.10
+    F58_FAIR_REPAIR_ENABLED = False
+    # P1g holdout sweep (unseen seeds 401--420): with the one-slot reservation
+    # restricted to projected gaps >=2, 0.10 improves active Jain, delay and
+    # geodesic distance in all three scenarios while CR/DVR stay exact.
+    F58_FAIR_EPSILON = 0.10
+    F58_FAIR_REPAIR_ITERS = 2
+    # Experiment tasks draw service time uniformly from 2--8 s.  Completed
+    # tasks no longer exist in task_map, so their realised service component
+    # must be reconstructed from the known mean instead of disappearing from
+    # burden.  Travel itself remains the exact execution feedback.
+    F58_MEAN_COMPLETED_SERVICE_S = 5.0
+    F58_FAIR_EXTRA_QUEUE = 1
+    F58_FAIR_RESERVATION_GAP = 2
+    F58_MAX_BURDEN_NONREGRESSION = True
+    # 0 = every allocation (legacy P1 behaviour).  Positive values postpone
+    # fairness repair until remaining active work is at most this many tasks
+    # per healthy robot, avoiding early queue reservations that inflate
+    # physical delay while retaining a terminal load-balancing opportunity.
+    # P1R holdout + physical robot-failure gate selected 3.0: it preserved the
+    # early geodesic efficiency phase, then balanced the terminal schedule
+    # under a hard remaining-makespan non-regression guard.
+    F58_FAIR_TERMINAL_TASKS_PER_ROBOT = 3.0
+    F58_REMAINING_MAKESPAN_NONREGRESSION = True
     # ─── v4.2 kararlılık paketi (F25–F27) ───
     # Teşhis (30-seed sim, 2026-06-12): reassignment'ların %85'i A→B→A
     # ping-pong; kaynak = arıza modunda NOOP+sticky+commit-lock üçünün
@@ -615,7 +672,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
         if task.deadline <= 0:
             return 0.0
         ep = queue_endpoint(robot, task_map, queue_rest)
-        dist = math.hypot(task.position[0] - ep[0], task.position[1] - ep[1])
+        dist = self._travel_distance(ep, task.position)
         queue_wait = len(queue_rest) * (NAV2_QUEUE_OVERHEAD + task.service_time)
         arrival = current_time + queue_wait + dist / self.SPEED
         return max(0.0, arrival - task.deadline)
@@ -647,6 +704,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
                                    and len(queues[r.robot_id]) < robot_cap[r.robot_id]),
                                   None)
                 if prev_robot is not None:
+                    if self._pair_is_quarantined(prev_robot, task, robots_avail):
+                        prev_robot = None
+                if prev_robot is not None:
                     arr = self._arrival_time(prev_robot, task, task_map,
                                              queues[prev_rid], current_time)
                     if task.deadline <= 0 or arr <= task.deadline + self.DVR_SOFT_SLACK:
@@ -661,13 +721,18 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     continue
                 if len(queues[r.robot_id]) >= robot_cap[r.robot_id]:
                     continue
+                if self._pair_is_quarantined(r, task, robots_avail):
+                    continue
                 arr = self._arrival_time(r, task, task_map,
                                          queues[r.robot_id], current_time)
                 if task.deadline > 0 and arr > (task.deadline + self.DVR_SOFT_SLACK
                                                 + self._slack_extra()):
                     continue
                 # F24: yük-adaleti — dolu kuyruk seçimde cezalandırılır
-                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                fair_s = self._completion_fairness_seconds_bonus(
+                    r, task, task_map, queues, current_time, robot_cap)
+                arr_eff = (arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                           - fair_s)
                 if arr_eff < best_arr:
                     best_arr, best_r = arr_eff, r.robot_id
             if best_r is not None:
@@ -738,6 +803,110 @@ class AHEMRTAv3Allocator(BaseAllocator):
         if self.ADAPTIVE_SLACK_K <= 0.0:
             return 0.0
         return self.ADAPTIVE_SLACK_K * max(0.0, self._backlog_ratio - 1.0)
+
+    def _completion_fairness_deficit(
+            self, robot: RobotState, task: TaskState, task_map: dict,
+            queues: dict, current_time: float, robot_cap: dict) -> float:
+        """Completion deficit for an efficiency-safe, fairness tie-break.
+
+        A positive value means ``robot`` has completed fewer tasks than the
+        most-served currently healthy robot.  Only candidates whose predicted
+        arrival lies within a bounded window of the fastest healthy candidate
+        are eligible.  Existing assignments receive no bonus, which prevents
+        fairness from cancelling Nav2 goals or increasing allocation churn.
+        """
+        if (getattr(self, '_fair_cost_weight', self.FAIR_COMPLETION_COST) <= 0.0
+                and getattr(self, '_fair_seconds_weight',
+                            self.FAIR_COMPLETION_SECONDS) <= 0.0):
+            return 0.0
+        if (task.task_id in self._prev_robot_for_task
+                or task.task_id in self._assign_history):
+            return 0.0
+
+        healthy = [
+            r for r in getattr(self, '_fair_robots', [])
+            if r.available and getattr(r, 'navigation_state', 0) not in (2, 3)
+            and len(queues.get(r.robot_id, []))
+            < robot_cap.get(r.robot_id, self.JTSC_QUEUE_CAP)
+        ]
+        if len(healthy) < 2 or robot not in healthy:
+            return 0.0
+
+        arrivals = {
+            r.robot_id: self._arrival_time(
+                r, task, task_map, queues.get(r.robot_id, []), current_time)
+            for r in healthy
+        }
+        candidate_arrival = arrivals.get(robot.robot_id, float('inf'))
+        if candidate_arrival > min(arrivals.values()) + self.FAIR_ARRIVAL_SLACK_S:
+            return 0.0
+
+        counts = {
+            r.robot_id: max(0, int(getattr(r, 'completed_tasks', 0)))
+            for r in healthy
+        }
+        return float(max(0, max(counts.values()) - counts[robot.robot_id]))
+
+    def _completion_fairness_cost_bonus(
+            self, robot: RobotState, task: TaskState, task_map: dict,
+            queues: dict, current_time: float, robot_cap: dict) -> float:
+        deficit = self._completion_fairness_deficit(
+            robot, task, task_map, queues, current_time, robot_cap)
+        return min(self.FAIR_MAX_COST_BONUS,
+                   getattr(self, '_fair_cost_weight',
+                           self.FAIR_COMPLETION_COST) * deficit)
+
+    def _completion_fairness_seconds_bonus(
+            self, robot: RobotState, task: TaskState, task_map: dict,
+            queues: dict, current_time: float, robot_cap: dict) -> float:
+        deficit = self._completion_fairness_deficit(
+            robot, task, task_map, queues, current_time, robot_cap)
+        return min(self.FAIR_MAX_SECONDS_BONUS,
+                   getattr(self, '_fair_seconds_weight',
+                           self.FAIR_COMPLETION_SECONDS) * deficit)
+
+    def _pair_failure_count(self, robot: RobotState, task: TaskState) -> int:
+        """Return observed failures for this exact robot-task pair."""
+        failures = getattr(task, 'failure_by_robot', None) or {}
+        try:
+            return max(0, int(failures.get(robot.robot_id, 0)))
+        except (TypeError, ValueError):
+            return 0
+
+    def _pair_is_quarantined(self, robot: RobotState, task: TaskState,
+                             candidates=None) -> bool:
+        """Block a bad pair only when a less-failed healthy robot exists."""
+        if not getattr(self, '_pair_memory_enabled',
+                       self.F57_PAIR_MEMORY_ENABLED):
+            return False
+        own = self._pair_failure_count(robot, task)
+        threshold = max(1, int(getattr(
+            self, '_pair_quarantine_after', self.F57_QUARANTINE_AFTER)))
+        if own < threshold:
+            return False
+        pool = (candidates if candidates is not None
+                else getattr(self, '_fair_robots', []))
+        return any(
+            other.robot_id != robot.robot_id
+            and other.available
+            and other.battery_state != BATT_CRITICAL
+            and getattr(other, 'navigation_state', 0) not in (2, 3)
+            and self._pair_failure_count(other, task) < own
+            for other in pool
+        )
+
+    def _pair_failure_cost(self, robot: RobotState, task: TaskState,
+                           candidates=None) -> float:
+        """Soft evidence cost, or a hard quarantine sentinel."""
+        if not getattr(self, '_pair_memory_enabled',
+                       self.F57_PAIR_MEMORY_ENABLED):
+            return 0.0
+        if self._pair_is_quarantined(robot, task, candidates):
+            return 1.5e5
+        return (getattr(self, '_pair_failure_penalty',
+                        self.F57_PAIR_FAILURE_PENALTY)
+                * self._pair_failure_count(robot, task))
+
 
     def _select_paradigm_lightweight(self, context: Optional[EcosystemContext]) -> int:
         """F50: Statik bağlam-anahtarlı seçim (EDPS dinamiği yok).
@@ -832,13 +1001,18 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     continue
                 if len(queues[r.robot_id]) >= robot_cap[r.robot_id]:
                     continue
+                if self._pair_is_quarantined(r, task, avail):
+                    continue
                 arr = self._arrival_time(r, task, task_map,
                                          queues[r.robot_id], current_time)
                 # Strict reject: arrival > deadline (+F22 adaptif pencere) → atma
                 if task.deadline > 0 and arr > task.deadline + self._slack_extra():
                     continue
                 # F24: yük-adaleti terimi
-                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                fair_s = self._completion_fairness_seconds_bonus(
+                    r, task, task_map, queues, current_time, robot_cap)
+                arr_eff = (arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                           - fair_s)
                 if arr_eff < best_arr:
                     best_arr, best_r = arr_eff, r.robot_id
             if best_r is not None:
@@ -943,6 +1117,8 @@ class AHEMRTAv3Allocator(BaseAllocator):
             owner_robot = next((r for r in avail if r.robot_id == owner), None)
             if owner_robot is None:
                 continue
+            if self._pair_is_quarantined(owner_robot, task, avail):
+                continue
             queues[owner].append(task.task_id)
             committed_assigned.add(task.task_id)
         # Kalan unassigned'a tek-pas nearest atama
@@ -955,9 +1131,14 @@ class AHEMRTAv3Allocator(BaseAllocator):
                     continue
                 if len(queues[r.robot_id]) >= robot_cap[r.robot_id]:
                     continue
+                if self._pair_is_quarantined(r, task, avail):
+                    continue
                 arr = self._arrival_time(r, task, task_map,
                                          queues[r.robot_id], current_time)
-                arr_eff = arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                fair_s = self._completion_fairness_seconds_bonus(
+                    r, task, task_map, queues, current_time, robot_cap)
+                arr_eff = (arr + self.FAIR_LAMBDA_S * len(queues[r.robot_id])
+                           - fair_s)
                 if arr_eff < best_arr:
                     best_arr, best_r = arr_eff, r.robot_id
             if best_r is not None:
@@ -1016,22 +1197,127 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # En yüksek öncelik, en erken deadline önce
         pending.sort(key=lambda t: (-max(1, t.priority),
                                     t.deadline if t.deadline > 0 else 1e9))
+        if self.F53_FAIR_ANTI_IDLE:
+            # Task-first dispatch fixes the historical robot-list-order bias:
+            # the old loop always offered scarce leftover work to robot_1 first.
+            # Pick the nearest robot, with exact completion/distance fairness
+            # used only inside a bounded spatial indifference set.
+            while idle and pending:
+                task = pending[0]
+                candidates = []
+                for r in idle:
+                    if self._pair_is_quarantined(r, task, idle):
+                        continue
+                    d = self._travel_distance(r.pose, task.position)
+                    if d <= max_radius:
+                        candidates.append((r, d))
+                if not candidates:
+                    pending.pop(0)
+                    continue
+                best_d = min(d for _, d in candidates)
+                near = [(r, d) for r, d in candidates
+                        if d <= best_d + self.FAIR_ANTI_IDLE_SLACK_M]
+                incumbent_id = (self._assign_history.get(task.task_id)
+                                if self.F53_ANTI_IDLE_KEEP_INCUMBENT else None)
+                incumbent = next(
+                    ((r, d) for r, d in near if r.robot_id == incumbent_id),
+                    None,
+                )
+                if incumbent is not None:
+                    robot, _ = incumbent
+                else:
+                    robot, _ = min(
+                        near,
+                        key=lambda item: (
+                            max(0, int(getattr(item[0], 'completed_tasks', 0))),
+                            max(0.0, float(getattr(item[0], 'travel_distance', 0.0))),
+                            item[1],
+                            item[0].robot_id,
+                        ),
+                    )
+                ordered[robot.robot_id] = [task.task_id]
+                idle.remove(robot)
+                pending.pop(0)
+            return ordered
+
         for r in idle:
             if not pending:
                 break
             # En yüksek-öncelik dilimi içinde robota en yakın görevi seç
             top_pri = max(1, pending[0].priority)
             tier = [t for t in pending if max(1, t.priority) == top_pri]
-            best = min(tier, key=lambda t: math.hypot(
-                t.position[0] - r.pose[0], t.position[1] - r.pose[1]))
+            eligible = [t for t in tier
+                        if not self._pair_is_quarantined(r, t, idle)]
+            if not eligible:
+                continue
+            best = min(eligible, key=lambda t: self._travel_distance(
+                r.pose, t.position))
             # F44b: yerel yarıçap dışındaki görevi atama (sıkışma koruması)
-            d = math.hypot(best.position[0] - r.pose[0],
-                           best.position[1] - r.pose[1])
+            d = self._travel_distance(r.pose, best.position)
             if d > max_radius:
                 continue
             ordered[r.robot_id] = [best.task_id]
             pending.remove(best)
         return ordered
+
+    def _enforce_unique_assignments(self, queues: dict, robots: list) -> dict:
+        """Guarantee one owner per task and lock healthy in-flight goals."""
+        clean = {r.robot_id: list(dict.fromkeys(queues.get(r.robot_id, [])))
+                 for r in robots}
+        rorder = {r.robot_id: i for i, r in enumerate(robots)}
+        # ``current_task_id`` in RobotStatusSummary can lag task feedback by
+        # one status period.  In particular, after ``task_completed`` the
+        # runner has already removed the task while the robot can still report
+        # navigation_state=REACHED (4) with the old id.  Treating every healthy
+        # current_task_id as in-flight therefore resurrects completed work,
+        # occupies a queue slot and corrupts projected fairness.  Only state 1
+        # is an actual Nav2 goal in progress; idle/reached ids are stale from
+        # the allocator's point of view and must not be reinserted.
+        inflight = {
+            r.current_task_id: r.robot_id for r in robots
+            if r.current_task_id and r.available
+            and getattr(r, 'navigation_state', 0) == 1
+        }
+        owners = {}
+        for rid, tids in clean.items():
+            for tid in tids:
+                owners.setdefault(tid, []).append(rid)
+        for tid, locked_rid in inflight.items():
+            owners.setdefault(tid, [])
+            if locked_rid not in owners[tid]:
+                clean[locked_rid].insert(0, tid)
+                owners[tid].append(locked_rid)
+        for tid, candidates in owners.items():
+            if not candidates:
+                continue
+            preferred = inflight.get(tid)
+            if preferred not in candidates:
+                preferred = self._prev_robot_for_task.get(tid)
+            if preferred not in candidates:
+                preferred = self._assign_history.get(tid)
+            if preferred not in candidates:
+                preferred = min(candidates,
+                                key=lambda rid: rorder.get(rid, 10**9))
+            for rid in candidates:
+                if rid != preferred:
+                    clean[rid] = [x for x in clean[rid] if x != tid]
+            if tid in inflight and clean[preferred][0] != tid:
+                clean[preferred].remove(tid)
+                clean[preferred].insert(0, tid)
+        return clean
+
+    @staticmethod
+    def _prune_closed_tasks(queues: dict, task_map: dict) -> dict:
+        """Drop ids no longer present in the runner's active task snapshot.
+
+        Stateful queue/commit memories intentionally outlive one allocation
+        call, whereas an exact completion removes the task from ``task_map``.
+        Keeping such an id can resurrect it even when RobotStatus is clean.
+        """
+        return {
+            rid: [tid for tid in dict.fromkeys(queue) if tid in task_map]
+            for rid, queue in queues.items()
+        }
 
     def _f27_margin_gate(self, robots: list, task_map: dict, queues: dict,
                          current_time: float) -> dict:
@@ -1185,6 +1471,183 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 break
         return queues
 
+    def _f58_plan_profile(self, queues: dict, task_map: dict, robots: list,
+                          current_time: float):
+        """Return misses, distance, realised burden and remaining finish time."""
+        misses = 0
+        total_dist = 0.0
+        burden = {}
+        remaining_finish_s = {}
+        for robot in robots:
+            if (not robot.available
+                    or getattr(robot, 'navigation_state', 0) in (2, 3)):
+                continue
+            pos = robot.pose
+            clock = current_time
+            route_dist = 0.0
+            for route_index, tid in enumerate(queues.get(robot.robot_id, [])):
+                task = task_map.get(tid)
+                if task is None:
+                    continue
+                # For the in-flight front task Nav2's action feedback is the
+                # best available physical path measurement.  It includes the
+                # currently followed global path and therefore captures path
+                # deviations that a static grid query misses.
+                nav_remaining = max(
+                    0.0, float(getattr(robot, 'navigation_effort', 0.0)))
+                if (route_index == 0
+                        and getattr(robot, 'navigation_state', 0) == 1
+                        and getattr(robot, 'current_task_id', '') == tid
+                        and nav_remaining > 0.0):
+                    d = nav_remaining
+                else:
+                    d = self._travel_distance(pos, task.position)
+                if not math.isfinite(d):
+                    return float('inf'), float('inf'), {}
+                route_dist += d
+                clock += d / self.SPEED + task.service_time
+                if task.deadline > 0 and clock > task.deadline:
+                    misses += 1
+                pos = task.position
+            total_dist += route_dist
+            # Distance-equivalent productive burden.  Executed travel prevents
+            # repeatedly selecting the historically busiest healthy robot;
+            # service is converted to metres with the common nominal speed.
+            service_m = sum(
+                task_map[tid].service_time * self.SPEED
+                for tid in queues.get(robot.robot_id, []) if tid in task_map)
+            completed_service_m = (
+                max(0, int(getattr(robot, 'completed_tasks', 0)))
+                * self.F58_MEAN_COMPLETED_SERVICE_S * self.SPEED)
+            burden[robot.robot_id] = (
+                max(0.0, float(getattr(robot, 'travel_distance', 0.0)))
+                + completed_service_m + route_dist + service_m)
+            remaining_finish_s[robot.robot_id] = max(0.0, clock - current_time)
+        return misses, total_dist, burden, remaining_finish_s
+
+    def _epsilon_fair_repair(self, queues: dict, task_map: dict, robots: list,
+                             current_time: float, robot_cap: dict,
+                             movable_task_ids=None) -> dict:
+        """F58 P1: improve max route burden inside F45's efficiency envelope.
+
+        Only newly allocated work is moved, so an incumbent Nav2 goal is never
+        cancelled for fairness.  Deadline misses may not increase and total
+        geodesic distance may grow by at most epsilon from the F45 plan.
+        """
+        if not getattr(self, '_f58_fair_repair_enabled',
+                       self.F58_FAIR_REPAIR_ENABLED):
+            return queues
+        active = [r for r in robots if r.available
+                  and getattr(r, 'navigation_state', 0) not in (2, 3)
+                  and r.robot_id in queues]
+        if len(active) < 2:
+            return queues
+        original_miss, original_dist, burden, original_finish = self._f58_plan_profile(
+            queues, task_map, active, current_time)
+        if not burden or not math.isfinite(original_dist):
+            return queues
+        epsilon = getattr(self, '_f58_fair_epsilon', self.F58_FAIR_EPSILON)
+        dist_cap = original_dist * (1.0 + epsilon) + 1e-9
+
+        def projected_jain(plan):
+            return jain_index(
+                max(0, int(getattr(r, 'completed_tasks', 0)))
+                + len(plan.get(r.robot_id, []))
+                for r in active)
+
+        original_jain = projected_jain(queues)
+        original_max_burden = max(burden.values())
+        original_max_finish = max(original_finish.values(), default=0.0)
+        def fairness_key(profile):
+            miss, dist, loads, _finish = profile
+            if not loads:
+                return (float('inf'), float('inf'), float('inf'))
+            vals = list(loads.values())
+            return (max(vals), max(vals) - min(vals), dist)
+
+        current_profile = (original_miss, original_dist, burden,
+                           original_finish)
+        current_jain = original_jain
+        for _ in range(max(1, int(self.F58_FAIR_REPAIR_ITERS))):
+            current_key = fairness_key(current_profile)
+            best = None
+            # Within hard efficiency and max-burden guards, prefer a higher
+            # projected completion Jain; then lower max/range/distance.
+            best_score = (-current_jain,) + current_key
+            # Move only new work: historical assignments remain churn-safe.
+            for source in active:
+                srid = source.robot_id
+                for tid in list(queues[srid]):
+                    if movable_task_ids is not None:
+                        if tid not in movable_task_ids:
+                            continue
+                    elif (tid in self._prev_robot_for_task
+                          or tid in self._assign_history):
+                        continue
+                    task = task_map.get(tid)
+                    if task is None:
+                        continue
+                    for target in active:
+                        trid = target.robot_id
+                        if trid == srid:
+                            continue
+                        source_projected = (
+                            max(0, int(getattr(source, 'completed_tasks', 0)))
+                            + len(queues[srid]))
+                        target_projected = (
+                            max(0, int(getattr(target, 'completed_tasks', 0)))
+                            + len(queues[trid]))
+                        # A fast robot can repeatedly take the next job while
+                        # a slower, under-served robot already has a full
+                        # two-job queue.  Permit one *reserved* slot only when
+                        # moving this job closes a projected completion gap;
+                        # all deadline and distance guards still apply below.
+                        reservation_gap = getattr(
+                            self, '_f58_fair_reservation_gap',
+                            self.F58_FAIR_RESERVATION_GAP)
+                        extra = (getattr(
+                                     self, '_f58_fair_extra_queue',
+                                     self.F58_FAIR_EXTRA_QUEUE)
+                                 if source_projected - target_projected
+                                 >= reservation_gap
+                                 else 0)
+                        if len(queues[trid]) >= robot_cap.get(
+                                trid, self.JTSC_QUEUE_CAP) + extra:
+                            continue
+                        if self._pair_is_quarantined(target, task, active):
+                            continue
+                        candidate = {rid: list(q) for rid, q in queues.items()}
+                        candidate[srid].remove(tid)
+                        candidate[trid].append(tid)
+                        profile = self._f58_plan_profile(
+                            candidate, task_map, active, current_time)
+                        miss, dist, _, finish = profile
+                        candidate_jain = projected_jain(candidate)
+                        key = fairness_key(profile)
+                        burden_safe = (not getattr(
+                            self, '_f58_max_burden_nonregression',
+                            self.F58_MAX_BURDEN_NONREGRESSION)
+                            or key[0] <= original_max_burden + 1e-9)
+                        makespan_safe = (not getattr(
+                            self, '_f58_remaining_makespan_nonregression',
+                            self.F58_REMAINING_MAKESPAN_NONREGRESSION)
+                            or max(finish.values(), default=0.0)
+                            <= original_max_finish + 1e-9)
+                        if (miss > original_miss or dist > dist_cap
+                                or candidate_jain + 1e-12 < original_jain
+                                or not burden_safe or not makespan_safe):
+                            continue
+                        score = (-candidate_jain,) + key
+                        if score < best_score:
+                            best = (candidate, profile, tid, trid,
+                                    candidate_jain)
+                            best_score = score
+            if best is None:
+                break
+            queues, current_profile, tid, new_owner, current_jain = best
+            self._commit_map[tid] = new_owner
+        return queues
+
     def _route_lateness(self, start: tuple, route: list,
                         current_time: float) -> tuple:
         """Bir rotanın (sıralı TaskState) toplam deadline-gecikmesi ve seyahat
@@ -1194,7 +1657,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
         late = 0.0
         dist = 0.0
         for task in route:
-            d = math.hypot(task.position[0] - pos[0], task.position[1] - pos[1])
+            d = self._travel_distance(pos, task.position)
             dist += d
             t += d / self.SPEED + task.service_time
             pos = task.position
@@ -1213,7 +1676,8 @@ class AHEMRTAv3Allocator(BaseAllocator):
         regresyonu yapısal olarak engellenir.
         """
         edf = _edf_sorted(q_tasks, current_time)
-        cheap = cheapest_insertion(robot.pose, q_tasks)
+        cheap = cheapest_insertion(robot.pose, q_tasks,
+                                   distance_fn=self._travel_distance)
         if [t.task_id for t in cheap] == [t.task_id for t in edf]:
             return edf
         late_e, _ = self._route_lateness(robot.pose, edf, current_time)
@@ -1231,19 +1695,32 @@ class AHEMRTAv3Allocator(BaseAllocator):
         kapalıysa EDF (deadline_pressure ve genel deadline avantajı için).
         """
         if self.FAILURE_USE_CHEAPEST and self._failure_active:
-            return cheapest_insertion(robot.pose, q_tasks)
+            return cheapest_insertion(robot.pose, q_tasks,
+                                      distance_fn=self._travel_distance)
         if self.F49_DEADLINE_AWARE_ROUTE and len(q_tasks) > 1:
             return self._deadline_aware_route(robot, q_tasks, current_time)
         if self.USE_EDF_ORDER:
             return _edf_sorted(q_tasks, current_time)
-        return cheapest_insertion(robot.pose, q_tasks)
+        return cheapest_insertion(robot.pose, q_tasks,
+                                  distance_fn=self._travel_distance)
+
+    def _travel_distance(self, start: tuple, goal: tuple) -> float:
+        """F58 shared distance oracle; Euclidean is the exact F45 fallback."""
+        if not getattr(self, '_f58_geodesic_enabled',
+                       self.F58_GEODESIC_ENABLED):
+            return math.hypot(goal[0] - start[0], goal[1] - start[1])
+        return geodesic_distance(
+            start, goal,
+            getattr(self, '_f58_geodesic_resolution',
+                    self.F58_GEODESIC_RESOLUTION))
 
     def _arrival_time(self, robot: RobotState, task: TaskState,
                       task_map: dict, queue_tids: list,
                       current_time: float) -> float:
         ep = queue_endpoint(robot, task_map, queue_tids)
-        dist = math.hypot(task.position[0] - ep[0],
-                          task.position[1] - ep[1])
+        dist = self._travel_distance(ep, task.position)
+        if not math.isfinite(dist):
+            return float('inf')
         queue_wait = len(queue_tids) * (NAV2_QUEUE_OVERHEAD + task.service_time)
         return current_time + queue_wait + dist / self.SPEED
 
@@ -1254,6 +1731,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
         w_d, w_p, w_b, w_l, w_f, w_t, w_r = weights
         q = queues[robot.robot_id]
         r_cap = robot_cap[robot.robot_id]
+
+        pair_cost = self._pair_failure_cost(robot, task)
+        if pair_cost >= 1e5:
+            return pair_cost
 
         # M2: Arrival-time terimi (mesafe değil zaman)
         arrival = self._arrival_time(robot, task, task_map, q, current_time)
@@ -1362,8 +1843,8 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # M16: Hibrid consensus-style bid (Compl 1. sıra için)
         deadline_score = (1.0 / (1.0 + max(0.0, arrival - task.deadline))
                           if task.deadline > 0 else 0.5)
-        dist_norm = math.hypot(task.position[0] - robot.pose[0],
-                               task.position[1] - robot.pose[1]) / 28.0
+        direct_dist = self._travel_distance(robot.pose, task.position)
+        dist_norm = min(2.0, direct_dist / 28.0)
         bid = (2.0 * float(task.priority)
                + 3.0 * deadline_score
                + 1.0 * robot.battery
@@ -1415,6 +1896,15 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # Priority bonus: öncelikli görevleri biraz daha çekici yap
         cost *= (1.0 - 0.10 * (task.priority - 1))
 
+        # F53: exact-completion fairness is a bounded bonus for under-served,
+        # near-arrival candidates.  It never penalises an efficient candidate;
+        # therefore a far robot cannot become preferable merely because the
+        # closest robot has already completed more work.
+        cost -= self._completion_fairness_cost_bonus(
+            robot, task, task_map, queues, current_time, robot_cap)
+
+        cost += pair_cost
+
         return cost
 
     @measure
@@ -1428,6 +1918,57 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # AHE_MAX_FLEET env override (A/B gate testi için kod-düzenlemesiz config
         # değişimi): set edilmişse F44 eşiğini geçersiz kılar. örn. 999 → gate
         # kapalı (10r de agresif), 7 → varsayılan (10r muhafazakâr).
+        def _env_float(name: str, default: float) -> float:
+            try:
+                return float(os.environ.get(name, default))
+            except ValueError:
+                return default
+
+        def _env_bool(name: str, default: bool) -> bool:
+            raw = os.environ.get(name)
+            if raw is None:
+                return default
+            return raw.strip().lower() not in ('0', 'false', 'no', 'off')
+
+        self._fair_cost_weight = _env_float(
+            'AHE_FAIR_COMPLETION_COST', self.FAIR_COMPLETION_COST)
+        self._fair_seconds_weight = _env_float(
+            'AHE_FAIR_COMPLETION_SECONDS', self.FAIR_COMPLETION_SECONDS)
+        self.FAIR_ARRIVAL_SLACK_S = _env_float(
+            'AHE_FAIR_ARRIVAL_SLACK_S', self.FAIR_ARRIVAL_SLACK_S)
+        self.F53_FAIR_ANTI_IDLE = _env_bool(
+            'AHE_FAIR_ANTI_IDLE', self.F53_FAIR_ANTI_IDLE)
+        self.FAIR_ANTI_IDLE_SLACK_M = _env_float(
+            'AHE_FAIR_ANTI_IDLE_SLACK_M', self.FAIR_ANTI_IDLE_SLACK_M)
+        self._pair_memory_enabled = _env_bool(
+            'AHE_F57_PAIR_MEMORY', self.F57_PAIR_MEMORY_ENABLED)
+        self._pair_failure_penalty = _env_float(
+            'AHE_F57_PAIR_FAILURE_PENALTY', self.F57_PAIR_FAILURE_PENALTY)
+        self._pair_quarantine_after = max(1, int(_env_float(
+            'AHE_F57_QUARANTINE_AFTER', self.F57_QUARANTINE_AFTER)))
+        self._f58_geodesic_enabled = _env_bool(
+            'AHE_F58_GEODESIC', self.F58_GEODESIC_ENABLED)
+        self._f58_geodesic_resolution = max(0.05, _env_float(
+            'AHE_F58_GEODESIC_RESOLUTION', self.F58_GEODESIC_RESOLUTION))
+        self._f58_fair_repair_enabled = _env_bool(
+            'AHE_F58_FAIR_REPAIR', self.F58_FAIR_REPAIR_ENABLED)
+        self._f58_fair_epsilon = max(0.0, _env_float(
+            'AHE_F58_FAIR_EPSILON', self.F58_FAIR_EPSILON))
+        self._f58_fair_reservation_gap = max(1, int(_env_float(
+            'AHE_F58_FAIR_RESERVATION_GAP',
+            self.F58_FAIR_RESERVATION_GAP)))
+        self._f58_fair_extra_queue = max(0, int(_env_float(
+            'AHE_F58_FAIR_EXTRA_QUEUE', self.F58_FAIR_EXTRA_QUEUE)))
+        self._f58_max_burden_nonregression = _env_bool(
+            'AHE_F58_MAX_BURDEN_NONREGRESSION',
+            self.F58_MAX_BURDEN_NONREGRESSION)
+        self._f58_fair_terminal_tasks_per_robot = max(0.0, _env_float(
+            'AHE_F58_FAIR_TERMINAL_TASKS_PER_ROBOT',
+            self.F58_FAIR_TERMINAL_TASKS_PER_ROBOT))
+        self._f58_remaining_makespan_nonregression = _env_bool(
+            'AHE_F58_REMAINING_MAKESPAN_NONREGRESSION',
+            self.F58_REMAINING_MAKESPAN_NONREGRESSION)
+
         _max_fleet = self.F44_AGGRESSIVE_MAX_FLEET
         _env_mf = os.environ.get('AHE_MAX_FLEET')
         if _env_mf:
@@ -1436,6 +1977,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
             except ValueError:
                 pass
         self._fleet_aggressive = (len(robots) <= _max_fleet)
+        # _allocate_core historically updates assignment history on its return
+        # paths.  Snapshot it first so the final P1 repair can distinguish work
+        # first assigned in *this* call from true incumbents.
+        history_before = dict(self._assign_history)
         result = self._allocate_core(robots, tasks, current_time, context)
         if self.F32_NO_ABANDON:
             if self._fleet_aggressive:
@@ -1448,6 +1993,42 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 result.queues = self._anti_idle_dispatch(
                     result.queues, robots, tasks,
                     {t.task_id: t for t in tasks}, current_time, max_radius=radius)
+        task_map = {t.task_id: t for t in tasks}
+        # Persistent assignment/commit memories can still contain a task whose
+        # completion feedback arrived since the previous allocation.  The
+        # current active snapshot is authoritative: prune closed ids before
+        # in-flight locking or fairness profiling.
+        result.queues = self._prune_closed_tasks(result.queues, task_map)
+        # Robot interfaces pop the executing goal from their pending queue and
+        # expose it only as current_task_id.  Reinsert/lock that in-flight work
+        # *before* fairness profiling; doing this only after repair made a busy
+        # robot look empty and attracted another reservation.
+        result.queues = self._enforce_unique_assignments(result.queues, robots)
+        # P1b: repair the queue that is actually published.  Previously P1 ran
+        # inside _allocate_core(), after which F32 could append new work and
+        # silently undo projected-Jain protection.  One final repair here also
+        # covers every early-return/paradigm path and avoids duplicate work.
+        robot_cap = {
+            r.robot_id: self.JTSC_QUEUE_CAP for r in robots
+            if r.available and getattr(r, 'navigation_state', 0) not in (2, 3)
+        }
+        newly_assigned = {
+            tid for q in result.queues.values() for tid in q
+            if (tid not in history_before
+                or history_before.get(tid) in getattr(
+                    self, '_unhealthy_rids', set()))
+        }
+        terminal_factor = self._f58_fair_terminal_tasks_per_robot
+        repair_window_open = (
+            terminal_factor <= 0.0
+            or len(task_map) <= terminal_factor * max(1, len(robot_cap)))
+        if repair_window_open:
+            result.queues = self._epsilon_fair_repair(
+                result.queues, task_map, robots, current_time, robot_cap,
+                movable_task_ids=newly_assigned)
+        result.queues = self._enforce_unique_assignments(result.queues, robots)
+        self._prev_queues = {rid: list(q) for rid, q in result.queues.items()}
+        self._update_assign_history(result.queues)
         return result
 
     def _allocate_core(self, robots: list, tasks: list, current_time: float,
@@ -1529,6 +2110,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
         else:
             avail = [r for r in robots if r.available and
                      getattr(r, 'battery_state', 0) != BATT_CRITICAL]
+        self._fair_robots = list(avail)
 
         # F4: Rescue mode hesaplama — her unassigned task için min(arrival) bul.
         # Eğer min > deadline ise hiçbir robot zamanında varamayacak → rescue.
@@ -1586,7 +2168,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # RADİKAL PAKET (JTSC): robot_cap=1 zorla — her robotta tek görev, kuyruk
         # blokajı yok. Robot tamamlayınca allocator hemen yeni atama yapar.
         soft_cap = self.JTSC_QUEUE_CAP
-        robot_cap: dict = {r.robot_id: self.JTSC_QUEUE_CAP for r in avail}
+        robot_cap: dict = {r.robot_id: soft_cap for r in avail}
 
         # Ortalama kuyruk uzunluğu (M3)
         avail_ids = [r.robot_id for r in avail]

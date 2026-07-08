@@ -34,6 +34,14 @@ class RobotState:
     navigation_state: int = 0   # 0=idle, 1=navigating, 2=stuck, 3=failed, 4=reached
     failure_flag: bool = False
     battery_state: int = 0      # 0=normal, 1=low, 2=critical
+    # Exact execution feedback. Inferring completion from a task disappearing
+    # from the open pool is unsafe because retry backoff has the same symptom.
+    completed_tasks: int = 0
+    failed_tasks: int = 0
+    travel_distance: float = 0.0
+    # Nav2 feedback: remaining distance on the currently followed global path.
+    # Zero means unavailable/not navigating.
+    navigation_effort: float = 0.0
 
 
 @dataclass
@@ -46,16 +54,19 @@ class TaskState:
     service_time: float       # seconds to "service" the task at the waypoint
     active: bool = True
     completed: bool = False
+    # Execution feedback keyed by robot_id.  This represents pair-specific
+    # reachability evidence; it is not a global robot competence score.
+    failure_by_robot: dict = field(default_factory=dict)
 
 
 @dataclass
 class EcosystemContext:
     """Passed only to AHE-based allocators; None for classical baselines."""
     dominance: list             # list[float], len=K
-    context_vector: list        # list[float], len=7
+    context_vector: list        # list[float], len=4
     allocation_weights: list    # list[float], len=7  W(t) = softmax(M·D)
-    cooperation_matrix: list    # list[list[float]] 7×7 A
-    suppression_matrix: list    # list[list[float]] 7×7 S
+    cooperation_matrix: list    # list[list[float]] 5×5 A
+    suppression_matrix: list    # list[list[float]] 5×5 S
     heuristic_names: list       # list[str], len=K
 
 
@@ -80,6 +91,16 @@ def robot_task_distance(robot: RobotState, task: TaskState) -> float:
                   task.position[0], task.position[1])
 
 
+def jain_index(values) -> float:
+    """Return Jain's fairness index for non-negative resource shares."""
+    xs = [max(0.0, float(v)) for v in values]
+    total = sum(xs)
+    if not xs or total <= 0.0:
+        return 0.0
+    sum_sq = sum(v * v for v in xs)
+    return (total * total) / (len(xs) * sum_sq) if sum_sq > 0.0 else 0.0
+
+
 def queue_endpoint(
     robot: RobotState,
     task_map: dict,  # dict[task_id, TaskState]
@@ -96,16 +117,18 @@ def queue_endpoint(
 def cheapest_insertion(
     start: tuple,
     tasks: list,  # list[TaskState]
+    distance_fn=None,
 ) -> list:
     """Cheapest-insertion ordering returning a list of TaskState."""
     if not tasks:
         return []
+    if distance_fn is None:
+        distance_fn = lambda a, b: euclid(a[0], a[1], b[0], b[1])
     route_pts = [start]
     route_tasks = []
     remaining = list(tasks)
 
-    nearest = min(remaining, key=lambda t: euclid(
-        start[0], start[1], t.position[0], t.position[1]))
+    nearest = min(remaining, key=lambda t: distance_fn(start, t.position))
     remaining.remove(nearest)
     route_pts.append(nearest.position)
     route_tasks.append(nearest)
@@ -120,10 +143,11 @@ def cheapest_insertion(
                 prev = route_pts[pos - 1]
                 nxt = route_pts[pos] if pos < len(route_pts) else None
                 if nxt is None:
-                    inc = euclid(prev[0], prev[1], tx, ty)
+                    inc = distance_fn(prev, (tx, ty))
                 else:
-                    old = euclid(prev[0], prev[1], nxt[0], nxt[1])
-                    inc = euclid(prev[0], prev[1], tx, ty) + euclid(tx, ty, nxt[0], nxt[1]) - old
+                    old = distance_fn(prev, nxt)
+                    inc = (distance_fn(prev, (tx, ty))
+                           + distance_fn((tx, ty), nxt) - old)
                 if inc < best_inc:
                     best_inc = inc
                     best_task = task
