@@ -211,13 +211,14 @@ assignment $x_{r,\tau}(t_k) \in \{0,1\}$ with cardinality constraint
 $\sum_\tau x_{r,\tau} \leq Q$ (per-robot queue cap) and capability
 feasibility $x_{r,\tau} = 1 \Rightarrow c_\tau \subseteq \mathrm{cap}(r)$.
 
-\textbf{Cost.} The per-pair cost combines travel time
-$T_{r,\tau}$, urgency $u_\tau = (d_\tau - t_k)^{-1}$, criticality
-$\pi_\tau$, energy slack $e_{r,\tau}$, and recent reassignment penalty
-$\rho_{r,\tau}$:
+\textbf{Cost.} The per-pair cost combines the projected arrival time
+$a_{r,\tau}$ (queue wait plus travel), task urgency $U_\tau$ (task age
+normalized by its deadline), criticality $\pi_\tau$, the robot's
+relative queue load $L_r$, its failure risk $F_r$, a navigation-stuck
+indicator $R_r$, and a recent reassignment penalty $\rho_{r,\tau}$:
 \begin{equation}
-  C_{r,\tau} = w_d T_{r,\tau} + w_u u_\tau^{-1} + w_\pi \pi_\tau^{-1}
-             + w_e e_{r,\tau} + w_\rho \rho_{r,\tau},
+  C_{r,\tau} = w_d a_{r,\tau} + w_u U_\tau + w_\pi \pi_\tau^{-1}
+             + w_l L_r + w_f F_r + w_r R_r + \rho_{r,\tau},
   \label{eq:cost}
 \end{equation}
 with weight vector $w$ produced by the paradigm selected at $t_k$
@@ -325,7 +326,12 @@ weight $w_0$:
 \end{equation}
 with $T_w{=}0.3$ and blend $\beta_e{=}0.7$; under failure ($c_4{>}0$) the blend
 shifts toward a recovery profile $w_{\mathrm r}$ by
-$\theta{=}\min(0.8,\,0.5{+}0.6\,c_4)$. This is the \emph{only} channel through
+$\theta{=}\min(0.8,\,0.5{+}0.6\,c_4)$. Of the seven implementation weight
+channels, the six of Eq.~\eqref{eq:cost} are live; the seventh (a
+battery-slack weight) is provably inert---the physical stack carries no
+battery model, so its cost term is identically zero, and ablating it in
+the idealized plane is a no-op---and enters only the softmax
+normalization. This is the \emph{only} channel through
 which the Lotka--Volterra state influences a decision when no override fires.
 
 \paragraph{Cost shaping.} Two non-linear terms sharpen
@@ -334,9 +340,9 @@ pair whose projected arrival $a_{r,\tau}$ exceeds the deadline beyond an
 adaptive slack $\Delta_s$,
 $\;a_{r,\tau}>d_\tau+\Delta_s\Rightarrow C_{r,\tau}{=}\infty$; and an
 \emph{urgency escalation} inflates the temporal term once a task passes a
-fraction $u_0{=}0.7$ of its deadline budget,
-$\hat u_\tau = u_\tau\big(1+\zeta\,e^2\big)$ with
-$e=(u_\tau-u_0)/(1-u_0)$, so at-risk \emph{unassigned} tasks are pulled
+fraction $U_0{=}0.7$ of its deadline budget,
+$\hat U_\tau = U_\tau\big(1+\zeta\,e^2\big)$ with
+$e=(U_\tau-U_0)/(1-U_0)$, so at-risk \emph{unassigned} tasks are pulled
 forward while on-time incumbents are exempt (a churn brake).
 
 \subsection{F58: Geodesic ETA and epsilon-bounded load repair}
@@ -453,7 +459,7 @@ are masked with $C^{(p)}_{r,\tau} = \infty$. Writing $C_{r,\tau}$ for the
 base cost of Eq.~\eqref{eq:cost}, the paradigms instantiate $C^{(p)}$ and
 the queue ordering as follows.
 \begin{itemize}
-  \item \emph{spatial\_greedy} (H\_SPATIAL): $C^{(p)}_{r,\tau}=T_{r,\tau}$,
+  \item \emph{spatial\_greedy} (H\_SPATIAL): $C^{(p)}_{r,\tau}=T^{\mathrm{trav}}_{r,\tau}$,
         travel time only, assigned greedily to the nearest feasible robot
         --- the distance-minimising rule of metric
         MRTA~\cite{khamis2015multi,dutta2019task}.
@@ -646,8 +652,8 @@ We compare against one representative of each dominant online-MRTA
 solver family; together they span the
 design space that AHE-MRTA switches over. All baselines are
 re-implemented in our framework from the original papers and share an
-identical event loop, ROS\,2 topic interface, cost inputs (travel
-time, urgency, priority, energy), per-robot queue cap $Q$, and Nav2
+identical event loop, ROS\,2 topic interface, cost inputs (arrival
+time, urgency, priority, load), per-robot queue cap $Q$, and Nav2
 client; \emph{only the allocation policy differs}. Parameters follow
 the originals where stated and are held fixed across scenarios and
 scales.
