@@ -48,6 +48,8 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from rcl_interfaces.msg import ParameterDescriptor
 from nav2_msgs.action import NavigateToPose
+from lifecycle_msgs.msg import State, Transition
+from lifecycle_msgs.srv import ChangeState, GetState
 
 import yaml
 
@@ -191,6 +193,24 @@ class ExperimentRunnerNode(Node):
                 self._nav_ready_clients[r] = ActionClient(
                     self, NavigateToPose, f'/{r}/navigate_to_pose')
 
+        # Nav2 bring-up öz-iyileştirme: eşzamanlı configure fırtınasında
+        # lifecycle manager'ın change_state yanıt penceresi (Jazzy'de sabit,
+        # parametrik değil — nav2_params.yaml'daki service_client_timeout_sec
+        # okunmuyor) aşılınca manager pes ediyor ve robot süresiz INACTIVE
+        # kalıyor. _startup_delay'in %60'ında hazır olmayan robotların Nav2
+        # düğümlerini get_state ile yoklayıp eksik configure/activate
+        # geçişlerini runner kendisi sürer. Runner'ın servis istemcisi yanıt
+        # için süresiz bekler; iyileşme olmazsa STARTUP FAILED yolu aynen
+        # işler (çöp veri riski yok).
+        self._rekick_nodes: List[str] = [
+            'map_server', 'controller_server', 'planner_server',
+            'behavior_server', 'bt_navigator']
+        self._rekick_at: float = 0.6 * self._startup_delay
+        self._rekick_rounds: int = 0
+        self._rekick_max_rounds: int = 2
+        self._rekick_round_gap: float = 90.0
+        self._rekick_clients: Dict[str, object] = {}
+
         # Experiment state
         self._tasks: List[TS] = []
         self._task_map: Dict[str, TS] = {}
@@ -306,7 +326,20 @@ class ExperimentRunnerNode(Node):
                 self._start_experiment()
             return
 
-        # Henüz hepsi hazır değil — MAX timeout'a kadar bekle
+        # Henüz hepsi hazır değil — önce öz-iyileştirme dene
+        if (self._startup_delay > 0.0
+                and self._rekick_rounds < self._rekick_max_rounds
+                and elapsed_wall >= (self._rekick_at
+                                     + self._rekick_round_gap * self._rekick_rounds)):
+            self._rekick_rounds += 1
+            not_ready = [r for r in self._robots if r not in ready]
+            self.get_logger().warning(
+                f'REKICK tur {self._rekick_rounds}: {elapsed_wall:.0f}s geçti, '
+                f'hazır olmayan: {not_ready} — lifecycle geçişleri elle sürülüyor.')
+            for r in not_ready:
+                self._rekick_step(r, 0)
+
+        # MAX timeout'a kadar bekle
         if elapsed_wall >= self._startup_delay:
             not_ready = [r for r in self._robots if r not in ready]
             self.get_logger().error(
@@ -327,6 +360,99 @@ class ExperimentRunnerNode(Node):
                 f.write(f'not_ready={",".join(not_ready)}\n')
         except OSError:
             pass
+
+    # --- Nav2 bring-up öz-iyileştirme (REKICK) ---------------------------
+    # Robot başına sıralı zincir: her düğüm için get_state → gerekirse
+    # configure → activate → sonraki düğüm. Sıra nav2 bring-up sırasıyla
+    # aynı (map_server → ... → bt_navigator). Tüm çağrılar async; tek
+    # thread'li executor'da timer'ları bloklamaz. Başarısız/yanıtsız adım
+    # zinciri durdurursa robot hazır olamaz ve mevcut STARTUP FAILED yolu
+    # değişmeden devreye girer.
+
+    def _rekick_client(self, srv_name: str, srv_type):
+        if srv_name not in self._rekick_clients:
+            self._rekick_clients[srv_name] = self.create_client(srv_type, srv_name)
+        return self._rekick_clients[srv_name]
+
+    def _rekick_step(self, robot: str, idx: int) -> None:
+        if idx >= len(self._rekick_nodes):
+            self.get_logger().info(f'REKICK {robot}: zincir tamamlandı.')
+            return
+        node = self._rekick_nodes[idx]
+        gs = self._rekick_client(f'/{robot}/{node}/get_state', GetState)
+        if not gs.service_is_ready():
+            self.get_logger().warning(
+                f'REKICK {robot}/{node}: get_state servisi yok — atlanıyor.')
+            self._rekick_step(robot, idx + 1)
+            return
+        fut = gs.call_async(GetState.Request())
+        fut.add_done_callback(
+            lambda f, r=robot, i=idx: self._rekick_on_state(r, i, f))
+
+    def _rekick_on_state(self, robot: str, idx: int, fut) -> None:
+        node = self._rekick_nodes[idx]
+        try:
+            state = fut.result().current_state.id
+        except Exception as exc:  # noqa: BLE001 — zincir devam etmeli
+            self.get_logger().warning(
+                f'REKICK {robot}/{node}: get_state hatası ({exc}) — atlanıyor.')
+            self._rekick_step(robot, idx + 1)
+            return
+        if state == State.PRIMARY_STATE_ACTIVE:
+            self._rekick_step(robot, idx + 1)
+        elif state == State.PRIMARY_STATE_INACTIVE:
+            self._rekick_transition(
+                robot, idx, Transition.TRANSITION_ACTIVATE, then_next=True)
+        elif state == State.PRIMARY_STATE_UNCONFIGURED:
+            self._rekick_transition(
+                robot, idx, Transition.TRANSITION_CONFIGURE, then_next=False)
+        else:
+            self.get_logger().warning(
+                f'REKICK {robot}/{node}: beklenmedik durum id={state} — atlanıyor.')
+            self._rekick_step(robot, idx + 1)
+
+    def _rekick_transition(self, robot: str, idx: int,
+                           transition: int, then_next: bool) -> None:
+        node = self._rekick_nodes[idx]
+        cs = self._rekick_client(f'/{robot}/{node}/change_state', ChangeState)
+        if not cs.service_is_ready():
+            self.get_logger().warning(
+                f'REKICK {robot}/{node}: change_state servisi yok — atlanıyor.')
+            self._rekick_step(robot, idx + 1)
+            return
+        req = ChangeState.Request()
+        req.transition.id = transition
+        label = ('activate' if transition == Transition.TRANSITION_ACTIVATE
+                 else 'configure')
+        self.get_logger().warning(f'REKICK {robot}/{node}: {label} gönderiliyor...')
+        fut = cs.call_async(req)
+        fut.add_done_callback(
+            lambda f, r=robot, i=idx, t=transition, n=then_next:
+            self._rekick_on_transition(r, i, t, n, f))
+
+    def _rekick_on_transition(self, robot: str, idx: int, transition: int,
+                              then_next: bool, fut) -> None:
+        node = self._rekick_nodes[idx]
+        try:
+            ok = bool(fut.result().success)
+        except Exception as exc:  # noqa: BLE001
+            self.get_logger().warning(
+                f'REKICK {robot}/{node}: change_state hatası ({exc}).')
+            ok = False
+        if not ok:
+            # Yarış: başka bir tur/manager geçişi yapmış olabilir — durumu
+            # yeniden yoklamak yerine zinciri sonraki düğümden sürdür.
+            self.get_logger().warning(
+                f'REKICK {robot}/{node}: geçiş id={transition} başarısız — '
+                f'sonraki düğüme geçiliyor.')
+            self._rekick_step(robot, idx + 1)
+            return
+        if then_next:
+            self.get_logger().warning(f'REKICK {robot}/{node}: AKTİF.')
+            self._rekick_step(robot, idx + 1)
+        else:
+            self._rekick_transition(
+                robot, idx, Transition.TRANSITION_ACTIVATE, then_next=True)
 
     def _start_experiment(self) -> None:
         now = self.get_clock().now().nanoseconds / 1e9
