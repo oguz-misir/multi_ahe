@@ -78,9 +78,10 @@ yedisinde eşleştirilmiş-Wilcoxon desteğiyle geçer: 5-robot birincil
 mesafe 20.9~m düşer (hepsi $p{\leq}0.008$); deadline-baskısı
 kazanımları 10 robotta da sürer (DVR 0.256$\to$0.210, $p{=}0.016$;
 mesafe $-16.9$~m, $p{=}0.027$); robot arızası her ölçekte geçer.
-Geçemeyen iki hücre yalnızca GA'sı sıfırı içeren ölçütlerde takılır ve
-istatistiksel destekli gerileme yoktur; karar gecikmesi 8--35~ms ile
-50~ms bütçesinin içinde kalır.
+Geçemeyen iki hücre yalnızca GA'sı sıfırı içeren ölçütlerde takılır;
+destekli tek bedeller, 50~ms bütçesinin içinde kalan karar gecikmesi
+(8--35~ms) ve filo büyüklüğüyle ölçeklenen deadline-baskısı
+mesafe-dengesi düşüşüdür.
 Fiziksel temel-yöntem kıyaslamasında doğrulanmış F45 yapılandırması, 5 ve 10 robot
 ölçeklerinde robot
 arızası altında sıfıra-yakın deadline ihlaliyle tamamlamada öne geçer
@@ -162,8 +163,9 @@ açıkça gösterir.
     onarımı; Nav2-bağımsız kazanımların yanında, üç fiziksel ölçeğin
     tamamında (180 koşu; ölçek ve senaryo başına 10 ortak tohum)
     ön-kayıtlı fiziksel kabul kapısını dokuz ölçek--senaryo hücresinin
-    yedisinde geçen ve kalanında istatistiksel destekli gerileme
-    göstermeyen eşleşmiş Gazebo doğrulaması raporlanır
+    yedisinde geçen, destekli tek bedelleri karar gecikmesi ile
+    deadline-baskısı mesafe-dengesi düşüşü olan eşleşmiş Gazebo
+    doğrulaması raporlanır
     (Bölüm~\ref{sec:f58}).
   \item \emph{Nav2-bağımsız allocation-only değerlendirme:} navigasyonun
     deterministik başarılı olduğu idealize simülatörde, üç ölçek ve senaryo
@@ -989,11 +991,14 @@ taşırken (DVR 0.256$\to$0.210, $p{=}0.016$; mesafe $-16.9$~m,
 $p{=}0.027$) kapıyı yalnızca $-0.005$'lik bir aktif-Jain ölçütüyle
 kaçırır ($p{=}0.85$, GA $[-0.049, 0.036]$). Geçemeyen iki hücre böylece
 ölçekler arasında simetrik, gürültü-düzeyi kaymalardır (3r'de karışık
-stres, 10r'de deadline baskısı); dokuz hücrenin hiçbirinde hiçbir
-metrik istatistiksel destekle gerilemez, CR 0.01'lik non-inferiority
-bandının içinde kalır (0.988--1.000) ve karar gecikmesi filo
-büyüklüğüyle artsa da 50~ms bütçesinin içindedir (3r'de 8--11~ms,
-5r'de 17--23~ms, 10r'de 31--35~ms).
+stres, 10r'de deadline baskısı). Dokuz hücrenin tamamında istatistiksel
+destekli gerileme yalnızca iki bilinen bedeldir: filo büyüklüğüyle
+artan ama 50~ms bütçesinin içinde kalan karar gecikmesi (3r'de
+8--11~ms, 5r'de 17--23~ms, 10r'de 31--35~ms) ve yine filo büyüklüğüyle
+ölçeklenen deadline-baskısı mesafe-Jain düşüşü (3r'de $-0.009$,
+$p{=}0.037$; 5r'de $-0.020$; 10r'de $-0.052$, GA $[-0.103, -0.004]$).
+CR her hücrede 0.01'lik non-inferiority bandının içinde kalır
+(0.988--1.000).
 
 Bu sonuçlar, Nav2-bağımsız kazanımların terminal-kapılı onarım ve Nav2
 geri-beslemeli makespan koruması eklendikten sonra fiziksel yığına da
