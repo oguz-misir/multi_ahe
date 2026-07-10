@@ -207,12 +207,15 @@ $\sum_\tau x_{r,\tau} \leq Q$ (robot başına kuyruk üst sınırı) ve yetenek
 uygunluğu $x_{r,\tau} = 1 \Rightarrow c_\tau \subseteq \mathrm{cap}(r)$ ile bir
 atama $x_{r,\tau}(t_k) \in \{0,1\}$ üretir.
 
-\textbf{Maliyet.} Çift başına maliyet seyahat süresi $T_{r,\tau}$, aciliyet
-$u_\tau = (d_\tau - t_k)^{-1}$, kritiklik $\pi_\tau$, enerji boşluğu
-$e_{r,\tau}$ ve yakın yeniden-atama cezasını $\rho_{r,\tau}$ birleştirir:
+\textbf{Maliyet.} Çift başına maliyet; öngörülen varış süresini
+$a_{r,\tau}$ (kuyruk beklemesi + seyahat), görev aciliyetini $U_\tau$
+(deadline'a oranlanmış görev yaşı), kritikliği $\pi_\tau$, robotun
+göreli kuyruk yükünü $L_r$, arıza riskini $F_r$, navigasyon-takılma
+göstergesini $R_r$ ve yakın yeniden-atama cezasını $\rho_{r,\tau}$
+birleştirir:
 \begin{equation}
-  C_{r,\tau} = w_d T_{r,\tau} + w_u u_\tau^{-1} + w_\pi \pi_\tau^{-1}
-             + w_e e_{r,\tau} + w_\rho \rho_{r,\tau},
+  C_{r,\tau} = w_d a_{r,\tau} + w_u U_\tau + w_\pi \pi_\tau^{-1}
+             + w_l L_r + w_f F_r + w_r R_r + \rho_{r,\tau},
   \label{eq:cost}
 \end{equation}
 burada ağırlık vektörü $w$, $t_k$'da seçilen paradigma tarafından üretilir
@@ -310,7 +313,12 @@ harmanlanır:
 \end{equation}
 $T_w{=}0.3$, harman $\beta_e{=}0.7$; arıza altında ($c_4{>}0$) harman bir
 toparlanma profiline $w_{\mathrm r}$ doğru $\theta{=}\min(0.8,\,0.5{+}0.6\,c_4)$
-ile kayar. Override tetiklenmediğinde Lotka--Volterra durumunun bir kararı
+ile kayar. Yedi uygulama ağırlık kanalından Eq.~\eqref{eq:cost}'taki
+altısı canlıdır; yedincisi (batarya-payı ağırlığı) kanıtlanabilir
+biçimde inerttir---fiziksel yığında batarya modeli yoktur, dolayısıyla
+maliyet terimi özdeş sıfırdır ve idealize düzlemde ablasyonu sonucu
+değiştirmez---yalnızca softmax normalizasyonuna girer. Override
+tetiklenmediğinde Lotka--Volterra durumunun bir kararı
 etkilediği \emph{tek} kanal budur.
 
 \paragraph{Maliyet şekillendirme.} İki doğrusal-olmayan terim
@@ -318,9 +326,9 @@ Eq.~\eqref{eq:cost}'u deadline için keskinleştirir. \emph{Sert fizibilite
 kapısı}: öngörülen varış $a_{r,\tau}$ deadline'ı adaptif slack $\Delta_s$
 ötesinde aşarsa çift reddedilir,
 $\;a_{r,\tau}>d_\tau+\Delta_s\Rightarrow C_{r,\tau}{=}\infty$. \emph{Aciliyet
-yükseltmesi}: bir görev deadline bütçesinin $u_0{=}0.7$ kesrini geçince
-zamansal terim şişer, $\hat u_\tau = u_\tau(1+\zeta e^2)$,
-$e=(u_\tau-u_0)/(1-u_0)$; böylece risk altındaki \emph{atanmamış} görevler öne
+yükseltmesi}: bir görev deadline bütçesinin $U_0{=}0.7$ kesrini geçince
+zamansal terim şişer, $\hat U_\tau = U_\tau(1+\zeta e^2)$,
+$e=(U_\tau-U_0)/(1-U_0)$; böylece risk altındaki \emph{atanmamış} görevler öne
 çekilir, zamanında incumbent'lar muaftır (churn freni).
 
 \subsection{F58: Geodezik ETA ve epsilon-sınırlı yük onarımı}
@@ -442,7 +450,7 @@ $C^{(p)}_{r,\tau} = \infty$ ile maskelenir. $C_{r,\tau}$ Denklem~\eqref{eq:cost}
 taban maliyetini göstermek üzere, paradigmalar $C^{(p)}$'yi ve kuyruk
 sıralamasını şöyle örnekler.
 \begin{itemize}
-  \item \emph{spatial\_greedy} (H\_SPATIAL): $C^{(p)}_{r,\tau}=T_{r,\tau}$,
+  \item \emph{spatial\_greedy} (H\_SPATIAL): $C^{(p)}_{r,\tau}=T^{\mathrm{trav}}_{r,\tau}$,
         yalnız seyahat süresi, en yakın uygun robota açgözlü atanır ---
         metrik MRTA'nın mesafe-azaltan kuralı~\cite{khamis2015multi,dutta2019task}.
   \item \emph{priority\_first} (H\_CRIT): görevler kritiklik katmanlarına
@@ -626,8 +634,8 @@ Her baskın çevrim içi MRTA çözücü ailesinden bir temsilci ile
 karşılaştırıyoruz; birlikte, AHE-MRTA'nın
 üzerinde geçiş yaptığı tasarım uzayını kapsarlar. Tüm temel yöntemler
 özgün makalelerinden çerçevemiz içinde yeniden uygulanmıştır ve özdeş bir
-olay döngüsü, ROS\,2 konu arayüzü, maliyet girdileri (seyahat süresi,
-aciliyet, öncelik, enerji), robot başına kuyruk sınırı $Q$ ve Nav2
+olay döngüsü, ROS\,2 konu arayüzü, maliyet girdileri (varış süresi,
+aciliyet, öncelik, yük), robot başına kuyruk sınırı $Q$ ve Nav2
 istemcisi paylaşır; \emph{yalnızca tahsis politikası farklıdır}.
 Parametreler özgün makalelerde belirtildiği yerde onları izler ve tüm
 senaryo/ölçeklerde sabit tutulur.
