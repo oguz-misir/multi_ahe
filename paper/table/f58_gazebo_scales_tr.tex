@@ -1,0 +1,37 @@
+\begin{table*}[t]
+\centering
+\caption{Eşleşmiş F45--F58 Gazebo+Nav2 ölçek doğrulaması (3 robot / 15
+görev ve 10 robot / 50 görev, her iki kolda tohum 1--10; 120 koşu).
+Biçim Tablo~\ref{tab:f58-gazebo} ile aynıdır. ``Kaldı (gürültü)'',
+ön-kayıtlı kapının yalnızca \%95 bootstrap GA'sı sıfırı içeren
+ölçütlerde takıldığı hücreleri işaretler; hiçbir hücrede istatistiksel
+destekli gerileme yoktur.}
+\label{tab:f58-gazebo-scales}
+\small
+\setlength{\tabcolsep}{3.4pt}
+\begin{tabular}{llccccccc}
+\toprule
+Ölçek & Senaryo & CR & DVR & Gecikme (s) & Mesafe (m) & $J_{\rm act}$ & Karar (ms) & Kapı \\
+\midrule
+3r/15g & Robot arızası
+  & 1.000$\to$1.000 & .027$\to$.027 & 103.46$\to$96.37
+  & 105.01$\to$99.00 & .985$\to$.987 & .32$\to$10.01 & Geçti \\
+& Karışık stres
+  & 1.000$\to$1.000 & .373$\to$.413 & 68.79$\to$70.72
+  & 102.02$\to$104.23 & .976$\to$.985 & .30$\to$8.00 & Kaldı (gürültü) \\
+& Deadline baskısı
+  & 1.000$\to$1.000 & .420$\to$.307 & 83.34$\to$75.43
+  & 97.18$\to$89.08 & .977$\to$.987 & .42$\to$10.98 & Geçti \\
+\midrule
+10r/50g & Robot arızası
+  & .998$\to$.996 & .014$\to$.014 & 85.69$\to$87.46
+  & 317.41$\to$319.41 & .933$\to$.963 & .86$\to$31.75 & Geçti \\
+& Karışık stres
+  & .996$\to$.996 & .286$\to$.292 & 50.23$\to$48.39
+  & 280.11$\to$262.93 & .913$\to$.950 & .77$\to$34.59 & Geçti \\
+& Deadline baskısı
+  & .996$\to$.988 & .256$\to$.210 & 72.99$\to$72.30
+  & 258.69$\to$241.81 & .915$\to$.910 & 1.47$\to$34.31 & Kaldı (gürültü) \\
+\bottomrule
+\end{tabular}
+\end{table*}

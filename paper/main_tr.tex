@@ -70,13 +70,17 @@ gürültüsünden yalıtan 100-tohumlu allocation-only/Nav2-bağımsız simülat
 üç senaryo ve 3/5/10 robot ölçeklerinin tamamında
 $\mathrm{fitness}{=}\mathrm{CR}{=}1$ ve $\mathrm{DVR}{=}0$ elde eder;
 aktif-robot Jain indeksi 0.982--0.992 ve karar gecikmesi en çok 0.201~ms'dir.
-Ek 60-koşuluk taze F45--F58 eşleşmiş Gazebo+Nav2 doğrulamasında (senaryo
-başına 10 ortak tohum) F58, ön-kayıtlı kabul kapısını üç senaryoda da
-eşleştirilmiş-Wilcoxon desteğiyle geçer: deadline baskısında DVR
-0.340'tan 0.232'ye, gecikme 9.0~s ve mesafe 20.9~m düşer (hepsi
-$p{\leq}0.008$); karışık streste aktif-robot Jain'i $+0.024$ yükselir
-($p{=}0.008$); robot arızasında toparlanma 34~s kısalır ($p{=}0.037$);
-karar gecikmesi ${\leq}23$~ms ile bütçe içinde kalır.
+Üç fiziksel ölçeğin tamamında taze F45--F58 eşleşmiş Gazebo+Nav2
+doğrulamasında (180 eşlenik koşu; ölçek ve senaryo başına 10 ortak
+tohum) F58, ön-kayıtlı kabul kapısını dokuz ölçek--senaryo hücresinin
+yedisinde eşleştirilmiş-Wilcoxon desteğiyle geçer: 5-robot birincil
+ölçekte deadline baskısında DVR 0.340'tan 0.232'ye, gecikme 9.0~s ve
+mesafe 20.9~m düşer (hepsi $p{\leq}0.008$); deadline-baskısı
+kazanımları 10 robotta da sürer (DVR 0.256$\to$0.210, $p{=}0.016$;
+mesafe $-16.9$~m, $p{=}0.027$); robot arızası her ölçekte geçer.
+Geçemeyen iki hücre yalnızca GA'sı sıfırı içeren ölçütlerde takılır ve
+istatistiksel destekli gerileme yoktur; karar gecikmesi 8--35~ms ile
+50~ms bütçesinin içinde kalır.
 Fiziksel temel-yöntem kıyaslamasında doğrulanmış F45 yapılandırması, 5 ve 10 robot
 ölçeklerinde robot
 arızası altında sıfıra-yakın deadline ihlaliyle tamamlamada öne geçer
@@ -155,9 +159,11 @@ açıkça gösterir.
     occupancy map üzerinde önbellekli geodezik ETA ile, deadline kaçırmasını
     artırmayan ve toplam yol artışını $\epsilon{=}0.02$ ile sınırlayan,
     terminal-kapılı ve Nav2 geri-beslemeli (P1R) leksikografik min--max yük
-    onarımı; Nav2-bağımsız kazanımların yanında üç senaryoda da ön-kayıtlı
-    fiziksel kabul kapısını geçen eşleşmiş Gazebo doğrulaması (senaryo
-    başına 10 ortak tohum) raporlanır
+    onarımı; Nav2-bağımsız kazanımların yanında, üç fiziksel ölçeğin
+    tamamında (180 koşu; ölçek ve senaryo başına 10 ortak tohum)
+    ön-kayıtlı fiziksel kabul kapısını dokuz ölçek--senaryo hücresinin
+    yedisinde geçen ve kalanında istatistiksel destekli gerileme
+    göstermeyen eşleşmiş Gazebo doğrulaması raporlanır
     (Bölüm~\ref{sec:f58}).
   \item \emph{Nav2-bağımsız allocation-only değerlendirme:} navigasyonun
     deterministik başarılı olduğu idealize simülatörde, üç ölçek ve senaryo
@@ -190,8 +196,8 @@ açıkça gösterir.
 kümesi ve $\mathcal{T}(t)$ $t$ anındaki açık görev kümesi olsun; her görev
 $\tau \in \mathcal{T}(t)$ bir 2B konum $p_\tau$, deadline $d_\tau$, öncelik
 $\pi_\tau \in \{1,2,3\}$ ve yetenek gereksinimi $c_\tau$ taşır. Her robot $r$,
-konum, batarya, mevcut görev ve uygunluk bayrağını (canlı / arızalı) kodlayan
-$s_r(t) = (p_r, b_r, \tau_r^{\mathrm{cur}}, \phi_r)$ durumuna sahiptir.
+konum, mevcut görev ve uygunluk bayrağını (canlı / arızalı) kodlayan
+$s_r(t) = (p_r, \tau_r^{\mathrm{cur}}, \phi_r)$ durumuna sahiptir.
 
 \textbf{Karar.} Her tahsis olayında $t_k$ (arıza, görev gelişi, deadline alarmı,
 yeniden planlama zamanlayıcısı) politika, kardinalite kısıtı
@@ -365,10 +371,12 @@ artıramaz. Böylece Denk.~\eqref{eq:f58-repair}'deki zarf, gerçek yürütme
 durumundan türetilen bir makespan kısıtıyla da genişletilir.
 
 F58 (P0+P1R) önce allocation-only/Nav2-bağımsız düzlemde dört hücreli
-seed-eşlenik kampanyayla (Bölüm~\ref{sec:results-sim}), ardından
-5 robot/25 görev ölçeğinde taze F45 referansına karşı 60-koşuluk eşleşmiş
-Gazebo+Nav2 kampanyasıyla (senaryo başına 10 ortak tohum) doğrulanmıştır;
-ön-kayıtlı kabul kapısı üç senaryoda da geçilmiştir
+seed-eşlenik kampanyayla (Bölüm~\ref{sec:results-sim}), ardından üç
+fiziksel ölçeğin tamamında (3r/15g, 5r/25g, 10r/50g) taze F45
+referansına karşı 180-koşuluk eşleşmiş Gazebo+Nav2 kampanyasıyla (ölçek
+ve senaryo başına 10 ortak tohum) doğrulanmıştır; ön-kayıtlı kabul
+kapısı dokuz ölçek--senaryo hücresinin yedisinde geçilmiş, kalan iki
+hücre yalnızca GA'sı sıfırı içeren ölçütlerde takılmıştır
 (Bölüm~\ref{sec:f58-gazebo}).
 Bölüm~\ref{sec:results-gazebo}'daki dört-yöntem kıyaslaması yine de F45
 yapılandırmasıyla üretilmiştir; F58, F45 davranışını değiştirmeyen
@@ -918,6 +926,7 @@ böyle meşgul tutar.
 \subsection{F58'in eşleşmiş fiziksel doğrulaması}
 \label{sec:f58-gazebo}
 \input{table/f58_gazebo_tr.tex}
+\input{table/f58_gazebo_scales_tr.tex}
 
 F58'in (P0+P1R) allocation-only kazanımının fiziksel yığına aktarılıp
 aktarılmadığını yalıtmak için, eski F45 tablolarını yeniden kullanmak yerine
@@ -957,6 +966,34 @@ Replikasyon dalgası tek başına tüm kazanım yönlerini yeniden üretti
 örneklemde istatistiksel destekli başka gerileme yoktur;
 anlamlılık-düzeyinde en yüksek güçlü kanıt yine Nav2-bağımsız 100-tohum
 kampanyasıdır (Bölüm~\ref{sec:results-sim}).
+
+Ölçek sağlamlığını sınamak için aynı eşleşmiş protokolü kalan iki
+fiziksel ölçekte de yineledik---3 robot / 15 görev ve 10 robot / 50
+görev, yine her iki kolda tohum 1--10 (120 ek koşu;
+Tablo~\ref{tab:f58-gazebo-scales}). Bir koşu, ancak tüm Nav2 yığınları
+hazır bildirdikten sonra örnekleme girer; hazırlık kapısını kaçıran
+denemeler veri yazmaz ve yeniden koşulur (10 robotta, eşzamanlı
+on-yığın açılışının ara sıra düşürdüğü yaşam-döngüsü geçişlerini
+yeniden süren bir açılış öz-iyileştirmesi devrededir). Kapı, dokuz
+ölçek--senaryo hücresinin yedisinde geçilir. 3 robotta deadline baskısı
+geçer (DVR 0.420$\to$0.307; mesaj koşu başına $-3.3$, $p{=}0.047$) ve
+robot arızası geçer (gecikme $-7.1$~s, $p{=}0.049$; toparlanma
+$-33.3$~s, GA $[8.5, 61.3]$); karışık stres ise kapıyı yalnızca GA'sı
+sıfırı içeren $+0.040$'lık bir DVR kaymasıyla kaçırır---bu, en küçük
+ölçeğin onarıma düzeltilecek pek bir şey bırakmadığı yönündeki
+Nav2-bağımsız bulguyla tutarlıdır. 10 robotta karışık stres geçer
+(mesafe $-17.2$~m, GA $[1.6, 32.9]$; aktif-robot Jain'i $+0.037$) ve
+robot arızası geçer (toparlanma $-14.2$~s, makespan $-24.3$~s);
+deadline baskısı ise tüm hücrelerin en güçlü çekirdek kazanımlarını
+taşırken (DVR 0.256$\to$0.210, $p{=}0.016$; mesafe $-16.9$~m,
+$p{=}0.027$) kapıyı yalnızca $-0.005$'lik bir aktif-Jain ölçütüyle
+kaçırır ($p{=}0.85$, GA $[-0.049, 0.036]$). Geçemeyen iki hücre böylece
+ölçekler arasında simetrik, gürültü-düzeyi kaymalardır (3r'de karışık
+stres, 10r'de deadline baskısı); dokuz hücrenin hiçbirinde hiçbir
+metrik istatistiksel destekle gerilemez, CR 0.01'lik non-inferiority
+bandının içinde kalır (0.988--1.000) ve karar gecikmesi filo
+büyüklüğüyle artsa da 50~ms bütçesinin içindedir (3r'de 8--11~ms,
+5r'de 17--23~ms, 10r'de 31--35~ms).
 
 Bu sonuçlar, Nav2-bağımsız kazanımların terminal-kapılı onarım ve Nav2
 geri-beslemeli makespan koruması eklendikten sonra fiziksel yığına da
@@ -1360,10 +1397,13 @@ Milisaniye-altı karar gecikmesi tüm ölçeklerde korunur
 hızlı); bunun bedeli, sabit-commit uzlaşma yöntemlerine kıyasla
 karışık-stres koşullarında daha yüksek makespan ve görev
 gecikmesidir.
-Ek eşleşmiş fiziksel kampanyada (senaryo başına 10 ortak tohum) F58 (P1R)
-adalet-korumalı terfi kapısını üç senaryoda da eşleştirilmiş-Wilcoxon
-desteğiyle geçer: DVR, gecikme ve geodezik mesafe düşer, aktif-robot
-Jain'i yükselir, arıza toparlanması 34~s kısalır ve CR\,=\,1.000 korunur. Dört-yöntem Gazebo kıyaslaması yine de F45
+Üç ölçeğin tamamındaki eşleşmiş fiziksel kampanyada (180 koşu; ölçek ve
+senaryo başına 10 ortak tohum) F58 (P1R) adalet-korumalı terfi kapısını
+dokuz ölçek--senaryo hücresinin yedisinde eşleştirilmiş-Wilcoxon
+desteğiyle geçer: birincil ölçekte DVR, gecikme ve geodezik mesafe
+düşer, aktif-robot Jain'i yükselir ve arıza toparlanması 34~s kısalır;
+deadline-baskısı DVR ve mesafe kazanımları 10 robotta da sürer,
+geçemeyen iki hücre ise yalnızca GA'sı sıfırı içeren ölçütlerde takılır. Dört-yöntem Gazebo kıyaslaması yine de F45
 yapılandırmasıyla üretilmiştir; F58, F45 davranışını değiştirmeyen
 bayrak-kapılı, doğrulanmış bir iyileştirme olarak raporlanır. İdeal tahsis uygunluğu ile
 gerçekleşen Gazebo metrikleri arasındaki bu

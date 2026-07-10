@@ -71,14 +71,17 @@ In the allocation-only plane F58 attains
 $\mathrm{fitness}{=}\mathrm{CR}{=}1$ and $\mathrm{DVR}{=}0$ across all
 three scenarios and the 3/5/10-robot scales, with an active-robot Jain
 index of 0.982--0.992 and decision latency of at most 0.201~ms.
-In an additional 60-run fresh matched F45--F58 Gazebo+Nav2 validation
-(10 common seeds per scenario), F58 passes the pre-registered acceptance
-gate in all three scenarios with paired-Wilcoxon support: under deadline
-pressure DVR drops from 0.340 to 0.232, delay by 9.0~s, and distance by
-20.9~m (all $p{\leq}0.008$); under mixed stress the active-robot Jain
-index rises by $+0.024$ ($p{=}0.008$); under robot failure recovery
-shortens by 34~s ($p{=}0.037$); decision latency stays within budget at
-${\leq}23$~ms.
+In fresh matched F45--F58 Gazebo+Nav2 validation at all three physical
+scales (180 matched runs; 10 common seeds per scenario and scale), F58
+passes the pre-registered acceptance gate in seven of nine
+scale--scenario cells with paired-Wilcoxon support: at the 5-robot
+primary scale, deadline-pressure DVR drops from 0.340 to 0.232, delay
+by 9.0~s, and distance by 20.9~m (all $p{\leq}0.008$), and the
+deadline-pressure gains persist at 10 robots (DVR 0.256$\to$0.210,
+$p{=}0.016$; distance $-16.9$~m, $p{=}0.027$); robot failure passes at
+every scale. The two non-passing cells fail only on criteria whose CIs
+span zero, with no statistically supported regression; decision latency
+stays within the 50~ms budget at 8--35~ms.
 In the physical baseline benchmark the validated F45 configuration leads
 completion with near-zero deadline violations under robot failure at the
 5- and 10-robot scales (CR\,=\,1.000/0.996, DVR\,=\,0.008/0.024); at 10
@@ -158,9 +161,11 @@ where physical execution erases its gains.
     shared occupancy map that never increases predicted deadline misses
     and bounds the total-route increase by $\epsilon{=}0.02$,
     terminal-gated and Nav2-feedback-guarded (P1R); alongside the
-    Nav2-independent gains we report a matched Gazebo validation
-    (10 common seeds per scenario) that passes the pre-registered
-    physical acceptance gate in all three scenarios
+    Nav2-independent gains we report matched Gazebo validation at all
+    three physical scales (180 runs; 10 common seeds per scenario and
+    scale) that passes the pre-registered physical acceptance gate in
+    seven of nine scale--scenario cells, with no statistically
+    supported regression in the remainder
     (Section~\ref{sec:f58}).
   \item \emph{Nav2-independent allocation-only evaluation:} an idealized
     simulator in which navigation succeeds deterministically; we report
@@ -195,8 +200,8 @@ be the robot set and $\mathcal{T}(t)$ the open-task set at time $t$,
 each task $\tau \in \mathcal{T}(t)$ carrying a 2D position $p_\tau$,
 deadline $d_\tau$, priority $\pi_\tau \in \{1,2,3\}$, and capability
 requirement $c_\tau$. Each robot $r$ has state
-$s_r(t) = (p_r, b_r, \tau_r^{\mathrm{cur}}, \phi_r)$ encoding position,
-battery, current task, and availability flag (alive / failed).
+$s_r(t) = (p_r, \tau_r^{\mathrm{cur}}, \phi_r)$ encoding position,
+current task, and availability flag (alive / failed).
 
 \textbf{Decision.} At every allocation event $t_k$ (failure, task
 arrival, deadline alarm, replanning timer), the policy produces an
@@ -963,6 +968,7 @@ new tasks arrive.
 \subsection{Matched physical validation of F58}
 \label{sec:f58-gazebo}
 \input{table/f58_gazebo.tex}
+\input{table/f58_gazebo_scales.tex}
 
 To isolate whether F58's (P0+P1R) allocation-only gain transfers to the
 physical stack, rather than reusing old F45 tables we ran both
@@ -1004,6 +1010,33 @@ was in fact stronger, $-18.4$~s), and the pooled sample shows no other
 statistically supported regression; the Nav2-independent 100-seed
 campaign (Section~\ref{sec:results-sim}) remains the higher-powered
 evidence.
+
+To probe scale robustness we then repeated the same matched protocol at
+the two remaining physical scales---3 robots / 15 tasks and 10 robots /
+50 tasks, again with seeds 1--10 in both arms (120 additional runs;
+Table~\ref{tab:f58-gazebo-scales}). A run enters the sample only after
+every Nav2 stack reports ready; attempts that miss the readiness gate
+write no data and are re-run (at 10 robots a bring-up self-heal
+re-drives lifecycle transitions that the concurrent ten-stack startup
+occasionally drops). The gate passes in seven of the nine
+scale--scenario cells. At 3 robots, deadline pressure passes (DVR
+0.420$\to$0.307; messages $-3.3$ per run, $p{=}0.047$) and robot
+failure passes (delay $-7.1$~s, $p{=}0.049$; recovery $-33.3$~s, CI
+$[8.5, 61.3]$), while mixed stress fails the gate only on a DVR drift
+of $+0.040$ whose CI spans zero---consistent with the Nav2-independent
+finding that the smallest scale leaves the repair little to fix. At 10
+robots, mixed stress passes (distance $-17.2$~m, CI $[1.6, 32.9]$;
+active-robot Jain $+0.037$) and robot failure passes (recovery
+$-14.2$~s, makespan $-24.3$~s), while deadline pressure carries the
+strongest core wins of any cell (DVR 0.256$\to$0.210, $p{=}0.016$;
+distance $-16.9$~m, $p{=}0.027$) yet fails the gate solely on an
+active-Jain criterion of $-0.005$ ($p{=}0.85$, CI $[-0.049, 0.036]$).
+The two non-passing cells are thus symmetric noise-level drifts (mixed
+stress at 3r, deadline pressure at 10r); across all nine cells no
+metric regresses with statistical support, CR stays within the 0.01
+non-inferiority band (0.988--1.000), and decision latency grows with
+fleet size but stays within the 50~ms budget (8--11~ms at 3r,
+17--23~ms at 5r, 31--35~ms at 10r).
 
 These results show that the Nav2-independent gains do transfer to the
 physical stack once the terminal-gated repair and the Nav2-feedback
@@ -1434,11 +1467,14 @@ Sub-millisecond decision latency is maintained across all scales
 RoSTAM-EA), at the cost of
 higher makespan and task delay relative to static-commit
 consensus methods under mixed-stress conditions.
-In the additional matched physical campaign (10 common seeds per
-scenario), F58 (P1R) passes the fairness-guarded promotion gate in all
-three scenarios with paired-Wilcoxon support: DVR, delay, and geodesic
-distance fall, the active-robot Jain index rises, failure recovery
-shortens by 34~s, and CR\,=\,1.000 is preserved. The four-method Gazebo benchmark is nevertheless produced
+In the matched physical campaign at all three scales (180 runs; 10
+common seeds per scenario and scale), F58 (P1R) passes the
+fairness-guarded promotion gate in seven of nine scale--scenario cells
+with paired-Wilcoxon support: at the primary scale DVR, delay, and
+geodesic distance fall, the active-robot Jain index rises, and failure
+recovery shortens by 34~s; the deadline-pressure DVR and distance gains
+persist at 10 robots, and the two non-passing cells fail only on
+criteria whose CIs span zero. The four-method Gazebo benchmark is nevertheless produced
 with the F45 configuration; F58 is reported as a flag-gated, validated
 refinement that does not alter F45 behaviour. We hope the decomposition
 into ideal allocation fitness vs.\ realized Gazebo metrics is useful
