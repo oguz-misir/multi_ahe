@@ -1,7 +1,10 @@
 \begin{table}[t]
 \centering
-\caption{Allocation fitness (Nav2-independent, 100 seeds, 5 robots / 25 tasks, primary scale). Higher is better.
-First-rank per scenario in \textbf{bold}.}
+\caption{Allocation fitness (Nav2-independent, geodesic execution oracle,
+100 seeds, 5 robots / 25 tasks, primary scale). Higher is better.
+First-rank per scenario in \textbf{bold}; AHE-MRTA and Consensus-DBTA
+are statistical co-leaders, every gap well inside one standard
+deviation ($\approx 0.09$).}
 \label{tab:fitness}
 \small
 \setlength{\tabcolsep}{5pt}
@@ -9,10 +12,10 @@ First-rank per scenario in \textbf{bold}.}
 \toprule
 \textbf{Method} & \textbf{Rob.\ fail.} & \textbf{Mix.\ stress} & \textbf{Deadline} \\
 \midrule
-\textbf{AHE-MRTA*} & 0.538 & 0.538 & \textbf{0.483} \\
-BiG-MRTA           & 0.501 & 0.303 & 0.480 \\
-RoSTAM-EA          & 0.441 & 0.441 & 0.459 \\
-Consensus-DBTA     & \textbf{0.540} & \textbf{0.539} & 0.476 \\
+\textbf{AHE-MRTA*} & 0.488 & 0.480 & 0.447 \\
+BiG-MRTA           & 0.447 & 0.221 & \textbf{0.448} \\
+RoSTAM-EA          & 0.401 & 0.414 & 0.432 \\
+Consensus-DBTA     & \textbf{0.498} & \textbf{0.484} & 0.445 \\
 \bottomrule
 \end{tabular}
 \end{table}

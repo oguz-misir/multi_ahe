@@ -1,8 +1,8 @@
 \begin{table}[t]
 \centering
-\caption{EDPS ablasyonu (stokastik navigation-proxy uygunluğu, 5r/25g, 100 seed). Tüm
-varyantlar $0.9$~pp mean-uygunluk içinde; hiçbiri EDPS'ten istatistiksel
-ayrışmıyor.}
+\caption{EDPS ablasyonu (Nav2-bağımsız, geodezik yürütme oracle'ı, 5r/25g,
+100 tohum). Tüm varyantlar $0.7$~pp ortalama-uygunluk içinde; hiçbiri
+EDPS'ten istatistiksel ayrışmıyor.}
 \label{tab:ablation}
 \small
 \setlength{\tabcolsep}{5pt}
@@ -10,16 +10,16 @@ ayrışmıyor.}
 \toprule
 \textbf{Varyant} & \textbf{Rob.\ ar\i.} & \textbf{Deadline} & \textbf{Kar.\ stres} & \textbf{Ort.} \\
 \midrule
-Tam EDPS           & 0.538 & 0.483 & 0.538 & 0.520 \\
+Tam EDPS           & 0.488 & 0.447 & 0.480 & 0.472 \\
 \midrule
-sabit: spatial     & 0.552 & 0.482 & 0.549 & 0.528 \\
-sabit: edf         & 0.544 & 0.489 & 0.540 & 0.524 \\
-sabit: commit      & 0.547 & 0.474 & 0.549 & 0.523 \\
-sabit: orphan      & 0.537 & 0.481 & 0.541 & 0.520 \\
-sabit: priority    & 0.542 & 0.478 & 0.537 & 0.519 \\
+sabit: spatial     & 0.479 & 0.448 & 0.484 & 0.471 \\
+sabit: edf         & 0.489 & 0.443 & 0.477 & 0.470 \\
+sabit: commit      & 0.485 & 0.443 & 0.479 & 0.469 \\
+sabit: orphan      & 0.483 & 0.445 & 0.488 & 0.472 \\
+sabit: priority    & 0.499 & 0.441 & 0.487 & 0.476 \\
 \midrule
-no-override        & 0.538 & 0.483 & 0.538 & 0.520 \\
-no-recovery-boost  & 0.537 & 0.483 & 0.539 & 0.519 \\
+no-override        & 0.489 & 0.447 & 0.478 & 0.471 \\
+no-recovery-boost  & 0.488 & 0.447 & 0.481 & 0.472 \\
 \bottomrule
 \end{tabular}
 \end{table}

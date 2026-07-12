@@ -83,16 +83,18 @@ every scale. The two non-passing cells fail only on criteria whose CIs
 span zero; the only supported costs are decision latency (within the
 50~ms budget at 8--35~ms) and a deadline-pressure distance-balance
 decrease that scales with fleet size.
-In the physical baseline benchmark the validated F45 configuration leads
-completion with near-zero deadline violations under robot failure at the
-5- and 10-robot scales (CR\,=\,1.000/0.996, DVR\,=\,0.008/0.024); at 10
-robots it attains the highest completion rate in every scenario
-(CR\,=\,0.996--1.000) and the lowest pooled makespan, while the consensus
-and evolutionary baselines reach comparable completion only at
-substantially higher deadline-violation rates under deadline pressure
-(DVR\,=\,0.38--0.49 vs.\ AHE's 0.24).
-Decision latency stays below 0.48~ms at all scales,
-${\approx}125$--$280{\times}$ faster than the evolutionary baseline.
+In the physical four-method benchmark AHE-MRTA reaches full completion
+in every scenario at the primary 5-robot scale (CR\,=\,1.000) and the
+highest completion rate at 10 robots (CR\,=\,0.976--0.988), and leads
+effective on-time completion under deadline pressure at both scales
+(0.79 vs $\leq$0.66 at 5 robots, 0.76 vs $\leq$0.52 at 10), while the
+consensus and evolutionary baselines reach comparable completion only
+at substantially higher deadline-violation rates (DVR\,=\,0.34--0.42
+vs.\ AHE's 0.21 at 5 robots, 0.43--0.50 vs.\ 0.22 at 10); under mixed
+stress and robot failure AHE co-leads. The fairness-guarded repair that
+delivers this deadline compliance costs 16--35~ms of decision latency,
+above the sub-millisecond commit-once baselines but within the
+real-time budget and $2$--$5{\times}$ below the evolutionary baseline.
 We analyze why ideal-allocation gains do not transfer linearly through
 Nav2 and identify the conditions under which paradigm switching pays off.
 \end{abstract}
@@ -488,10 +490,11 @@ the queue ordering as follows.
 \end{itemize}
 The paradigms are independent (no shared state across switches); the only
 persistent state is $D(t)$. The LSA primitive in Eq.~\eqref{eq:lsa} is
-cubic in $\max(n,m)$ in the worst case, but at the evaluated scales every
-event is resolved in sub-millisecond wall-clock time
-(Section~\ref{sec:results-gazebo}), so paradigm choice does not affect
-the real-time budget.
+cubic in $\max(n,m)$ in the worst case; the paradigm selection itself
+resolves in sub-millisecond time, while the geodesic-ETA fairness repair
+raises the deployed decision latency to the 16--35~ms reported in
+Section~\ref{sec:results-gazebo}---still well within the real-time
+budget at every evaluated scale.
 
 \subsection{Algorithm}
 \begin{algorithm}[t]
@@ -800,33 +803,35 @@ is the priority-weighted fraction of tasks completed before their
 deadline; because failed goals must be recovered, the metric rewards not
 only assignment quality but resilience to navigation failure. With 100
 seeds per scenario, AHE-MRTA and Consensus-DBTA emerge as statistical
-co-leaders: AHE ranks first under \textit{deadline\_pressure}, ties
-Consensus-DBTA under \textit{robot\_failure}, and trails it by only
-$0.001$ under \textit{mixed\_stress}---every gap lies well within one
-standard deviation ($\approx0.10$):
+co-leaders: the two are indistinguishable across all three scenarios,
+with Consensus-DBTA marginally ahead under \textit{robot\_failure}
+($0.498$ vs $0.488$) and \textit{mixed\_stress} ($0.484$ vs $0.480$)
+and the recovery-capable methods within $0.003$ under
+\textit{deadline\_pressure}---every gap lies well within one
+standard deviation ($\approx0.09$):
 
 \input{table/fitness.tex}
 
 At the primary scale (25 tasks / 5 robots, Table~\ref{tab:fitness}),
 AHE-MRTA and Consensus-DBTA are statistically indistinguishable across
-all three scenarios: AHE leads narrowly under \textit{deadline\_pressure}
-(0.483 vs 0.476 for Consensus-DBTA and 0.480 for BiG-MRTA), the two are
-near-tied under \textit{robot\_failure} (AHE 0.538, Consensus-DBTA 0.540),
-and Consensus-DBTA edges AHE by $0.001$ under \textit{mixed\_stress}
-(0.539 vs 0.538)---all gaps far inside one standard deviation
-($\approx0.10$). The two co-leaders
+all three scenarios: Consensus-DBTA edges AHE under
+\textit{robot\_failure} (0.498 vs 0.488) and \textit{mixed\_stress}
+(0.484 vs 0.480), and under \textit{deadline\_pressure} the three
+recovery-capable methods sit within $0.003$ (BiG 0.448, AHE 0.447,
+Consensus-DBTA 0.445)---all gaps far inside one standard deviation
+($\approx0.09$). The two co-leaders
 share a mechanism: both re-dispatch tasks whose navigation goal fails and
 tasks orphaned by robot failures, so a stochastic failure costs at most a
 retry rather than a lost task. The commit-once BiG-MRTA fixes assignments
 and never re-routes, so it cannot recover these tasks and trails by
-$23.5$~pp under \textit{mixed\_stress} (0.303) and $3.9$~pp under
-\textit{robot\_failure} (0.501); this gap is \emph{recovery resilience},
+$25.9$~pp under \textit{mixed\_stress} (0.221) and $4.1$~pp under
+\textit{robot\_failure} (0.447); this gap is \emph{recovery resilience},
 not assignment quality. Under \textit{deadline\_pressure} the three
-recovery-capable methods fall within a $0.7$~pp band: once deadlines bind
+recovery-capable methods fall within a $0.3$~pp band: once deadlines bind
 tightly, late retries earn no on-time credit, so the recovery advantage
 compresses (Sec.~\ref{sec:deadline-tie}). On the physical Nav2 stack the same
 resilience reappears as AHE's highest completion rate against BiG-MRTA
-($+25.4$~pp), where BiG abandons overdue tasks
+($+27.2$~pp under deadline pressure), where BiG abandons overdue tasks
 (Sec.~\ref{sec:results-gazebo}, Table~\ref{tab:deadline}).
 Figure~\ref{fig:fitness} summarizes:
 
@@ -835,10 +840,10 @@ Figure~\ref{fig:fitness} summarizes:
   \includegraphics[width=0.66\textwidth]{fitness_comparison.png}
   \caption{Stochastic navigation-proxy allocation fitness (mean $\pm$ std), 100
   seeds per cell, 5 robots / 25 tasks (primary scale). AHE-MRTA and
-  Consensus-DBTA are statistical co-leaders: AHE leads under
-  deadline\_pressure, ties Consensus-DBTA under robot\_failure, and
-  trails it by $0.001$ under mixed\_stress---every gap well inside one
-  standard deviation ($\approx0.10$).}
+  Consensus-DBTA are statistical co-leaders, indistinguishable in every
+  scenario (largest gap $0.010$, under robot\_failure and mixed\_stress
+  in Consensus-DBTA's favour)---all well inside one
+  standard deviation ($\approx0.09$).}
   \label{fig:fitness}
 \end{figure}
 
@@ -857,11 +862,14 @@ Figure~\ref{fig:scalability} report the results averaged over scenarios.
 \input{table/scalability.tex}
 
 AHE-MRTA retains the highest fitness at every scale (Table~\ref{tab:scalability}).
-At $N=3$ it leads Consensus-DBTA narrowly (0.488 vs 0.483); at $N=5$ the
-margin is $+0.1$~pp over Consensus-DBTA and $+9.2$~pp over BiG-MRTA.
-Decision latency stays at ${\approx}0.10$~ms even
-at ten robots---over four orders of magnitude under the 5\,s replanning
-period and ${\approx}60\times$ faster than RoSTAM-EA ($6.5$~ms at $N=10$).
+At $N=3$ it ties Consensus-DBTA (0.436 vs 0.436); at $N=5$ the
+margin is $+0.1$~pp over Consensus-DBTA and $+10.5$~pp over BiG-MRTA,
+and at $N=10$ it leads by $+0.2$~pp over Consensus-DBTA. In this
+allocation-only harness AHE's decision latency stays at ${\approx}0.55$~ms
+even at ten robots---nearly four orders of magnitude under the 5\,s
+replanning period and ${\approx}12\times$ faster than RoSTAM-EA
+($6.8$~ms at $N=10$)---while on the full Nav2 stack the same geodesic
+repair costs the 16--35~ms reported in Section~\ref{sec:results-gazebo}.
 
 Physical Gazebo validation at the 5- and 10-robot scales (60
 experiments each) confirms these simulator trends on the full Nav2
@@ -978,9 +986,10 @@ new tasks arrive.
 \input{table/f58_gazebo.tex}
 \input{table/f58_gazebo_scales.tex}
 
-To isolate whether F58's (P0+P1R) allocation-only gain transfers to the
-physical stack, rather than reusing old F45 tables we ran both
-configurations fresh from the same source snapshot, on common seeds and
+AHE-MRTA* denotes the full configuration (P0+P1R) used throughout the
+four-method benchmark; to isolate what its geodesic-ETA fairness repair
+contributes over the F45 core, we ran both configurations as a matched
+core-vs-full ablation from the same source snapshot, on common seeds and
 three scenarios: an initial five-seed wave followed by an independent
 five-seed replication wave (seeds 6--10), pooling to 10 matched seeds
 per scenario (30 F45 + 30 F58 runs). Every run completed 25/25
@@ -1051,56 +1060,73 @@ non-inferiority band (0.988--1.000) in every cell.
 
 These results show that the Nav2-independent gains do transfer to the
 physical stack once the terminal-gated repair and the Nav2-feedback
-makespan guard are in place. The four-method comparison above was
-nevertheless produced with the F45 configuration and is unchanged; F58
-is reported as a flag-gated, validated refinement that does not affect
-F45 behaviour.
+makespan guard are in place. The four-method benchmark of
+Section~\ref{sec:results-gazebo} reports this full configuration as
+AHE-MRTA*; the present matched campaign therefore doubles as a
+\emph{core-vs-full ablation}, isolating what the geodesic-ETA fairness
+repair contributes over the F45 core on identical seeds---the deadline
+and distance gains above are exactly that marginal contribution, and
+they are what lift AHE from the co-leadership of the idealized plane to
+the deadline-pressure lead in the physical benchmark.
 
 \paragraph{Where AHE wins.}
 At the 5-robot primary scale AHE-MRTA reaches full completion in every
 scenario (CR\,=\,1.000), whereas the task-abandoning BiG-MRTA drops to
-0.736 under \textit{deadline\_pressure} and 0.728 under
+0.728 under \textit{deadline\_pressure} and 0.752 under
 \textit{mixed\_stress}. On effective on-time completion
-($\mathrm{CR}{\times}(1{-}\mathrm{DVR})$) AHE-MRTA leads under
-\textit{robot\_failure} (0.99 vs 0.88--0.93 for the baselines) and
-\textit{mixed\_stress} (0.72 vs $\leq$0.67); under
-\textit{deadline\_pressure} the three recovery-capable methods are
-statistically tied (AHE 0.64, Consensus-DBTA 0.68, RoSTAM-EA 0.60, all
-at CR\,=\,1.000), mirroring the co-leadership found in the
-allocation-fitness comparison. AHE's paradigm
+($\mathrm{CR}{\times}(1{-}\mathrm{DVR})$) AHE-MRTA now leads in all three
+scenarios at the primary scale: \textit{robot\_failure} (0.98 vs
+0.90--0.91 for the baselines), \textit{mixed\_stress} (0.72 vs
+$\leq$0.70), and---most notably---\textit{deadline\_pressure} (0.79 vs
+$\leq$0.66). The deadline lead is where the fairness-guarded
+configuration pays off: its geodesic-ETA repair cuts the deadline
+violation rate to 0.208, against 0.34--0.42 for the recovery-capable
+baselines, so the co-leadership seen in the idealized fitness plane
+(Sec.~\ref{sec:results-sim}) resolves in AHE's favour once the repair
+acts on physical routes. AHE's paradigm
 selection dispatches orphan-rescue and EDF-bipartite primitives that
-keep outstanding tasks reachable; the advantage is clearest under
-\textit{robot\_failure}, where AHE leads completion at both scales
-(CR\,=\,1.000 at 5 robots, 0.996 at 10) at near-zero violation rates
-(DVR\,=\,0.008 at 5 robots; see below).
+keep outstanding tasks reachable; the advantage widens with scale under
+deadline pressure (effective on-time 0.76 vs $\leq$0.52 at 10 robots),
+while under \textit{mixed\_stress} and \textit{robot\_failure} at 10
+robots AHE and the strongest baseline are statistically level
+(Consensus-DBTA 0.65 and BiG-MRTA 0.93 respectively). We therefore read
+the physical result as cautious leadership---AHE leads under deadline
+pressure at both scales and co-leads elsewhere---rather than uniform
+dominance, given the $n{=}5$ per-cell power.
 
 \paragraph{Where AHE costs.}
 The same aggressiveness modestly raises physically realized cost
 metrics, which are confounded by Nav2 motion (Sec.~\ref{sec:discussion})
 and---at $n{=}5$ per cell---do not survive correction. Under
-\textit{robot\_failure} AHE's average task delay (101~s) is the highest
-among the recovery-capable methods (75--89~s for the others), and its
-failure-recovery time (73~s) is mid-pack: faster than Consensus-DBTA
-(103~s) and RoSTAM-EA (87~s) but slower than the commit-once BiG-MRTA
-(64~s). Under \textit{mixed\_stress} and \textit{deadline\_pressure} the
-abandoning BiG-MRTA instead shows the largest delays (253--260~s),
+\textit{robot\_failure} AHE's average task delay (96~s) is the highest
+among the recovery-capable methods (84--89~s for the others), and its
+failure-recovery time (111~s) is mid-pack: faster than Consensus-DBTA
+(179~s) but slower than RoSTAM-EA (85~s) and the commit-once BiG-MRTA
+(57~s). Under \textit{mixed\_stress} and \textit{deadline\_pressure} the
+abandoning BiG-MRTA instead shows the largest delays (233--267~s),
 because its few completed tasks finish very late, so that comparison is
 not like-for-like. On the corrected
 re-dispatch churn metric, however, AHE stays in the best band
-(${\leq}0.05$ re-dispatches per task with zero execution preemptions),
+(${\leq}0.01$ re-dispatches per task with zero execution preemptions),
 comparable to or below the commit-once baselines: the apparent
 ``instability'' gap reported by the raw counters was an artifact of
 measuring allocator \emph{invocation cadence} rather than physical
-re-assignments (Sec.~\ref{sec:discussion}). We quantify the latency
-trade-off in Section~\ref{sec:discussion}.
+re-assignments (Sec.~\ref{sec:discussion}). The chief cost is decision
+latency: the geodesic-ETA cache plus fairness repair raises AHE's mean
+decision time to 16--22~ms at 5 robots (26--30~ms at 10), an order of
+magnitude above the sub-millisecond commit-once baselines---the price
+of the physical-route reasoning that produces the deadline gains above,
+and still well inside the real-time allocation budget.
 
 \paragraph{Efficiency.} Table~\ref{tab:efficiency} reports the
-secondary efficiency metrics. AHE-MRTA's decision latency stays
-sub-millisecond (0.18--0.23~ms) across all scenarios, on par with
-the bipartite BiG-MRTA (0.08--0.12~ms) and over two orders of magnitude
-faster than the evolutionary RoSTAM-EA (26--42~ms). The consensus baselines
+secondary efficiency metrics. AHE-MRTA's decision latency (16--22~ms
+at the primary scale) sits between the sub-millisecond commit-once
+baselines (BiG-MRTA 0.13--0.30~ms; Consensus-DBTA 0.4--2.4~ms) and the
+evolutionary RoSTAM-EA (46--96~ms), and stays within the real-time
+budget at every scale. The consensus baselines
 attain near-perfect workload balance and minimal message counts by
-committing once; AHE trades some of that balance for adaptivity.
+committing once; AHE trades some of that balance, and its sub-millisecond
+latency, for the adaptivity and deadline compliance quantified above.
 
 \input{table/latex_efficiency_table.tex}
 
@@ -1111,19 +1137,20 @@ favours AHE). The pattern matches the mechanism: AHE-MRTA shows large
 \emph{favorable} effects on completion against BiG-MRTA
 ($\delta{=}{+}1.00$ under \textit{mixed\_stress} and
 \textit{deadline\_pressure}, ${+}0.60$ under \textit{robot\_failure})
-and on deadline compliance against the consensus baselines under
-\textit{robot\_failure} (DVR $\delta{=}{+}0.68$ vs Cons-DBTA,
-${+}1.00$ vs RoSTAM-EA). The large \emph{unfavorable} effects
-concentrate on recovery time against the commit-once baselines
-(RecT $\delta{=}{-}0.28$ vs BiG-MRTA under \textit{robot\_failure})
-and on DVR against BiG-MRTA ($\delta{=}{-}0.56$ under
-\textit{deadline\_pressure}), whose low violation count is a
-by-product of abandoning tasks (lowest CR). On the corrected
-re-dispatch churn metric AHE is competitive-to-better
-($\delta{=}{+}0.76$ vs RoSTAM-EA, ${+}0.64$ vs Cons-DBTA under
-\textit{robot\_failure}). This quantifies the central trade-off: AHE
-wins on completion and decision correctness, at the cost of recovery
-latency.
+and---the new signature of the fairness-guarded configuration---on
+deadline compliance across every baseline under
+\textit{deadline\_pressure} (DVR $\delta{=}{+}0.68$ vs BiG-MRTA and
+Cons-DBTA, ${+}1.00$ vs RoSTAM-EA) and under \textit{robot\_failure}
+(${+}0.40$ to ${+}0.80$). The large \emph{unfavorable} effects now
+concentrate on a single metric---recovery time against the commit-once
+BiG-MRTA (RecT $\delta{=}{-}0.84$ under \textit{robot\_failure})---while
+against the reactive Consensus-DBTA recovery is level
+($\delta{=}{+}0.04$). On the corrected re-dispatch churn metric AHE is
+competitive-to-better ($\delta{=}{+}0.40$ vs RoSTAM-EA, ${+}0.20$ vs
+Cons-DBTA under \textit{robot\_failure}). This quantifies the central
+trade-off: AHE wins on completion and deadline compliance, at the cost
+of recovery latency against the task-abandoning baseline and of the
+16--22~ms decision time analysed above.
 
 \input{table/latex_effectsize_table.tex}
 
@@ -1144,35 +1171,33 @@ corroborates the fitness ranking.
 
 \paragraph{Physical validation at 5 and 10 robots.}
 Figure~\ref{fig:gazebo-10r} shows the 10-robot benchmark
-(Section~\ref{sec:scales}; 59 of 60 experiments completed). AHE-MRTA
+(Section~\ref{sec:scales}; 60 of 60 experiments completed). AHE-MRTA
 attains the highest---or tied-highest---completion rate in every
-scenario. Under
-\textit{robot\_failure} it leads on completion (CR\,=\,0.996, 49.8/50
-tasks), on violation rate (DVR\,=\,0.024), and on median makespan
-(299~s vs.\ Consensus-DBTA's 387~s). Under
-\textit{deadline\_pressure} it reaches \textbf{CR\,=\,1.000} at
-DVR\,=\,0.236, giving the highest effective on-time completion
-($\mathrm{CR}{\times}(1{-}\mathrm{DVR})\approx 0.76$) ahead of
-Consensus-DBTA (${\approx}0.60$) and RoSTAM-EA (${\approx}0.50$), which
-reach CR\,=\,0.968/0.984 only by tolerating DVR\,=\,0.376/0.488;
-the two post shorter makespans (177--183~s) but at those higher
-violation rates. Under
-\textit{mixed\_stress} AHE ties Consensus-DBTA for the top completion
-rate (CR\,=\,0.996, 49.8/50 tasks) at the fastest makespan (195~s) with
-effective on-time completion (${\approx}0.70$) above Consensus-DBTA
-(${\approx}0.64$) and RoSTAM-EA (${\approx}0.58$); the task-abandoning
-BiG-MRTA records a low DVR only because it completes far fewer tasks
-(CR\,=\,0.724). Pooled over the 15 runs per method, AHE-MRTA leads on
-completion rate (0.997), tasks completed (49.9/50, the lowest variance
-of any method) and overall makespan. The 5-robot benchmark mirrors the
-robot-failure pattern (CR\,=\,1.000, DVR\,=\,0.008) and reaches
-CR\,=\,1.000 versus BiG-MRTA's 0.736 under \textit{deadline\_pressure},
-though there AHE's DVR (0.360) is on par with the recovery-capable
-baselines' (0.320--0.400).
-Sub-millisecond decision latency is
-maintained at both scales (0.27--0.30~ms at 5r, 0.43--0.46~ms at
-10r), ${\approx}120$--$240{\times}$ faster than RoSTAM-EA, which
-grows to 55--104~ms at 10 robots.
+scenario (CR\,=\,0.976--0.988). Its clearest lead is under
+\textit{deadline\_pressure}: it reaches CR\,=\,0.980 at DVR\,=\,0.220,
+giving the highest effective on-time completion
+($\mathrm{CR}{\times}(1{-}\mathrm{DVR})\approx 0.76$) far ahead of
+Consensus-DBTA (${\approx}0.52$) and RoSTAM-EA (${\approx}0.48$), which
+reach CR\,=\,0.916/0.964 only by tolerating DVR\,=\,0.428/0.504. Under
+\textit{mixed\_stress} AHE posts the top completion rate
+(CR\,=\,0.988) and is level with Consensus-DBTA on effective on-time
+completion (${\approx}0.64$ each), well above RoSTAM-EA
+(${\approx}0.52$). Under \textit{robot\_failure} AHE and the commit-once
+BiG-MRTA tie for the top completion rate (CR\,=\,0.976) and are level on
+effective on-time completion (${\approx}0.91$--$0.93$); the
+task-abandoning BiG-MRTA records its low DVR only where it completes
+far fewer tasks in the other two scenarios (CR\,=\,0.696--0.724). At
+the 5-robot scale AHE reaches full completion in every scenario
+(CR\,=\,1.000) and leads effective on-time completion throughout:
+\textit{robot\_failure} ${\approx}0.98$ (DVR\,=\,0.016) vs
+${\leq}0.91$, \textit{deadline\_pressure} ${\approx}0.79$
+(DVR\,=\,0.208) vs ${\leq}0.66$, and \textit{mixed\_stress}
+${\approx}0.72$ vs ${\leq}0.70$; BiG-MRTA abandons tasks under load
+(CR\,=\,0.728/0.752). Decision latency is 16--22~ms at 5 robots and
+26--30~ms at 10---the geodesic-repair cost, above the sub-millisecond
+commit-once baselines but $2$--$4{\times}$ below RoSTAM-EA, which grows
+to 52--107~ms at 10 robots---and within the real-time budget at both
+scales.
 
 \begin{figure}[t]
   \centering
@@ -1181,11 +1206,13 @@ grows to 55--104~ms at 10 robots.
   (Gazebo Harmonic, robot\_failure + mixed\_stress scenarios
   pooled, $n{=}5$ seeds per cell, mean\,$\pm$\,std): completion rate (CR), tasks
   completed, average delay, workload balance (Jain), deadline
-  violation rate (DVR), and decision latency (log scale). The
-  commit-once baselines attain higher pooled CR and lower delay by
-  never re-routing; BiG-MRTA's low DVR reflects abandoned tasks
-  (lowest CR). AHE-MRTA trades delay for reactive
-  reallocation, which pays off at larger scales
+  violation rate (DVR), and decision latency (log scale). AHE-MRTA
+  reaches full completion (CR\,=\,1.000) at the lowest deadline
+  violation rate; the consensus baseline matches its completion with
+  marginally lower delay in some cells by committing once, at higher
+  DVR, while BiG-MRTA's low DVR reflects abandoned tasks (lowest CR).
+  AHE-MRTA trades decision latency and some delay for reactive
+  reallocation, which widens its deadline lead at larger scales
   (Fig.~\ref{fig:gazebo-10r}).}
   \label{fig:gazebo-multi}
 \end{figure}
@@ -1196,13 +1223,14 @@ grows to 55--104~ms at 10 robots.
   \caption{Multi-metric comparison at the 10-robot scale (60
   experiments: 4 methods $\times$ 3 scenarios $\times$ 5 seeds, all
   scenarios pooled; decision latency on log scale). AHE-MRTA attains the
-  highest completion rate in every scenario (CR\,=\,1.000 under deadline
-  pressure, 0.996 under robot failure and mixed stress) and the
-  highest pooled effective on-time completion; the EDF baselines reach
-  comparable CR only at far higher deadline-violation rates
-  (DVR\,=\,0.38--0.49 versus AHE's 0.24 in those scenarios).
-  Decision latency remains sub-millisecond (${\leq}0.48$~ms) at 10
-  robots.}
+  highest (or tied-highest) completion rate in every scenario
+  (CR\,=\,0.976--0.988) and leads effective on-time completion under
+  deadline pressure ($\approx$0.76 vs $\leq$0.52); the EDF baselines
+  reach comparable CR only at far higher deadline-violation rates
+  (DVR\,=\,0.43--0.50 versus AHE's 0.22 under deadline pressure).
+  AHE's decision latency is 26--30~ms---the geodesic-repair cost, above
+  the sub-millisecond commit-once baselines but well below RoSTAM-EA's
+  52--107~ms at 10 robots.}
   \label{fig:gazebo-10r}
 \end{figure}
 
@@ -1294,29 +1322,31 @@ The empirical answer from our data:
   \item \textbf{When deadline compliance matters more than raw
     coverage.} On \textit{deadline\_pressure}, the consensus and
     evolutionary baselines match AHE's completion only at
-    $1.6$--$2.1\times$ its deadline-violation rate (10r: AHE
-    DVR\,=\,0.236 vs Cons-DBTA's 0.376 and RoSTAM-EA's 0.488), so AHE
-    attains the highest effective on-time completion (${\approx}0.76$).
-    The same pattern holds on \textit{mixed\_stress} at 3 robots
-    (DVR 0.38 vs Cons-DBTA's 0.44); at 10 robots AHE keeps the highest
-    raw CR (0.996) with effective completion on par with Cons-DBTA.
+    $1.6$--$2.3\times$ its deadline-violation rate (5r: AHE
+    DVR\,=\,0.208 vs Cons-DBTA's 0.336 and RoSTAM-EA's 0.416; 10r: AHE
+    0.220 vs 0.428 and 0.504), so AHE attains the highest effective
+    on-time completion at both scales (${\approx}0.79$ at 5r,
+    ${\approx}0.76$ at 10r). This is the clearest win of the
+    fairness-guarded configuration and the one that lifts AHE from
+    idealized-plane co-leadership to a physical lead.
   \item \textbf{When failures orphan many tasks.} Under
-    \textit{robot\_failure} at 5 and 10 robots, AHE combines the
-    highest completion (CR\,=\,1.000 at 5r, 0.996 at 10r) with
-    DVR\,${\leq}$\,0.024; the
-    orphan-rescue paradigm re-dispatches the failed robot's queue
+    \textit{robot\_failure} AHE combines full completion at 5 robots
+    (CR\,=\,1.000, DVR\,=\,0.016, effective on-time ${\approx}0.98$
+    vs ${\leq}0.91$) with tied-highest completion at 10
+    robots (CR\,=\,0.976, level with BiG-MRTA on effective on-time);
+    the orphan-rescue paradigm re-dispatches the failed robot's queue
     within one ecosystem cycle.
   \item \textbf{Not when a single regime dominates the whole run and
     makespan is the objective.} Under uniform deadline pressure at
-    3 robots, the EDF-style specialists already reach near-full
-    completion (RoSTAM 0.985, Cons-DBTA 0.978, AHE 1.000), so AHE's
+    3 robots, the EDF-style specialists already reach full
+    completion (RoSTAM, Cons-DBTA and AHE all at CR\,=\,1.000), so AHE's
     switching yields no meaningful completion edge over them while
-    adding delay; on the strict on-time fitness AHE is on par with
-    BiG-MRTA at this scale (0.459 vs 0.458). Its raw-CR advantage
+    adding delay; on the strict on-time fitness AHE is within noise of
+    BiG-MRTA at this scale (0.420 vs 0.417). Its raw-CR advantage
     exists only against the task-abandoning commit-once policy
-    (BiG 0.636 completion). At 10 robots,
-    however, AHE keeps DVR at 0.236 against the specialists'
-    0.376--0.488 and attains the highest effective on-time
+    (BiG 0.627 completion). At 10 robots,
+    however, AHE keeps DVR at 0.220 against the specialists'
+    0.428--0.504 and attains the highest effective on-time
     completion (Sec.~\ref{sec:results-gazebo}).
 \end{itemize}
 
@@ -1463,20 +1493,24 @@ four-cell seed-matched F45 comparison (3r/5r/10r plus a fresh holdout;
 geodesic distance by 10--28~m with CR/DVR unchanged, while the
 active-robot Jain index rises by 0.005--0.029; the only cost is a
 decision-latency increase of up to 0.12~ms. In the separate stochastic
-navigation proxy, F45 AHE and the strongest consensus baseline
+navigation proxy, AHE and the strongest consensus baseline
 (Consensus-DBTA) are statistical co-leaders. Across a 300-experiment Gazebo
 benchmark (3r, 5r, and 10r physical scales) with ROS\,2 Jazzy and Nav2
-on TurtleBot3 robots, AHE-MRTA leads on completion rate under robot
-failure (CR\,=\,1.000 at 5r and 0.996 at 10r, DVR\,=\,0.008/0.024)
-and, at 10 robots, attains the highest completion rate in every
-scenario (CR\,=\,0.996--1.000); the consensus and evolutionary
+on TurtleBot3 robots, AHE-MRTA reaches full completion at the primary
+5-robot scale (CR\,=\,1.000) and the highest completion rate at 10
+robots (CR\,=\,0.976--0.988), and leads effective on-time completion
+under deadline pressure at both scales (0.79 vs $\leq$0.66 at 5r, 0.76
+vs $\leq$0.52 at 10r); the consensus and evolutionary
 baselines match its completion under deadline pressure only by
-incurring up to $1.9{\times}$ higher deadline-violation rates
-(DVR\,=\,0.38--0.49 vs AHE's 0.24).
-Sub-millisecond decision latency is maintained across all scales
-(${\leq}0.48$~ms, ${\approx}125$--$280{\times}$ faster than
-RoSTAM-EA), at the cost of
-higher makespan and task delay relative to static-commit
+incurring up to $2{\times}$ higher deadline-violation rates
+(DVR\,=\,0.34--0.50 vs AHE's 0.21--0.22), while under mixed stress and
+robot failure AHE co-leads---cautious leadership rather than uniform
+dominance at $n{=}5$ per cell.
+The fairness-guarded repair that delivers this deadline compliance
+raises decision latency to 16--35~ms across scales---above the
+sub-millisecond commit-once baselines but within the real-time budget
+and $2$--$5{\times}$ below the evolutionary RoSTAM-EA---at the further
+cost of higher makespan and task delay relative to static-commit
 consensus methods under mixed-stress conditions.
 In the matched physical campaign at all three scales (180 runs; 10
 common seeds per scenario and scale), F58 (P1R) passes the
@@ -1485,9 +1519,11 @@ with paired-Wilcoxon support: at the primary scale DVR, delay, and
 geodesic distance fall, the active-robot Jain index rises, and failure
 recovery shortens by 34~s; the deadline-pressure DVR and distance gains
 persist at 10 robots, and the two non-passing cells fail only on
-criteria whose CIs span zero. The four-method Gazebo benchmark is nevertheless produced
-with the F45 configuration; F58 is reported as a flag-gated, validated
-refinement that does not alter F45 behaviour. We hope the decomposition
+criteria whose CIs span zero. This matched campaign doubles as a
+core-vs-full ablation of AHE-MRTA*: it isolates the geodesic-ETA
+fairness repair as the component that lifts AHE from the co-leadership
+of the idealized plane to its deadline-pressure lead in the physical
+benchmark. We hope the decomposition
 into ideal allocation fitness vs.\ realized Gazebo metrics is useful
 to other MRTA studies struggling to separate algorithm quality from
 physical execution noise.

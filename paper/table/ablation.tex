@@ -1,8 +1,8 @@
 \begin{table}[t]
 \centering
-\caption{EDPS ablation (Nav2-independent fitness, 5r/25t, 100 seeds). All
-variants fall within $0.9$~pp mean fitness; none statistically separates from
-EDPS.}
+\caption{EDPS ablation (Nav2-independent fitness, geodesic execution
+oracle, 5r/25t, 100 seeds). All variants fall within $0.7$~pp mean
+fitness; none statistically separates from EDPS.}
 \label{tab:ablation}
 \small
 \setlength{\tabcolsep}{5pt}
@@ -10,16 +10,16 @@ EDPS.}
 \toprule
 \textbf{Variant} & \textbf{Rob.\ fail.} & \textbf{Deadline} & \textbf{Mix.\ stress} & \textbf{Mean} \\
 \midrule
-Full EDPS          & 0.538 & 0.483 & 0.538 & 0.520 \\
+Full EDPS          & 0.488 & 0.447 & 0.480 & 0.472 \\
 \midrule
-fixed: spatial     & 0.552 & 0.482 & 0.549 & 0.528 \\
-fixed: edf         & 0.544 & 0.489 & 0.540 & 0.524 \\
-fixed: commit      & 0.547 & 0.474 & 0.549 & 0.523 \\
-fixed: orphan      & 0.537 & 0.481 & 0.541 & 0.520 \\
-fixed: priority    & 0.542 & 0.478 & 0.537 & 0.519 \\
+fixed: spatial     & 0.479 & 0.448 & 0.484 & 0.471 \\
+fixed: edf         & 0.489 & 0.443 & 0.477 & 0.470 \\
+fixed: commit      & 0.485 & 0.443 & 0.479 & 0.469 \\
+fixed: orphan      & 0.483 & 0.445 & 0.488 & 0.472 \\
+fixed: priority    & 0.499 & 0.441 & 0.487 & 0.476 \\
 \midrule
-no-override        & 0.538 & 0.483 & 0.538 & 0.520 \\
-no-recovery-boost  & 0.537 & 0.483 & 0.539 & 0.519 \\
+no-override        & 0.489 & 0.447 & 0.478 & 0.471 \\
+no-recovery-boost  & 0.488 & 0.447 & 0.481 & 0.472 \\
 \bottomrule
 \end{tabular}
 \end{table}

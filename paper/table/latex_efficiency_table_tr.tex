@@ -1,6 +1,6 @@
 \begin{table}[t]
 \centering
-\caption{Verimlilik metrikleri (Gazebo, 3 robot, 15 g\"orev, 5 tohum). WLBal: Jain i\c{s} y\"uk\"u dengesi; Lat: ortalama karar gecikmesi; Msgs: tahsis mesajlar\i; Dist: toplam yol mesafesi.}
+\caption{Verimlilik metrikleri (Gazebo, 3 robot, 15 g\"orev, 5 tohum). WLBal: Jain i\c{s} y\"uk\"u dengesi; Lat: ortalama karar gecikmesi; Msgs: tahsis mesajlar\i; Dist: toplam yol mesafesi. Her s\"utunda en iyi de\u{g}er \textbf{kal\i n}.}
 \label{tab:efficiency}
 \small
 \begin{tabular}{lrrrr}
@@ -8,22 +8,22 @@
 \textbf{Method} & \textbf{WLBal$\uparrow$} & \textbf{Lat$\downarrow$(ms)} & \textbf{Msgs$\downarrow$} & \textbf{Dist$\downarrow$(m)} \\
 \midrule
 \multicolumn{5}{l}{\textit{Senaryo: robot\_failure}} \\
-\textbf{AHE-MRTA*} & 0.281 & 0.18 & 38 & 122.5 \\
-BiG-MRTA & 0.481 & \textbf{0.12} & 121 & \textbf{71.3} \\
-RoSTAM-EA & \textbf{0.550} & 31.05 & \textbf{2} & 83.3 \\
-Cons-DBTA & 0.465 & 0.23 & 11 & 89.1 \\
+\textbf{AHE-MRTA*} & 0.853 & 13.66 & 32 & 108.0 \\
+BiG-MRTA & \textbf{0.949} & \textbf{0.13} & 131 & \textbf{72.8} \\
+RoSTAM-EA & 0.947 & 40.24 & \textbf{2} & 84.4 \\
+Cons-DBTA & 0.891 & 0.29 & 12 & 90.9 \\
 \midrule
 \multicolumn{5}{l}{\textit{Senaryo: mixed\_stress}} \\
-\textbf{AHE-MRTA*} & 0.268 & 0.21 & 33 & 110.1 \\
-BiG-MRTA & \textbf{0.629} & \textbf{0.08} & 177 & \textbf{59.5} \\
-RoSTAM-EA & 0.479 & 25.64 & \textbf{4} & 92.9 \\
-Cons-DBTA & 0.309 & 0.13 & 10 & 103.0 \\
+\textbf{AHE-MRTA*} & 0.857 & 13.48 & 35 & 113.1 \\
+BiG-MRTA & 0.928 & \textbf{0.08} & 177 & \textbf{57.4} \\
+RoSTAM-EA & \textbf{0.931} & 30.84 & \textbf{4} & 93.7 \\
+Cons-DBTA & 0.875 & 0.17 & 10 & 104.0 \\
 \midrule
 \multicolumn{5}{l}{\textit{Senaryo: deadline\_pressure}} \\
-\textbf{AHE-MRTA*} & 0.733 & 0.23 & 26 & 103.0 \\
-BiG-MRTA & 0.719 & \textbf{0.08} & 181 & \textbf{42.2} \\
-RoSTAM-EA & 0.666 & 42.46 & \textbf{1} & 78.4 \\
-Cons-DBTA & \textbf{0.819} & 0.36 & 6 & 81.7 \\
+\textbf{AHE-MRTA*} & 0.986 & 13.74 & 25 & 99.2 \\
+BiG-MRTA & 0.965 & \textbf{0.09} & 180 & \textbf{43.9} \\
+RoSTAM-EA & 0.978 & 48.86 & \textbf{1} & 76.7 \\
+Cons-DBTA & \textbf{0.997} & 0.51 & 6 & 86.4 \\
 \bottomrule
 \end{tabular}
 \end{table}
