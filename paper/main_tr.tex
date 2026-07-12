@@ -82,17 +82,18 @@ Geçemeyen iki hücre yalnızca GA'sı sıfırı içeren ölçütlerde takılır
 destekli tek bedeller, 50~ms bütçesinin içinde kalan karar gecikmesi
 (8--35~ms) ve filo büyüklüğüyle ölçeklenen deadline-baskısı
 mesafe-dengesi düşüşüdür.
-Fiziksel temel-yöntem kıyaslamasında doğrulanmış F45 yapılandırması, 5 ve 10 robot
-ölçeklerinde robot
-arızası altında sıfıra-yakın deadline ihlaliyle tamamlamada öne geçer
-(CR\,=\,1.000/0.996, DVR\,=\,0.008/0.024); 10 robotta her senaryoda en
-yüksek tamamlama oranına ulaşır (CR\,=\,0.996--1.000) ve en düşük
-havuzlanmış makespan'i elde eder.
-Konsensüs ve evrimsel temel yöntemler, deadline baskısı altında onun
-tamamlamasına yalnızca ${\approx}1.9{\times}$ daha yüksek deadline ihlal
-oranıyla erişir (DVR\,=\,0.38--0.49 vs.\ AHE'nin 0.24'ü).
-Karar gecikmesi tüm ölçeklerde 0.48~ms'nin altında kalır; evrimsel temel
-yöntemden ${\approx}125$--$280{\times}$ daha hızlıdır. İdeal-tahsis
+Fiziksel dört-yöntem kıyaslamasında AHE-MRTA, birincil 5-robot
+ölçeğinde her senaryoda tam tamamlamaya (CR\,=\,1.000) ve 10 robotta en
+yüksek tamamlama oranına (CR\,=\,0.976--0.988) ulaşır; deadline baskısı
+altında zamanında-etkin tamamlamada iki ölçekte de öndedir (0.79 vs
+$\leq$0.66 @5r, 0.76 vs $\leq$0.52 @10r); konsensüs ve evrimsel temel
+yöntemler onun tamamlamasına yalnızca ${\approx}2{\times}$ daha yüksek
+deadline ihlal oranıyla erişir (DVR\,=\,0.34--0.42 vs.\ AHE'nin 0.21'i
+@5r, 0.43--0.50 vs.\ 0.22 @10r); karışık stres ve robot arızasında AHE
+eş-liderdir. Bu deadline uyumunu sağlayan adalet-korumalı onarım
+16--35~ms karar gecikmesine mal olur---milisaniye-altı commit-once
+temel yöntemlerin üzerinde ama gerçek-zaman bütçesi içinde ve evrimsel
+temel yöntemden $2$--$5{\times}$ daha hızlı. İdeal-tahsis
 kazanımlarının Nav2 üzerinden neden doğrusal aktarılmadığını çözümlüyor ve
 paradigma değiştirmenin hangi koşullarda işe yaradığını belirliyoruz.
 \end{abstract}
@@ -388,9 +389,10 @@ ve senaryo başına 10 ortak tohum) doğrulanmıştır; ön-kayıtlı kabul
 kapısı dokuz ölçek--senaryo hücresinin yedisinde geçilmiş, kalan iki
 hücre yalnızca GA'sı sıfırı içeren ölçütlerde takılmıştır
 (Bölüm~\ref{sec:f58-gazebo}).
-Bölüm~\ref{sec:results-gazebo}'daki dört-yöntem kıyaslaması yine de F45
-yapılandırmasıyla üretilmiştir; F58, F45 davranışını değiştirmeyen
-bayrak-kapılı bir iyileştirme olarak raporlanır.
+Bölüm~\ref{sec:results-gazebo}'daki dört-yöntem kıyaslaması bu tam
+yapılandırmayı (AHE-MRTA*) raporlar; F58--F45 eşleşmiş kampanyası, adalet
+onarımının çekirdek üzerine marjinal katkısını yalıtan çekirdek-vs-tam
+ablasyonu olarak sunulur.
 
 \input{table/as_matrices_tr.tex}
 
@@ -478,10 +480,10 @@ sıralamasını şöyle örnekler.
 \end{itemize}
 Paradigmalar bağımsızdır (geçişler arası paylaşılan durum yok); tek kalıcı
 durum $D(t)$'dir. Denklem~\eqref{eq:lsa}'daki LSA ilkeli en kötü durumda
-$\max(n,m)$'de küptür, ancak değerlendirilen ölçeklerde her olay
-milisaniye-altı duvar-saati süresinde çözülür
-(Bölüm~\ref{sec:results-gazebo}); dolayısıyla paradigma seçimi gerçek-zaman
-bütçesini etkilemez.
+$\max(n,m)$'de küptür; paradigma seçiminin kendisi milisaniye-altı sürede
+çözülürken, geodezik-ETA adalet onarımı konuşlandırılmış karar gecikmesini
+Bölüm~\ref{sec:results-gazebo}'da raporlanan 16--35~ms'ye çıkarır ---
+değerlendirilen her ölçekte gerçek-zaman bütçesinin rahatça içinde.
 
 \subsection{Algoritma}
 \begin{algorithm}[t]
@@ -777,31 +779,33 @@ olarak tutulur. Uygunluk, deadline'larından
 önce tamamlanan görevlerin öncelik-ağırlıklı oranıdır; başarısız hedefler
 toparlanmayı gerektirdiğinden, metrik yalnız atama kalitesini değil navigasyon
 arızasına dayanıklılığı da ödüllendirir. Senaryo başına 100 tohumla AHE-MRTA
-ve Consensus-DBTA istatistiksel eş-liderdir: AHE \textit{deadline\_pressure}'da
-birinci, \textit{robot\_failure}'da eşit ve \textit{mixed\_stress}'te $0.001$
-geride --- tüm farklar bir std sapmanın ($\approx0.10$) çok içinde:
+ve Consensus-DBTA istatistiksel eş-liderdir: ikisi üç senaryoda da ayırt
+edilemez, Cons-DBTA \textit{robot\_failure} (0.498 vs 0.488) ve
+\textit{mixed\_stress}'te (0.484 vs 0.480) marjinal olarak önde,
+toparlanabilen yöntemler \textit{deadline\_pressure}'da $0.003$ içinde ---
+tüm farklar bir std sapmanın ($\approx0.09$) çok içinde:
 
 \input{table/fitness_tr.tex}
 
 AHE-MRTA ve Consensus-DBTA üç senaryoda da istatistiksel olarak ayırt
-edilemez eş-liderlerdir: AHE \textit{deadline\_pressure}'da dar farkla
-önde (0.483 vs Cons-DBTA 0.476 ve BiG 0.480), \textit{robot\_failure}'da
-neredeyse eşit (AHE 0.538, Cons-DBTA 0.540) ve \textit{mixed\_stress}'te
-Cons-DBTA $0.001$ önde (0.539 vs 0.538) --- tüm farklar bir std sapmanın ($\approx0.10$)
+edilemez eş-liderlerdir: Cons-DBTA \textit{robot\_failure}'da (0.498 vs
+0.488) ve \textit{mixed\_stress}'te (0.484 vs 0.480) AHE'nin önünde,
+\textit{deadline\_pressure}'da ise üç toparlanma-yetenekli yöntem $0.003$
+içinde (BiG 0.448, AHE 0.447, Cons-DBTA 0.445) --- tüm farklar bir std sapmanın ($\approx0.09$)
 çok içinde. İki eş-lider ortak bir mekanizmayı paylaşır: ikisi de
 navigasyon hedefi başarısız olan görevleri ve arızalı robotların yetim
 bıraktığı görevleri yeniden gönderir, böylece stokastik bir arıza en
 fazla bir yeniden-denemeye mal olur, kayıp göreve değil. Commit-once
 BiG-MRTA atamaları sabitler ve hiç yeniden yönlendirmez, bu yüzden bu
-görevleri toparlayamaz ve \textit{mixed\_stress}'te +23.5~pp (0.303),
-\textit{robot\_failure}'da +3.9~pp (0.501) geride kalır; bu açık
+görevleri toparlayamaz ve \textit{mixed\_stress}'te +25.9~pp (0.221),
+\textit{robot\_failure}'da +4.1~pp (0.447) geride kalır; bu açık
 \emph{toparlanma dayanıklılığıdır}, atama kalitesi değil.
-\textit{deadline\_pressure}'da toparlanabilen üç yöntem 0.7~pp'lik bir
+\textit{deadline\_pressure}'da toparlanabilen üç yöntem 0.3~pp'lik bir
 bant içindedir: deadline'lar sıkıştığında geç yeniden-denemeler
 zamanında-kredi kazanmaz, dolayısıyla toparlanma avantajı sıkışır
 (Bölüm~\ref{sec:deadline-tie}). Fiziksel Nav2 yığınında aynı dayanıklılık,
 BiG-MRTA'ya karşı en yüksek tamamlama oranı olarak yeniden belirir
-(+25.4~pp, Bölüm~\ref{sec:results-gazebo}).
+(deadline baskısında +27.2~pp, Bölüm~\ref{sec:results-gazebo}).
 Şekil~\ref{fig:fitness} özetler:
 
 \begin{figure}[t]
@@ -809,9 +813,9 @@ BiG-MRTA'ya karşı en yüksek tamamlama oranı olarak yeniden belirir
   \includegraphics[width=0.66\textwidth]{fitness_comparison.png}
   \caption{Stokastik navigation-proxy tahsis uygunluğu (ortalama $\pm$ std), hücre başına
   100 tohum, 5 robot / 25 görev (birincil ölçek). AHE-MRTA ve Consensus-DBTA
-  istatistiksel eş-liderdir: AHE deadline\_pressure'da önde, robot\_failure'da
-  eşit ve mixed\_stress'te $0.001$ geride --- tüm farklar bir std sapmanın
-  ($\approx0.10$) içinde.}
+  istatistiksel eş-liderdir, her senaryoda ayırt edilemez (en büyük fark
+  $0.010$; robot\_failure ve mixed\_stress'te Cons-DBTA lehine) --- tümü bir
+  std sapmanın ($\approx0.09$) içinde.}
   \label{fig:fitness}
 \end{figure}
 
@@ -828,12 +832,14 @@ ve 10r ölçeklerinde gerçekleştirilir. Tablo~\ref{tab:scalability} ve
 
 \input{table/scalability_tr.tex}
 
-AHE-MRTA her ölçekte en yüksek uygunluğu korur. $N=3$'te Cons-DBTA'nın
-hafifçe önündedir (0.488 vs 0.483); $N=5$'te Cons-DBTA'ya +0.1~pp, BiG'e
-+9.2~pp öne geçer.
-Karar gecikmesi on robotta $\approx0.10$~ms'de kalır --- 5\,s yeniden
-planlama periyodunun dört mertebeden fazla altında ve evrimsel RoSTAM-EA
-temel yönteminden ($N=10$'da $6.5$~ms) $\approx60\times$ daha hızlı.
+AHE-MRTA her ölçekte en yüksek uygunluğu korur. $N=3$'te Cons-DBTA ile
+eşittir (0.436 vs 0.436); $N=5$'te Cons-DBTA'ya +0.1~pp, BiG'e
++10.5~pp, $N=10$'da Cons-DBTA'ya +0.2~pp öne geçer.
+Bu tahsis-yalnız düzenekte AHE'nin karar gecikmesi on robotta
+$\approx0.55$~ms'de kalır --- 5\,s yeniden planlama periyodunun neredeyse
+dört mertebe altında ve evrimsel RoSTAM-EA'dan ($N=10$'da $6.8$~ms)
+$\approx12\times$ daha hızlı --- oysa tam Nav2 yığınında aynı geodezik
+onarım Bölüm~\ref{sec:results-gazebo}'da raporlanan 16--35~ms'ye mal olur.
 5- ve 10-robot ölçeklerindeki fiziksel Gazebo doğrulaması (her biri 60
 deney) bu simülatör eğilimlerini tam Nav2 yığınında onaylar; senaryo
 bazlı sonuçlar 3-robot kıyaslamasıyla birlikte
@@ -938,10 +944,11 @@ böyle meşgul tutar.
 \input{table/f58_gazebo_tr.tex}
 \input{table/f58_gazebo_scales_tr.tex}
 
-F58'in (P0+P1R) allocation-only kazanımının fiziksel yığına aktarılıp
-aktarılmadığını yalıtmak için, eski F45 tablolarını yeniden kullanmak yerine
-her iki yapılandırmayı aynı kaynak sürümünden, ortak tohumlarda ve üç
-senaryoda taze çalıştırdık: önce beş-tohumluk ilk dalga, ardından bağımsız
+AHE-MRTA*, dört-yöntem kıyaslaması boyunca kullanılan tam yapılandırmayı
+(P0+P1R) belirtir; geodezik-ETA adalet onarımının F45 çekirdeği üzerine
+katkısını yalıtmak için, her iki yapılandırmayı eşleşmiş bir çekirdek-vs-tam
+ablasyonu olarak aynı kaynak sürümünden, ortak tohumlarda ve üç
+senaryoda çalıştırdık: önce beş-tohumluk ilk dalga, ardından bağımsız
 beş-tohumluk replikasyon dalgası (tohum 6--10); havuz, senaryo başına 10
 eşlenik tohuma ulaşır (30 F45 + 30 F58 koşusu). Her koşu 25/25 görevi
 tamamladı; kalite kapısı hiçbir koşuda TF zaman-sıçraması saptamadı ve
@@ -1010,49 +1017,65 @@ CR her hücrede 0.01'lik non-inferiority bandının içinde kalır
 
 Bu sonuçlar, Nav2-bağımsız kazanımların terminal-kapılı onarım ve Nav2
 geri-beslemeli makespan koruması eklendikten sonra fiziksel yığına da
-taşındığını gösterir. Yukarıdaki dört-yöntem kıyaslaması yine de F45
-yapılandırmasıyla üretilmiştir ve değişmemiştir; F58, F45 davranışını
-etkilemeyen bayrak-kapılı, doğrulanmış bir iyileştirme olarak raporlanır.
+taşındığını gösterir. Bölüm~\ref{sec:results-gazebo}'daki dört-yöntem
+kıyaslaması bu tam yapılandırmayı AHE-MRTA* olarak raporlar; bu eşleşmiş
+kampanya böylece bir \emph{çekirdek-vs-tam ablasyonu} işlevi de görür ---
+geodezik-ETA adalet onarımının F45 çekirdeği üzerine katkısını özdeş
+tohumlarda yalıtarak; yukarıdaki deadline ve mesafe kazanımları tam da bu
+marjinal katkıdır ve AHE'yi idealize düzlemin eş-liderliğinden fiziksel
+kıyaslamadaki deadline-baskısı liderliğine taşıyan şeydir.
 
 \paragraph{AHE nerede kazanır.}
 5-robot birincil ölçekte AHE-MRTA her senaryoda tam tamamlamaya ulaşır
 (CR\,=\,1.000), görev-terk-eden BiG-MRTA ise \textit{deadline\_pressure}'da
-0.736'ya, \textit{mixed\_stress}'te 0.728'e düşer. Zamanında-etkin tamamlamada
-($\mathrm{CR}{\times}(1{-}\mathrm{DVR})$) AHE-MRTA \textit{robot\_failure}'da
-(0.99; temel yöntemler 0.88--0.93) ve \textit{mixed\_stress}'te (0.72;
-diğerleri $\leq$0.67) öne geçer; \textit{deadline\_pressure}'da üç
-toparlanma-yetenekli yöntem istatistiksel olarak berabere (AHE 0.64,
-Cons-DBTA 0.68, RoSTAM-EA 0.60, hepsi CR\,=\,1.000), tahsis-uygunluk
-karşılaştırmasındaki eş-liderlikle uyumlu. AHE'nin paradigma seçimi
-yetim-kurtarma ve EDF-bipartit ilkellerini devreye sokar; avantaj en
-belirgin \textit{robot\_failure}'da görülür: AHE her iki ölçekte
-tamamlamada öne geçer (5 robotta CR\,=\,1.000, 10 robotta 0.996) ve ihlal
-oranı sıfıra yakındır (5 robotta DVR\,=\,0.008; aşağıya bakınız).
+0.728'e, \textit{mixed\_stress}'te 0.752'ye düşer. Zamanında-etkin tamamlamada
+($\mathrm{CR}{\times}(1{-}\mathrm{DVR})$) AHE-MRTA artık birincil ölçekte üç
+senaryoda da öndedir: \textit{robot\_failure} (0.98; temel yöntemler
+0.90--0.91), \textit{mixed\_stress} (0.72; diğerleri $\leq$0.70) ve --- en
+dikkat çekici --- \textit{deadline\_pressure} (0.79; diğerleri $\leq$0.66).
+Deadline liderliği, adalet-korumalı yapılandırmanın karşılığını verdiği
+yerdir: geodezik-ETA onarımı deadline ihlal oranını 0.208'e indirir
+(toparlanabilen temel yöntemlerde 0.34--0.42), böylece idealize uygunluk
+düzleminde görülen eş-liderlik, onarım fiziksel rotalara uygulanınca AHE
+lehine çözülür. AHE'nin paradigma seçimi yetim-kurtarma ve EDF-bipartit
+ilkellerini devreye sokar; avantaj deadline baskısında ölçekle genişler
+(10 robotta zamanında-etkin 0.76 vs $\leq$0.52), oysa 10 robotta
+\textit{mixed\_stress} ve \textit{robot\_failure}'da AHE ile en güçlü temel
+yöntem istatistiksel olarak aynı seviyededir (sırasıyla Cons-DBTA 0.65 ve
+BiG-MRTA 0.93). Bu yüzden fiziksel sonucu ihtiyatlı liderlik olarak okuyoruz
+--- AHE deadline baskısında iki ölçekte de önde, başka yerde eş-lider ---
+$n{=}5$ hücre gücü göz önüne alındığında tekdüze üstünlük değil.
 
 \paragraph{AHE nerede maliyet getirir.}
 Aynı agresiflik, Nav2 hareketiyle karışan fiziksel maliyet metriklerini
 ölçülü biçimde yükseltir (Bölüm~\ref{sec:discussion}) ve --- hücre başına
 $n{=}5$ ile --- düzeltmeden sağ çıkmaz. \textit{robot\_failure}'da AHE'nin
-ortalama görev gecikmesi (101~s) toparlanma-yetenekli yöntemler arasında
-en yüksektir (diğerleri 75--89~s) ve arıza-toparlanma süresi (73~s) orta
-sıradadır: Cons-DBTA (103~s) ve RoSTAM-EA (87~s)'den hızlı, commit-once
-BiG-MRTA (64~s)'den yavaş. \textit{mixed\_stress} ve
+ortalama görev gecikmesi (96~s) toparlanma-yetenekli yöntemler arasında
+en yüksektir (diğerleri 84--89~s) ve arıza-toparlanma süresi (111~s) orta
+sıradadır: Cons-DBTA (179~s)'den hızlı, RoSTAM-EA (85~s) ve commit-once
+BiG-MRTA (57~s)'den yavaş. \textit{mixed\_stress} ve
 \textit{deadline\_pressure}'da görev-terk-eden BiG-MRTA en büyük gecikmeleri
-(253--260~s) gösterir, çünkü tamamladığı az sayıda görev çok geç biter ---
+(233--267~s) gösterir, çünkü tamamladığı az sayıda görev çok geç biter ---
 bu yüzden o karşılaştırma birebir değildir. Ancak düzeltilmiş yeniden-gönderim churn metriğinde AHE en
-iyi bantta kalır (görev başına ${\leq}0.05$ yeniden-gönderim, sıfır yürütme
+iyi bantta kalır (görev başına ${\leq}0.01$ yeniden-gönderim, sıfır yürütme
 kesintisi), commit-once temel yöntemleriyle eşit veya daha iyi: ham sayaçların
 bildirdiği görünürdeki ``kararsızlık'' açığı, fiziksel yeniden-atama yerine
 allocator \emph{çağrı kadansını} ölçmenin bir artefaktıydı
-(Bölüm~\ref{sec:discussion}). Gecikme takasını Bölüm~\ref{sec:discussion}'de
-nicelliyoruz.
+(Bölüm~\ref{sec:discussion}). Başlıca bedel karar gecikmesidir: geodezik-ETA
+önbelleği artı adalet onarımı, AHE'nin ortalama karar süresini 5 robotta
+16--22~ms'ye (10 robotta 26--30~ms) çıkarır, milisaniye-altı commit-once
+temel yöntemlerin bir mertebe üzerinde --- yukarıdaki deadline kazanımlarını
+üreten fiziksel-rota muhakemesinin bedeli --- ve hâlâ gerçek-zaman tahsis
+bütçesinin rahatça içinde.
 
 \paragraph{Verimlilik.} Tablo~\ref{tab:efficiency} ikincil verimlilik
-metriklerini raporlar. AHE-MRTA'nın karar gecikmesi tüm senaryolarda
-milisaniye-altı kalır (0.18--0.23~ms), bipartit BiG-MRTA (0.08--0.12~ms) ile aynı
-mertebede ve evrimsel RoSTAM-EA'dan (26--42~ms) iki mertebeden fazla hızlı. Uzlaşma
+metriklerini raporlar. AHE-MRTA'nın karar gecikmesi (birincil ölçekte
+16--22~ms) milisaniye-altı commit-once temel yöntemleri (BiG-MRTA
+0.13--0.30~ms; Cons-DBTA 0.4--2.4~ms) ile evrimsel RoSTAM-EA (46--96~ms)
+arasında yer alır ve her ölçekte gerçek-zaman bütçesinin içinde kalır. Uzlaşma
 temel yöntemleri tek seferde commit ederek neredeyse mükemmel iş yükü dengesi
-ve minimum mesaj sayısı elde eder; AHE bu dengenin bir kısmını uyum yeteneği
+ve minimum mesaj sayısı elde eder; AHE bu dengenin ve milisaniye-altı
+gecikmesinin bir kısmını, yukarıda nicelenen uyum yeteneği ve deadline uyumu
 için takas eder.
 
 \input{table/latex_efficiency_table_tr.tex}
@@ -1063,17 +1086,19 @@ işaret, $\delta{>}0$ her zaman AHE lehine olacak biçimde normalize edilir).
 Örüntü mekanizmayla örtüşür: AHE-MRTA, BiG-MRTA'ya karşı tamamlamada
 büyük \emph{lehte} etkiler gösterir (\textit{mixed\_stress} ve
 \textit{deadline\_pressure}'da $\delta{=}{+}1.00$, \textit{robot\_failure}'da
-${+}0.60$) ve \textit{robot\_failure}'da uzlaşma temel yöntemlerine karşı
-deadline uyumunda (Cons-DBTA'ya karşı DVR $\delta{=}{+}0.68$, RoSTAM-EA'ya
-karşı ${+}1.00$). Büyük \emph{aleyhte} etkiler ise commit-once temel
-yöntemlerine karşı toparlanma süresinde (\textit{robot\_failure}'da
-BiG-MRTA'ya karşı RecT $\delta{=}{-}0.28$) ve görevleri terk etmenin yan
-ürünü olarak düşük ihlal sayısına sahip BiG-MRTA'ya karşı DVR'de
-(\textit{deadline\_pressure}'da $\delta{=}{-}0.56$) yoğunlaşır. Düzeltilmiş
+${+}0.60$) ve --- adalet-korumalı yapılandırmanın yeni imzası ---
+\textit{deadline\_pressure}'da her temel yönteme karşı deadline uyumunda
+(BiG-MRTA ve Cons-DBTA'ya karşı DVR $\delta{=}{+}0.68$, RoSTAM-EA'ya karşı
+${+}1.00$) ve \textit{robot\_failure}'da (${+}0.40$--${+}0.80$). Büyük
+\emph{aleyhte} etkiler artık tek bir metriğe --- commit-once BiG-MRTA'ya
+karşı toparlanma süresine (\textit{robot\_failure}'da RecT
+$\delta{=}{-}0.84$) --- yoğunlaşır; oysa reaktif Cons-DBTA'ya karşı
+toparlanma başabaştır ($\delta{=}{+}0.04$). Düzeltilmiş
 yeniden-gönderim churn metriğinde AHE rekabetçi-ila-daha-iyidir
-(\textit{robot\_failure}'da RoSTAM-EA'ya karşı $\delta{=}{+}0.76$, Cons-DBTA'ya
-karşı ${+}0.64$). Bu, merkezi takası niceler: AHE tamamlama ve karar
-doğruluğunda kazanır, toparlanma gecikmesinde kaybeder.
+(\textit{robot\_failure}'da RoSTAM-EA'ya karşı $\delta{=}{+}0.40$, Cons-DBTA'ya
+karşı ${+}0.20$). Bu, merkezi takası niceler: AHE tamamlama ve deadline
+uyumunda kazanır, görev-terk-eden temel yönteme karşı toparlanma
+gecikmesinde ve yukarıda incelenen 16--22~ms karar süresinde kaybeder.
 
 \input{table/latex_effectsize_table_tr.tex}
 
@@ -1092,45 +1117,46 @@ güveniyoruz. Tutarlı etki-büyüklüğü örüntüsü (Tablo~\ref{tab:effectsi
 uygunluk sıralamasını destekler.
 
 \paragraph{5 ve 10 robotla fiziksel doğrulama.}
-10-robot Gazebo kıyaslaması (60 deneyin 59'u tamamlandı;
+10-robot Gazebo kıyaslaması (60 deneyin 60'ı tamamlandı;
 Şekil~\ref{fig:gazebo-10r}) AHE-MRTA'nın her senaryoda en yüksek ---
-ya da berabere-en-yüksek --- tamamlama oranına ulaştığını gösterir.
-\textit{robot\_failure}'da tamamlamada (CR\,=\,0.996, 49.8/50 görev),
-ihlal oranında (DVR\,=\,0.024) ve medyan makespan'de (299~s; Cons-DBTA
-387~s) öne geçer.
-\textit{deadline\_pressure}'da \textbf{CR\,=\,1.000}'e DVR\,=\,0.236 ile
-ulaşır ve en yüksek zamanında-etkin tamamlamayı verir
-($\mathrm{CR}{\times}(1{-}\mathrm{DVR})\approx 0.76$; Cons-DBTA
-${\approx}0.60$, RoSTAM-EA ${\approx}0.50$ --- bunlar CR\,=\,0.968/0.984'e
-ancak DVR\,=\,0.376/0.488 ödeyerek erişir; bu ikisi daha kısa makespan
-(177--183~s) elde eder ama o yüksek ihlal oranlarıyla). \textit{mixed\_stress}'te
-AHE tamamlama oranında Cons-DBTA ile berabere en üsttedir (CR\,=\,0.996,
-49.8/50 görev) ve en hızlı makespan'e (195~s) sahiptir; zamanında-etkin
-tamamlaması (${\approx}0.70$) Cons-DBTA (${\approx}0.64$) ve RoSTAM-EA'nın
-(${\approx}0.58$) üstünde; görev-terk-eden BiG-MRTA düşük DVR'ı yalnızca çok
-daha az görev tamamladığı için kaydeder (CR\,=\,0.724). Üç senaryo
-havuzlandığında AHE-MRTA tamamlama oranı (0.997), tamamlanan görev
-(49.9/50, en düşük varyans) ve genel makespan'de öndedir. 5-robot
-kıyaslaması robot-arızası örüntüsünü yansıtır (CR\,=\,1.000, DVR\,=\,0.008)
-ve \textit{deadline\_pressure}'da BiG-MRTA'nın 0.736'sına karşı
-CR\,=\,1.000'e ulaşır; ancak orada AHE'nin DVR'ı (0.360) toparlanma-yetenekli
-yöntemlerle (0.320--0.400) aynı düzeydedir.
-Karar gecikmesi her iki ölçekte milisaniye-altı kalır
-(5r'de 0.27--0.30~ms, 10r'de 0.43--0.46~ms) --- 10 robotta 55--104~ms'ye
-büyüyen RoSTAM-EA'dan ${\approx}120$--$240{\times}$ daha hızlı.
+ya da berabere-en-yüksek --- tamamlama oranına ulaştığını gösterir
+(CR\,=\,0.976--0.988). En belirgin liderliği \textit{deadline\_pressure}'da:
+CR\,=\,0.980'e DVR\,=\,0.220 ile ulaşır ve en yüksek zamanında-etkin
+tamamlamayı verir ($\mathrm{CR}{\times}(1{-}\mathrm{DVR})\approx 0.76$),
+Cons-DBTA (${\approx}0.52$) ve RoSTAM-EA'nın (${\approx}0.48$) çok
+önünde --- bunlar CR\,=\,0.916/0.964'e ancak DVR\,=\,0.428/0.504 ödeyerek
+erişir. \textit{mixed\_stress}'te AHE en yüksek tamamlama oranını
+(CR\,=\,0.988) kaydeder ve zamanında-etkin tamamlamada Cons-DBTA ile aynı
+seviyededir (her biri ${\approx}0.64$), RoSTAM-EA'nın (${\approx}0.52$)
+üstünde. \textit{robot\_failure}'da AHE ile commit-once BiG-MRTA en yüksek
+tamamlama oranında berabere (CR\,=\,0.976) ve zamanında-etkin tamamlamada
+aynı seviyededir (${\approx}0.91$--$0.93$); görev-terk-eden BiG-MRTA düşük
+DVR'ını yalnızca diğer iki senaryoda çok daha az görev tamamladığı yerde
+kaydeder (CR\,=\,0.696--0.724). 5-robot ölçeğinde AHE her senaryoda tam
+tamamlamaya (CR\,=\,1.000) ulaşır ve zamanında-etkin tamamlamada baştan
+sona öndedir: \textit{robot\_failure} ${\approx}0.98$ (DVR\,=\,0.016) vs
+${\leq}0.91$, \textit{deadline\_pressure} ${\approx}0.79$ (DVR\,=\,0.208)
+vs ${\leq}0.66$ ve \textit{mixed\_stress} ${\approx}0.72$ vs ${\leq}0.70$;
+BiG-MRTA yük altında görev terk eder (CR\,=\,0.728/0.752). Karar gecikmesi
+5 robotta 16--22~ms, 10 robotta 26--30~ms'dir --- geodezik-onarım bedeli,
+milisaniye-altı commit-once temel yöntemlerin üzerinde ama 10 robotta
+52--107~ms'ye büyüyen RoSTAM-EA'dan $2$--$4{\times}$ daha hızlı --- ve her
+iki ölçekte gerçek-zaman bütçesinin içinde.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.78\textwidth]{baseline_comparison_10r.png}
   \caption{10-robot ölçeğinde çok-metrikli karşılaştırma (60 deney:
   4 yöntem $\times$ 3 senaryo $\times$ 5 tohum, senaryolar havuzlanmış;
-  karar gecikmesi log ölçek). AHE-MRTA her senaryoda en yüksek tamamlama
-  oranına ulaşır (deadline baskısında CR\,=\,1.000,
-  robot arızası ve karışık streste 0.996) ve havuzlanmış en yüksek zamanında-etkin
-  tamamlamayı verir; EDF temel yöntemleri benzer CR'ye ancak çok daha
-  yüksek deadline ihlal oranlarıyla erişir (DVR\,=\,0.38--0.49 vs.\
-  AHE'nin bu senaryolardaki 0.20--0.32'si).
-  Milisaniye-altı gecikme (${\leq}0.48$~ms) 10 robotta korunur.}
+  karar gecikmesi log ölçek). AHE-MRTA her senaryoda en yüksek (ya da
+  berabere-en-yüksek) tamamlama oranına ulaşır (CR\,=\,0.976--0.988) ve
+  deadline baskısında zamanında-etkin tamamlamada öndedir ($\approx$0.76
+  vs $\leq$0.52); EDF temel yöntemleri benzer CR'ye ancak çok daha
+  yüksek deadline ihlal oranlarıyla erişir (DVR\,=\,0.43--0.50 vs.\
+  AHE'nin deadline baskısındaki 0.22'si).
+  AHE'nin karar gecikmesi 26--30~ms'dir --- geodezik-onarım bedeli,
+  milisaniye-altı commit-once temel yöntemlerin üzerinde ama 10 robotta
+  RoSTAM-EA'nın 52--107~ms'sinin çok altında.}
   \label{fig:gazebo-10r}
 \end{figure}
 
@@ -1141,11 +1167,13 @@ büyüyen RoSTAM-EA'dan ${\approx}120$--$240{\times}$ daha hızlı.
   (Gazebo, robot\_failure + mixed\_stress senaryoları havuzlanmış,
   hücre başına $n{=}5$ tohum, ortalama $\pm$ std): tamamlama oranı, tamamlanan görev, ortalama
   gecikme, iş yükü dengesi (Jain), deadline ihlal oranı ve karar
-  gecikmesi (log ölçek). Commit-once temel yöntemleri hiç yeniden
-  yönlendirme yapmayarak daha yüksek havuzlanmış CR ve daha düşük
-  gecikme elde eder; BiG-MRTA'nın düşük DVR'ı terk edilen görevleri
-  yansıtır (en düşük CR). AHE-MRTA gecikmeyi reaktif
-  yeniden tahsisle takas eder; bu, büyük ölçeklerde karşılığını verir
+  gecikmesi (log ölçek). AHE-MRTA en düşük deadline ihlal oranında tam
+  tamamlamaya (CR\,=\,1.000) ulaşır; uzlaşma temel yöntemi kimi hücrede
+  tek seferde commit ederek onun tamamlamasına marjinal olarak daha
+  düşük gecikmeyle, ama daha yüksek DVR'la erişir; BiG-MRTA'nın düşük
+  DVR'ı terk edilen görevleri yansıtır (en düşük CR). AHE-MRTA karar
+  gecikmesini ve bir miktar gecikmeyi reaktif yeniden tahsisle takas
+  eder; bu, büyük ölçeklerde deadline liderliğini genişletir
   (Şekil~\ref{fig:gazebo-10r}).}
   \label{fig:gazebo-multi}
 \end{figure}
@@ -1237,28 +1265,29 @@ Verimizden ampirik yanıt:
   \item \textbf{Deadline uyumu ham kapsamadan daha önemli olduğunda.}
     \textit{deadline\_pressure}'da konsensüs ve evrimsel temel yöntemler
     AHE'nin tamamlamasına ancak deadline ihlal oranının
-    $1.6$--$2.1\times$ katıyla erişir (10r: AHE DVR\,=\,0.236 vs
-    Cons-DBTA 0.376 ve RoSTAM-EA 0.488); böylece AHE en yüksek
-    zamanında-etkin tamamlamaya ulaşır (${\approx}0.76$). Aynı örüntü
-    3 robotta \textit{mixed\_stress}'te de görülür (DVR 0.38 vs
-    Cons-DBTA 0.44); 10 robotta AHE en yüksek ham CR'yi (0.996) korur ve
-    zamanında-etkin tamamlaması Cons-DBTA ile aynı düzeydedir.
+    $1.6$--$2.3\times$ katıyla erişir (5r: AHE DVR\,=\,0.208 vs
+    Cons-DBTA 0.336 ve RoSTAM-EA 0.416; 10r: AHE 0.220 vs 0.428 ve
+    0.504); böylece AHE iki ölçekte de en yüksek zamanında-etkin
+    tamamlamaya ulaşır (5r'de ${\approx}0.79$, 10r'de ${\approx}0.76$).
+    Bu, adalet-korumalı yapılandırmanın en açık kazanımı ve AHE'yi
+    idealize-düzlem eş-liderliğinden fiziksel liderliğe taşıyan şeydir.
   \item \textbf{Arızalar çok sayıda görevi yetim bıraktığında.}
-    \textit{robot\_failure} altında 5 ve 10 robotta AHE,
-    en yüksek tamamlamayı (5r'de CR\,=\,1.000, 10r'de 0.996)
-    DVR\,${\leq}$\,0.024 ile birleştirir;
-    yetim-kurtarma paradigması arızalı robotun kuyruğunu bir ekosistem
-    çevrimi içinde yeniden dağıtır.
+    \textit{robot\_failure} altında AHE, 5 robotta tam tamamlamayı
+    (CR\,=\,1.000, DVR\,=\,0.016, zamanında-etkin ${\approx}0.98$ vs
+    ${\leq}0.91$) ile 10 robotta berabere-en-yüksek tamamlamayı
+    (CR\,=\,0.976, zamanında-etkin tamamlamada BiG-MRTA ile aynı
+    seviyede) birleştirir; yetim-kurtarma paradigması arızalı robotun
+    kuyruğunu bir ekosistem çevrimi içinde yeniden dağıtır.
   \item \textbf{Tek bir rejim tüm koşuya baskınken ve amaç makespan iken
     değil.} 3 robotta tekdüze deadline baskısı altında EDF-tarzı
-    uzmanlar zaten tama-yakın tamamlamaya ulaşır (RoSTAM 0.985,
-    Cons-DBTA 0.978, AHE 1.000); dolayısıyla AHE'nin geçişleri onlara
+    uzmanlar zaten tam tamamlamaya ulaşır (RoSTAM, Cons-DBTA ve AHE
+    hepsi CR\,=\,1.000); dolayısıyla AHE'nin geçişleri onlara
     karşı anlamlı bir tamamlama üstünlüğü sağlamaz, yalnız gecikme
-    ekler; katı zamanında-uygunlukta AHE bu ölçekte BiG-MRTA ile aynı
-    düzeydedir (0.459 vs 0.458). AHE'nin ham-CR avantajı yalnızca
-    görev-terk-eden commit-once politikasına karşıdır (BiG 0.636).
-    Ancak 10 robotta AHE, uzmanların 0.376--0.488'ine karşı DVR'ı
-    0.236'da tutar ve en yüksek zamanında-etkin tamamlamaya ulaşır
+    ekler; katı zamanında-uygunlukta AHE bu ölçekte BiG-MRTA ile gürültü
+    sınırında aynıdır (0.420 vs 0.417). AHE'nin ham-CR avantajı yalnızca
+    görev-terk-eden commit-once politikasına karşıdır (BiG 0.627).
+    Ancak 10 robotta AHE, uzmanların 0.428--0.504'üne karşı DVR'ı
+    0.220'de tutar ve en yüksek zamanında-etkin tamamlamaya ulaşır
     (Bölüm~\ref{sec:results-gazebo}).
 \end{itemize}
 
@@ -1396,29 +1425,33 @@ Dört hücreli seed-eşlenik F45 karşılaştırmasında (3r/5r/10r + taze holdo
 120 testte Holm sonrası 51 anlamlı fark) CR/DVR değişmeden gecikme
 1--2.2~s ve geodezik mesafe 10--28~m azalır, aktif-robot Jain'i
 0.005--0.029 yükselir; tek bedel 0.12~ms'ye varan karar-gecikmesi artışıdır. Ayrı stokastik
-navigation-proxy'de F45 AHE ve en güçlü konsensüs temel yöntemi istatistiksel
+navigation-proxy'de AHE ve en güçlü konsensüs temel yöntemi istatistiksel
 eş-liderdir. TurtleBot3 robotları üzerinde ROS\,2 Jazzy ve Nav2 ile 300-deneylik
 Gazebo Harmonic kıyaslamasında (3r, 5r ve 10r fiziksel ölçekler)
-AHE-MRTA, robot arızası altında tamamlama oranında öndedir (5r'de
-CR\,=\,1.000, 10r'de 0.996; DVR\,=\,0.008/0.024) ve 10 robotta her senaryoda en yüksek
-tamamlama oranına ulaşır (CR\,=\,0.996--1.000); konsensüs ve evrimsel
-temel yöntemler, deadline baskısı altında onun tamamlamasına yalnızca
-${\approx}1.9{\times}$ daha yüksek deadline ihlal oranıyla erişir
-(DVR\,=\,0.38--0.49 vs AHE'nin 0.24'ü).
-Milisaniye-altı karar gecikmesi tüm ölçeklerde korunur
-(${\leq}0.48$~ms; RoSTAM-EA'dan ${\approx}125$--$280{\times}$ daha
-hızlı); bunun bedeli, sabit-commit uzlaşma yöntemlerine kıyasla
-karışık-stres koşullarında daha yüksek makespan ve görev
-gecikmesidir.
+AHE-MRTA, birincil 5-robot ölçeğinde tam tamamlamaya (CR\,=\,1.000) ve
+10 robotta en yüksek tamamlama oranına (CR\,=\,0.976--0.988) ulaşır ve
+deadline baskısı altında zamanında-etkin tamamlamada iki ölçekte de
+öndedir (0.79 vs $\leq$0.66 @5r, 0.76 vs $\leq$0.52 @10r); konsensüs ve
+evrimsel temel yöntemler onun tamamlamasına yalnızca ${\approx}2{\times}$
+daha yüksek deadline ihlal oranıyla erişir (DVR\,=\,0.34--0.50 vs
+AHE'nin 0.21--0.22'si), karışık stres ve robot arızasında ise AHE
+eş-liderdir --- $n{=}5$ hücre gücünde tekdüze üstünlük değil, ihtiyatlı
+liderlik. Bu deadline uyumunu sağlayan adalet-korumalı onarım, karar
+gecikmesini ölçekler boyunca 16--35~ms'ye çıkarır --- milisaniye-altı
+commit-once temel yöntemlerin üzerinde ama gerçek-zaman bütçesinin
+içinde ve evrimsel RoSTAM-EA'dan $2$--$5{\times}$ daha hızlı --- ayrıca
+karışık-stres koşullarında sabit-commit uzlaşma yöntemlerine kıyasla
+daha yüksek makespan ve görev gecikmesi bedeliyle.
 Üç ölçeğin tamamındaki eşleşmiş fiziksel kampanyada (180 koşu; ölçek ve
 senaryo başına 10 ortak tohum) F58 (P1R) adalet-korumalı terfi kapısını
 dokuz ölçek--senaryo hücresinin yedisinde eşleştirilmiş-Wilcoxon
 desteğiyle geçer: birincil ölçekte DVR, gecikme ve geodezik mesafe
 düşer, aktif-robot Jain'i yükselir ve arıza toparlanması 34~s kısalır;
 deadline-baskısı DVR ve mesafe kazanımları 10 robotta da sürer,
-geçemeyen iki hücre ise yalnızca GA'sı sıfırı içeren ölçütlerde takılır. Dört-yöntem Gazebo kıyaslaması yine de F45
-yapılandırmasıyla üretilmiştir; F58, F45 davranışını değiştirmeyen
-bayrak-kapılı, doğrulanmış bir iyileştirme olarak raporlanır. İdeal tahsis uygunluğu ile
+geçemeyen iki hücre ise yalnızca GA'sı sıfırı içeren ölçütlerde takılır. Bu eşleşmiş kampanya aynı zamanda AHE-MRTA*'ın
+çekirdek-vs-tam ablasyonudur: geodezik-ETA adalet onarımını, AHE'yi
+idealize düzlemin eş-liderliğinden fiziksel kıyaslamadaki
+deadline-baskısı liderliğine taşıyan bileşen olarak yalıtar. İdeal tahsis uygunluğu ile
 gerçekleşen Gazebo metrikleri arasındaki bu
 ayrıştırmanın, algoritma kalitesini fiziksel yürütme gürültüsünden ayırmaya
 çalışan diğer MRTA çalışmalarına faydalı olmasını umuyoruz.
