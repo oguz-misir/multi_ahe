@@ -135,7 +135,7 @@ def effect_size_table(scen_label_map, caption, label, fname, note):
 efficiency_table(
     SCEN_LABEL,
     "Efficiency metrics (Gazebo, 3-robot scale; densities 9/15/24 pooled, $n{=}15$ per cell). "
-    "WLBal: Jain workload balance; Lat: mean decision latency; "
+    "WLBal: all-robot Jain workload balance; Lat: mean decision latency; "
     "Msgs: allocation messages; Dist: total travel distance. "
     "Best value per column (within scenario) in \\textbf{bold}.",
     "tab:efficiency", "latex_efficiency_table.tex")
@@ -150,8 +150,8 @@ effect_size_table(
 # TR
 efficiency_table(
     SCEN_LABEL_TR,
-    "Verimlilik metrikleri (Gazebo, 3 robot, 15 g\\\"orev, 5 tohum). "
-    "WLBal: Jain i\\c{s} y\\\"uk\\\"u dengesi; Lat: ortalama karar gecikmesi; "
+    "Verimlilik metrikleri (Gazebo, 3 robot \\\"ol\\c{c}e\\u{g}i; 9/15/24 yo\\u{g}unluk havuzu, h\\\"ucre ba\\c{s}\\i na $n{=}15$). "
+    "WLBal: t\\\"um-robot Jain i\\c{s} y\\\"uk\\\"u dengesi; Lat: ortalama karar gecikmesi; "
     "Msgs: tahsis mesajlar\\i; Dist: toplam yol mesafesi. "
     "Her s\\\"utunda en iyi de\\u{g}er \\textbf{kal\\i n}.",
     "tab:efficiency", "latex_efficiency_table_tr.tex")
