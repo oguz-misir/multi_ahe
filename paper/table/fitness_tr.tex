@@ -2,9 +2,11 @@
 \centering
 \caption{Tahsis uygunluğu (Nav2-bağımsız, geodezik yürütme oracle'ı,
 100 tohum, 5 robot / 25 görev, birincil ölçek). Yüksek daha iyidir.
-Senaryo başına birinci sıra \textbf{kalın}; AHE-MRTA ve Consensus-DBTA
-istatistiksel eş-liderdir, tüm farklar bir standart sapmanın
-($\approx 0.09$) çok içindedir.}
+AHE-MRTA ve Consensus-DBTA istatistiksel eş-liderdir (\textbf{kalın});
+AHE\,ile\,Consensus-DBTA arasındaki hiçbir fark anlamlı değildir
+(eşli Wilcoxon $p{=}0.14$/$0.59$/$0.76$; robot arızası / karışık stres /
+deadline baskısı) ve tüm farklar bir standart sapmanın ($\approx 0.09$)
+çok içindedir.}
 \label{tab:fitness}
 \small
 \setlength{\tabcolsep}{5pt}
@@ -12,10 +14,10 @@ istatistiksel eş-liderdir, tüm farklar bir standart sapmanın
 \toprule
 \textbf{Yöntem} & \textbf{Robot ar.} & \textbf{Karma str.} & \textbf{Deadline} \\
 \midrule
-\textbf{AHE-MRTA*} & 0.488 & 0.480 & 0.447 \\
-BiG-MRTA           & 0.447 & 0.221 & \textbf{0.448} \\
+\textbf{AHE-MRTA*} & \textbf{0.488} & \textbf{0.480} & \textbf{0.447} \\
+BiG-MRTA           & 0.447 & 0.221 & 0.448 \\
 RoSTAM-EA          & 0.401 & 0.414 & 0.432 \\
-Consensus-DBTA     & \textbf{0.498} & \textbf{0.484} & 0.445 \\
+Consensus-DBTA     & \textbf{0.498} & \textbf{0.484} & \textbf{0.445} \\
 \bottomrule
 \end{tabular}
 \end{table}
