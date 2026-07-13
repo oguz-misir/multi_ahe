@@ -779,19 +779,22 @@ olarak tutulur. Uygunluk, deadline'larından
 önce tamamlanan görevlerin öncelik-ağırlıklı oranıdır; başarısız hedefler
 toparlanmayı gerektirdiğinden, metrik yalnız atama kalitesini değil navigasyon
 arızasına dayanıklılığı da ödüllendirir. Senaryo başına 100 tohumla AHE-MRTA
-ve Consensus-DBTA istatistiksel eş-liderdir: ikisi üç senaryoda da ayırt
-edilemez, Cons-DBTA \textit{robot\_failure} (0.498 vs 0.488) ve
-\textit{mixed\_stress}'te (0.484 vs 0.480) marjinal olarak önde,
-toparlanabilen yöntemler \textit{deadline\_pressure}'da $0.003$ içinde ---
-tüm farklar bir std sapmanın ($\approx0.09$) çok içinde:
+ve Consensus-DBTA istatistiksel eş-liderdir: aralarındaki hiçbir fark
+anlamlı değildir (eşli Wilcoxon her senaryoda $p{\geq}0.14$) ve navigasyon
+belirlenimci kılındığında ikisi de optimal uygunluğa ($1.000$) ulaşır
+(Tablo~\ref{tab:f58-allocation}); dolayısıyla buradaki artık fark bir
+navigasyon-dayanıklılığı etkisidir, tahsis-kalitesi açığı değil:
 
 \input{table/fitness_tr.tex}
 
 AHE-MRTA ve Consensus-DBTA üç senaryoda da istatistiksel olarak ayırt
-edilemez eş-liderlerdir: Cons-DBTA \textit{robot\_failure}'da (0.498 vs
-0.488) ve \textit{mixed\_stress}'te (0.484 vs 0.480) AHE'nin önünde,
-\textit{deadline\_pressure}'da ise üç toparlanma-yetenekli yöntem $0.003$
-içinde (BiG 0.448, AHE 0.447, Cons-DBTA 0.445) --- tüm farklar bir std sapmanın ($\approx0.09$)
+edilemez eş-liderlerdir: ikisi sayısal olarak en çok $0.010$ ayrılır ve
+hiçbir ikili fark anlamlı değildir (eşli Wilcoxon $p{=}0.14$/$0.59$/$0.76$;
+robot arızası / karışık stres / deadline baskısı), yani hiçbiri önde
+değildir --- Cons-DBTA \textit{robot\_failure}'da (0.498 vs 0.488) ve
+\textit{mixed\_stress}'te (0.484 vs 0.480) nominal önde, \textit{deadline\_pressure}'da
+ise üç toparlanma-yetenekli yöntem $0.003$ içinde (BiG 0.448, AHE 0.447,
+Cons-DBTA 0.445), tümü bir std sapmanın ($\approx0.09$)
 çok içinde. İki eş-lider ortak bir mekanizmayı paylaşır: ikisi de
 navigasyon hedefi başarısız olan görevleri ve arızalı robotların yetim
 bıraktığı görevleri yeniden gönderir, böylece stokastik bir arıza en
@@ -814,8 +817,8 @@ BiG-MRTA'ya karşı en yüksek tamamlama oranı olarak yeniden belirir
   \caption{Stokastik navigation-proxy tahsis uygunluğu (ortalama $\pm$ std), hücre başına
   100 tohum, 5 robot / 25 görev (birincil ölçek). AHE-MRTA ve Consensus-DBTA
   istatistiksel eş-liderdir, her senaryoda ayırt edilemez (en büyük fark
-  $0.010$; robot\_failure ve mixed\_stress'te Cons-DBTA lehine) --- tümü bir
-  std sapmanın ($\approx0.09$) içinde.}
+  $0.010$; hiçbir ikili fark anlamlı değil, eşli Wilcoxon $p{\geq}0.14$) ---
+  tümü bir std sapmanın ($\approx0.09$) içinde.}
   \label{fig:fitness}
 \end{figure}
 
