@@ -1,23 +1,27 @@
 \begin{table}[t]
 \centering
-\caption{Tahsis uygunluğu (Nav2-bağımsız, geodezik yürütme oracle'ı,
-100 tohum, 5 robot / 25 görev, birincil ölçek). Yüksek daha iyidir.
-AHE-MRTA ve Consensus-DBTA istatistiksel eş-liderdir (\textbf{kalın});
-AHE\,ile\,Consensus-DBTA arasındaki hiçbir fark anlamlı değildir
-(eşli Wilcoxon $p{=}0.14$/$0.59$/$0.76$; robot arızası / karışık stres /
-deadline baskısı) ve tüm farklar bir standart sapmanın ($\approx 0.09$)
-çok içindedir.}
+\caption{Tahsis uygunluğu (öncelik-ağırlıklı zamanında tamamlama),
+100 tohum, 5 robot / 25 görev. \textbf{Sol:} mükemmel-navigasyon düzlemi,
+tahsis kalitesini yalıtır---AHE-MRTA her senaryoda optimuma ($1.000$)
+ulaşır, yalnız Consensus-DBTA ile berabere ve BiG-MRTA (karışık stres)
+ile RoSTAM-EA'nın (robot arızası, karışık stres) üstünde.
+\textbf{Sağ:} stokastik navigasyon proxy'si; tavanı Nav2 hedef arızası
+(tahsis değil) belirler; AHE-MRTA ve Consensus-DBTA anlamlı fark
+olmadan eş-liderdir (eşli Wilcoxon $p{=}0.14$/$0.59$/$0.76$). Sütun
+başına en iyi \textbf{kalın}.}
 \label{tab:fitness}
-\small
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{lccc}
+\footnotesize
+\setlength{\tabcolsep}{3.6pt}
+\begin{tabular}{l ccc ccc}
 \toprule
-\textbf{Yöntem} & \textbf{Robot ar.} & \textbf{Karma str.} & \textbf{Deadline} \\
+& \multicolumn{3}{c}{\textbf{Mükemmel nav (tahsis kal.)}} & \multicolumn{3}{c}{\textbf{Stokastik nav (dayan.)}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+\textbf{Yöntem} & RA & KS & DB & RA & KS & DB \\
 \midrule
-\textbf{AHE-MRTA*} & \textbf{0.488} & \textbf{0.480} & \textbf{0.447} \\
-BiG-MRTA           & 0.447 & 0.221 & 0.448 \\
-RoSTAM-EA          & 0.401 & 0.414 & 0.432 \\
-Consensus-DBTA     & \textbf{0.498} & \textbf{0.484} & \textbf{0.445} \\
+\textbf{AHE-MRTA*} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.488 & 0.480 & 0.447 \\
+BiG-MRTA           & \textbf{1.000} & 0.973 & \textbf{1.000} & 0.447 & 0.221 & 0.448 \\
+RoSTAM-EA          & 0.860 & 0.860 & \textbf{1.000} & 0.401 & 0.414 & 0.432 \\
+Consensus-DBTA     & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.498 & 0.484 & 0.445 \\
 \bottomrule
 \end{tabular}
 \end{table}

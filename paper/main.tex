@@ -802,26 +802,31 @@ resiliently the methods recover after failed goals. Fitness
 is the priority-weighted fraction of tasks completed before their
 deadline; because failed goals must be recovered, the metric rewards not
 only assignment quality but resilience to navigation failure. With 100
-seeds per scenario, AHE-MRTA and Consensus-DBTA emerge as statistical
-co-leaders: no pairwise difference between them is significant (paired
-Wilcoxon $p{\geq}0.14$ in every scenario), and both attain optimal
-fitness ($1.000$) once navigation is made deterministic
-(Table~\ref{tab:f58-allocation}), so the residual spread here is a
-navigation-resilience effect, not an allocation-quality gap:
+seeds per scenario, AHE-MRTA attains optimal allocation fitness in the
+perfect-navigation plane and, under the stochastic proxy, is a
+statistical co-leader with Consensus-DBTA (no pairwise difference
+significant, paired Wilcoxon $p{\geq}0.14$), so the residual proxy
+spread is a navigation-resilience effect, not an allocation-quality
+gap (Table~\ref{tab:fitness}):
 
 \input{table/fitness.tex}
 
-At the primary scale (25 tasks / 5 robots, Table~\ref{tab:fitness}),
-AHE-MRTA and Consensus-DBTA are statistically indistinguishable across
-all three scenarios: the two are numerically separated by at most
-$0.010$, and no pairwise difference is significant (paired Wilcoxon
-$p{=}0.14$/$0.59$/$0.76$ under robot failure / mixed stress / deadline
-pressure), so neither leads---Consensus-DBTA is nominally ahead under
-\textit{robot\_failure} (0.498 vs 0.488) and \textit{mixed\_stress}
-(0.484 vs 0.480) and the three recovery-capable methods sit within
-$0.003$ under \textit{deadline\_pressure} (BiG 0.448, AHE 0.447,
-Consensus-DBTA 0.445), all far inside one standard deviation
-($\approx0.09$). The two co-leaders
+At the primary scale (25 tasks / 5 robots, Table~\ref{tab:fitness},
+left), the perfect-navigation plane isolates allocation quality:
+AHE-MRTA attains the optimum ($1.000$ priority-weighted on-time
+completion) in every scenario, matched only by Consensus-DBTA and
+strictly above BiG-MRTA under \textit{mixed\_stress} ($0.973$) and
+RoSTAM-EA under \textit{robot\_failure} and \textit{mixed\_stress}
+($0.860$). AHE-MRTA is therefore never behind on allocation quality; its
+optimum is shared with Consensus-DBTA rather than exceeded, because
+$1.000$ is the ceiling. Once navigation is made stochastic
+(Table~\ref{tab:fitness}, right), the ceiling drops for every method as
+Nav2 goal failure---not allocation---becomes binding, and AHE-MRTA and
+Consensus-DBTA converge to statistical indistinguishability (numerically
+separated by at most $0.010$; no pairwise difference significant, paired
+Wilcoxon $p{=}0.14$/$0.59$/$0.76$ under robot failure / mixed stress /
+deadline pressure; all inside one standard deviation $\approx0.09$). The
+two co-leaders
 share a mechanism: both re-dispatch tasks whose navigation goal fails and
 tasks orphaned by robot failures, so a stochastic failure costs at most a
 retry rather than a lost task. The commit-once BiG-MRTA fixes assignments
