@@ -1125,7 +1125,7 @@ Nav2 motion, and the $n{=}5$ cells do not survive cross-method correction.
 Under \textit{robot\_failure}, AHE's average delay is 96~s, compared with
 84--89~s for the other recovery-capable methods. Its 111~s recovery time is
 lower than Consensus-DBTA's 179~s, but higher than RoSTAM-EA's 85~s and
-commit-once BiG-MRTA's 57~s. Under \textit{mixed\_stress} and
+commit-once BiG-MRTA's 57~s (Figure~\ref{fig:recovery}). Under \textit{mixed\_stress} and
 \textit{deadline\_pressure}, BiG-MRTA has the largest delay (233--267~s)
 because its completed tasks finish very late; this is not a like-for-like
 comparison when it abandons other tasks. On corrected redispatch churn, AHE is
@@ -1233,13 +1233,18 @@ scales.
   \centering
   \includegraphics[width=0.66\textwidth]{failure_recovery.png}
   \caption{Failure-recovery behaviour under \textit{robot\_failure} at
-  the primary 5-robot / 25-task scale ($n{=}5$ seeds, mean\,$\pm$\,std): recovery
-  time, completion rate, and re-dispatch rate (execution preemptions are
-  zero for every method and are omitted). Recovery times are
-  statistically indistinguishable across methods ($p{>}0.3$); AHE-MRTA
-  converts its comparable recovery time into the highest completion
-  rate of the reactive methods by escalating to the orphan-rescue
-  paradigm within one ecosystem update cycle (${\leq}2$~s).}
+  the primary 5-robot / 25-task scale ($n{=}5$ seeds): recovery time and
+  completion rate (mean\,$\pm$\,std bars, whiskers clipped at zero) and
+  re-dispatch rate, shown as per-seed points with a mean tick and the
+  total event count ($\Sigma$) per method---17 of the 20 runs are exactly
+  zero, so a mean bar would be carried by a single seed (execution
+  preemptions are zero for every method and are omitted). Recovery times
+  are statistically indistinguishable across methods ($p{>}0.3$);
+  re-dispatches arise only in two baselines (RoSTAM-EA: one each in two
+  seeds; Cons-DBTA: six in a single seed), and AHE-MRTA converts its
+  comparable recovery time into the highest completion rate of the
+  reactive methods by escalating to the orphan-rescue paradigm within
+  one ecosystem update cycle (${\leq}2$~s).}
   \label{fig:recovery}
 \end{figure}
 
