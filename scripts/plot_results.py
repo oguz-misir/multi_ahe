@@ -665,6 +665,16 @@ def plot_fitness_comparison(processed_dir: Path, out_dir: Path, dpi: int) -> Non
             )
             for box in bp["boxes"]:
                 box.set_linewidth(1.3 if m == PROPOSED else 0.7)
+            # numeric median label above each box (white background so it
+            # stays readable over the box fill and the mean diamond)
+            for pos, vals in zip(positions, samples):
+                med = float(np.median(vals))
+                ax.annotate(f"{med:.3f}", xy=(pos, med), xytext=(0, 3),
+                            textcoords="offset points", ha="center",
+                            va="bottom", fontsize=6, fontweight="bold",
+                            zorder=6,
+                            bbox=dict(boxstyle="round,pad=0.1", fc="white",
+                                      ec="none", alpha=0.8))
         legend_handles = [
             mpatches.Patch(facecolor=METHOD_PALETTE[m], edgecolor="black",
                            linewidth=1.3 if m == PROPOSED else 0.7,
