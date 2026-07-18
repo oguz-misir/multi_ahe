@@ -205,53 +205,67 @@ in-flight safety lock used in the execution stack. Failed or navigation-stuck
 robots cannot receive a new task; their unfinished tasks become eligible for
 redispatch.
 
-\textbf{Arrival prediction and admissibility.} For an eligible pair
+\textbf{Arrival prediction and admissibility.} For a candidate pair
 $(r,\tau)$, let $\hat a_{r\tau}^k$ be the predicted completion-arrival time
 obtained by traversing $q_r^k$ and then travelling to $p_\tau$. The predictor
 uses the same route metric as the active configuration: F45 uses its core
 distance estimate, while F58 uses the cached geodesic ETA in
 Eq.~\eqref{eq:f58-eta}. A pair with no route is infeasible. For a finite
-deadline, the hard admission gate is
+deadline, the admission rule is
 \begin{equation}
-  \hat a_{r\tau}^k>d_\tau+\Delta_s^k
+  \hat a_{r\tau}^k>d_\tau+s_{r\tau}^k
   \quad\Longrightarrow\quad (r,\tau)\notin\mathcal{F}_k ,
   \label{eq:admission-gate}
 \end{equation}
-where $\Delta_s^k$ is the adaptive slack and $\mathcal{F}_k$ is the set of
-eligible robot--task pairs. Thus, a task is not assigned to a robot that is
-known to be incompatible, unavailable, unreachable, or predictably late beyond
-the permitted slack.
+where $\mathcal{F}_k$ is the eligible-pair set. The pair-specific allowance
+$s_{r\tau}^k$ is zero for new tasks in the nominal configuration. A bounded
+positive allowance is available only to old rescue tasks and can be widened
+in failure mode. Thus, the allocator rejects a pair that is incompatible,
+unavailable, unreachable, or later than the allowance for that task state.
 
-\textbf{Event-level surrogate.} AHE-MRTA does not claim to solve a global
-multi-objective MRTA optimum. At event $t_k$, the selected paradigm instead
-solves the feasibility-masked surrogate
+\textbf{Event-level surrogate.} Minimizing non-negative cost over
+$\mathcal X_k$ alone would admit the trivial all-zero assignment because the
+ownership constraints are upper bounds. The implementation therefore uses a
+cardinality-first rule. After masking infeasible pairs and preserving locked
+incumbents, define
 \begin{equation}
-  x^k\in\arg\min_{x\in\mathcal{X}_k}
+  \mathcal X_k^\star=\arg\max_{x\in\mathcal X_k}
+  \sum_{r\in\mathcal R}\sum_{\tau\in\mathcal T_k}x_{r\tau}^k.
+  \label{eq:max-cardinality}
+\end{equation}
+Among these maximum-cardinality event plans, the selected paradigm minimizes
+its shaped cost:
+\begin{equation}
+  x^k\in\arg\min_{x\in\mathcal{X}_k^\star}
         \sum_{r\in\mathcal{R}}\sum_{\tau\in\mathcal{T}_k}
         C_{r\tau}^k x_{r\tau}^k ,
   \qquad C_{r\tau}^k=\infty\ \text{if }(r,\tau)\notin\mathcal{F}_k .
   \label{eq:event-surrogate}
 \end{equation}
-The queue order is then set by the active paradigm (Section~\ref{sec:paradigms}).
-This formulation makes the decision rule explicit: it is an online,
-event-level assignment surrogate, not an offline guarantee on the full run.
+Repeated LSA passes implement this lexicographic rule; tasks for which no
+feasible capacity remains stay open for a later event. The active paradigm
+then sets queue order (Section~\ref{sec:paradigms}). This is an online
+event-level surrogate, not an offline optimum for the complete mission.
 
-\textbf{Cost and assignment stability.} For feasible pairs, the cost combines
-estimated arrival time, urgency, priority, queue load, failure risk, navigation state,
-and a non-negative reassignment penalty:
+\textbf{Cost and assignment stability.} The implementation evaluates seven
+normalized features: arrival time $A_{r\tau}^k$, priority penalty
+$P_\tau=(4-\pi_\tau)/3$, battery risk $B_r^k$, relative load $L_r^k$,
+failure risk $F_r^k$, deadline urgency $U_\tau^k$, and navigation/recovery
+risk $R_r^k$. For a feasible pair, the common cost is
 \begin{equation}
   C_{r\tau}^k =
-  w_d\hat a_{r\tau}^k + w_u U_\tau^k + w_\pi\pi_\tau^{-1}
-  + w_lL_r^k+w_fF_r^k+w_rR_r^k+\rho_{r\tau}^k .
+  w_dA_{r\tau}^k+w_pP_\tau+w_bB_r^k+w_lL_r^k
+  +w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k .
   \label{eq:cost}
 \end{equation}
-Here $U_\tau^k$ is urgency, $L_r^k$ is relative queue load, $F_r^k$ is the
-method's normalized failure-risk signal, and $R_r^k$ is the navigation-stuck indicator.
-The active EDPS paradigm selects $w$ (Section~\ref{sec:method}). For a
-feasibly queued incumbent task, urgency stays at its base value. Therefore,
-deadline growth pulls unassigned or at-risk tasks forward without repeatedly
-moving a task that is already predicted to finish on time. The penalty
-$\rho_{r\tau}^k$ provides an additional brake on redispatch churn.
+Here $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$ and the other base
+features are dimensionless. The correction $\Psi_{r\tau}^k$ collects the
+deadline and critical-battery penalties, deadline-capability and bid bonuses,
+incumbent sticky bonus, reassignment penalty, and capacity penalty. This form
+avoids adding seconds directly to normalized features. EDPS supplies $w$;
+the active paradigm can also shape task order and eligibility. A safe
+incumbent retains base urgency, whereas an unassigned or at-risk task receives
+nonlinear urgency growth.
 
 \textbf{Run-level outcomes and timing contract.} The run-level objective is
 to maximize completion and minimize deadline violations without hiding
@@ -262,7 +276,8 @@ be the tasks completed by $T_{\max}$. Formally,
   \frac{|\mathcal{T}^{\rm done}|}{|\mathcal{T}^{\rm req}|},
   \qquad
   \min\ \mathrm{DVR}=
-  \frac{|\{\tau:d_\tau<\infty\ \wedge+  (t_\tau^{\rm c}>d_\tau\ \vee\ \tau\notin\mathcal{T}^{\rm done})\}|}
+  \frac{|\{\tau:d_\tau<\infty\ \wedge
+  (t_\tau^{\rm c}>d_\tau\ \vee\ \tau\notin\mathcal{T}^{\rm done})\}|}
   {\max\!\bigl(1,|\{\tau:d_\tau<\infty\}|\bigr)}.
   \label{eq:primary-outcomes}
 \end{equation}
@@ -1235,16 +1250,17 @@ scales.
   \caption{Failure-recovery behaviour under \textit{robot\_failure} at
   the primary 5-robot / 25-task scale ($n{=}5$ seeds): recovery time and
   completion rate (mean\,$\pm$\,std bars, whiskers clipped at zero) and
-  re-dispatch rate as a mean bar overlaid with each seed's raw value.
-  In the right panel the per-seed points replace the std whisker: 17 of
-  the 20 runs have exactly zero re-dispatches, and all six
-  Consensus-DBTA events fall in a single seed (execution preemptions
-  are zero for every method and are omitted). Recovery times are
-  statistically indistinguishable across methods ($p{>}0.3$);
-  re-dispatches arise only in two baselines, and AHE-MRTA converts its
-  comparable recovery time into the highest completion rate of the
-  reactive methods by escalating to the orphan-rescue paradigm within
-  one ecosystem update cycle (${\leq}2$~s).}
+  a seed$\times$method matrix of re-dispatch events, in which each cell
+  is one run, filled cells carry the event count, and $\Sigma$ gives the
+  row total. The matrix attributes every event to the seed that produced
+  it: 17 of the 20 runs have zero re-dispatches, RoSTAM-EA's two events
+  come from two different seeds, and all six Consensus-DBTA events fall
+  in a single seed (execution preemptions are zero for every method and
+  are omitted). Recovery times are statistically indistinguishable
+  across methods ($p{>}0.3$); AHE-MRTA converts its comparable recovery
+  time into the highest completion rate of the reactive methods by
+  escalating to the orphan-rescue paradigm within one ecosystem update
+  cycle (${\leq}2$~s).}
   \label{fig:recovery}
 \end{figure}
 
