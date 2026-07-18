@@ -1235,16 +1235,16 @@ scales.
   \caption{Failure-recovery behaviour under \textit{robot\_failure} at
   the primary 5-robot / 25-task scale ($n{=}5$ seeds): recovery time and
   completion rate (mean\,$\pm$\,std bars, whiskers clipped at zero) and
-  the total number of re-dispatch events over the five seeds, annotated
-  with the number of seeds contributing them. A mean-rate bar would
-  mislead in the right panel: 17 of the 20 runs have exactly zero
-  re-dispatches and all six Consensus-DBTA events fall in a single seed
-  (execution preemptions are zero for every method and are omitted).
-  Recovery times are statistically indistinguishable across methods
-  ($p{>}0.3$); re-dispatches arise only in two baselines, and AHE-MRTA
-  converts its comparable recovery time into the highest completion rate
-  of the reactive methods by escalating to the orphan-rescue paradigm
-  within one ecosystem update cycle (${\leq}2$~s).}
+  re-dispatch rate as a mean bar overlaid with each seed's raw value.
+  In the right panel the per-seed points replace the std whisker: 17 of
+  the 20 runs have exactly zero re-dispatches, and all six
+  Consensus-DBTA events fall in a single seed (execution preemptions
+  are zero for every method and are omitted). Recovery times are
+  statistically indistinguishable across methods ($p{>}0.3$);
+  re-dispatches arise only in two baselines, and AHE-MRTA converts its
+  comparable recovery time into the highest completion rate of the
+  reactive methods by escalating to the orphan-rescue paradigm within
+  one ecosystem update cycle (${\leq}2$~s).}
   \label{fig:recovery}
 \end{figure}
 

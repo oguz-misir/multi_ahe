@@ -32,7 +32,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.ticker import MaxNLocator
 from pathlib import Path
 from typing import Optional
 
@@ -172,42 +171,42 @@ def _bar_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
     return bars
 
 
-def _event_count_panel(ax, df, methods, metric, ylabel,
-                       higher_better: bool = False):
-    """Integer event-total bars for rare discrete events; proposed emphasised.
+def _bar_points_panel(ax, df, methods, metric, ylabel,
+                      higher_better: bool = False):
+    """Mean bar overlaid with every run's raw value; proposed emphasised.
 
-    A mean±std rate bar misleads for a metric like re-dispatches: most
-    runs are exactly zero (invisible bars), a single seed can carry the
-    whole mean, and the std whisker dips below zero although the metric
-    cannot. The raw event total, annotated with how many seeds contribute
-    it, states the finding directly.
+    Used where a std whisker would mislead (most runs exactly zero, a
+    single seed carrying the whole mean, ±std dipping below a
+    nonnegative metric's floor): the overlaid per-seed points show the
+    spread directly while keeping the bar aesthetic of the sibling
+    panels.
     """
     valid = [m for m in methods if m in df["strategy"].unique()]
     colors = [METHOD_PALETTE.get(m, "#999999") for m in valid]
-    totals, seeds_hit, n_runs = [], [], 0
-    for m in valid:
-        vals = df[df["strategy"] == m][metric].dropna()
-        totals.append(int(vals.sum()))
-        seeds_hit.append(int((vals > 0).sum()))
-        n_runs = max(n_runs, len(vals))
+    data = [df[df["strategy"] == m][metric].dropna().values for m in valid]
+    means = [float(np.mean(v)) if len(v) else 0.0 for v in data]
 
     x = np.arange(len(valid))
     edge_w = [1.4 if m == PROPOSED else 0.6 for m in valid]
-    bars = ax.bar(x, totals, color=colors, edgecolor="black")
+    bars = ax.bar(x, means, color=colors, edgecolor="black", alpha=0.78)
     for b, w in zip(bars, edge_w):
         b.set_linewidth(w)
-    for i, (tot, hit) in enumerate(zip(totals, seeds_hit)):
-        note = str(tot) if tot == 0 else \
-            f"{tot} ({hit} seed{'s' if hit > 1 else ''})"
-        ax.annotate(note, xy=(i, tot), xytext=(0, 2),
+    rng = np.random.default_rng(7)
+    for i, (vals, c) in enumerate(zip(data, colors)):
+        jitter = rng.uniform(-0.14, 0.14, size=len(vals))
+        ax.scatter(i + jitter, vals, s=16, color=c, edgecolor="black",
+                   linewidth=0.5, zorder=3)
+    for i, mn in enumerate(means):
+        ax.annotate(f"{mn:.3g}", xy=(i, mn), xytext=(0, 3),
                     textcoords="offset points", ha="center", va="bottom",
-                    fontsize=6.5, fontweight="bold")
+                    fontsize=6.5, fontweight="bold", zorder=5,
+                    bbox=dict(boxstyle="round,pad=0.1", fc="white",
+                              ec="none", alpha=0.78))
     ax.margins(y=0.18)
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_xticks(x)
     ax.set_xticklabels([METHOD_LABELS.get(m, m) for m in valid],
                        rotation=45, ha="right")
-    ax.set_ylabel(f"{ylabel} ({n_runs} seeds)")
+    ax.set_ylabel(ylabel)
     arrow = "$\\uparrow$" if higher_better else "$\\downarrow$"
     ax.set_title(f"{arrow} better", fontsize=9)
 
@@ -365,12 +364,12 @@ def plot_failure_recovery(df_summary: Optional[pd.DataFrame],
                        "Completion Rate", True)
         # Execution preemptions are 0 for every method at this scale (no method
         # interrupts an in-flight task), so that panel cannot discriminate;
-        # show corrected re-dispatches instead (Sec. discussion). Re-dispatch
-        # is a rare discrete event (17 of 20 runs are exactly zero; one seed
-        # carries all of Consensus-DBTA's events), so report raw event totals
-        # rather than a mean±std rate bar.
-        _event_count_panel(axes[2], rf, methods, "task_redispatch",
-                           "Total Re-dispatches")
+        # show the corrected re-dispatch rate instead (Sec. discussion).
+        # Re-dispatch is a rare discrete event (17 of 20 runs are exactly
+        # zero; one seed carries all of Consensus-DBTA's events), so the
+        # per-seed points replace the std whisker.
+        _bar_points_panel(axes[2], rf, methods, "redispatch_per_task",
+                          "Re-dispatch / Task")
 
     fig.tight_layout()
     out_path = out_dir / "failure_recovery.png"
