@@ -117,12 +117,12 @@ Her paradigma AHE'nin kendi kodudur (rakip allocator'a delegasyon yok).
 
 ## 3.1. Beş hormon → beş paradigma
 
-| `i` | Hormon | Paradigma | İç mekanizma | Eşdeğer klasik |
+| `i` | Hormon | Paradigma | İç mekanizma | İlişkili klasik aile |
 |---|---|---|---|---|
-| 0 | H_SPATIAL | `_paradigm_spatial_greedy` | Nearest-feasible + strict reject | BiG-MRTA |
+| 0 | H_SPATIAL | `_paradigm_spatial_greedy` | Nearest-feasible + strict reject | Uzamsal açgözlü tahsis |
 | 1 | H_CRIT | `_paradigm_priority_first` | Priority-tiered LSA | Auction/CBBA |
 | 2 | **H_TEMP** (default) | `_paradigm_edf_strict` | EDF + 3PHA multi-phase bipartite | deadline-aware bipartite |
-| 3 | H_STAB | `_paradigm_commit_once` | Hard sticky, no reassign | RoSTAM commit-once |
+| 3 | H_STAB | `_paradigm_commit_once` | Hard sticky, no reassign | Commit-once / kararlılık-odaklı tahsis |
 | 4 | H_RECOV | `_paradigm_orphan_first` | Orphan-first redistribution | Recovery-first MAPF |
 
 Her paradigma ortak bir ilkel paylaşır — fizibilite-maskeli maliyet matrisi `C^(p)` üzerinde
@@ -316,15 +316,21 @@ kodda ablasyon için durur; varsayılan True.)
 
 # 4. Karşılaştırma Yöntemleri (G1)
 
-Ana dosyada yalnızca kısa karakterizasyon + biblio tutulur; matematiksel formülasyon, adil
-uyarlama koşulları ve kod iskeletleri `ahe_mrta_recent_comparison_methods.md`'dedir.
+Ana dosyada kısa karakterizasyon ve bibliyografya tutulur. Bu çalışmadaki operasyonel
+uyarlamaların ayrıntıları `m_ahe_task_allocator/.../baselines/` altındaki uygulamalardadır;
+bunlar kaynak sistemlerin bağımsız ve birebir replikasyonları değildir.
 
 | Yöntem | Online? | Adaptive? | Distributed? | Kaynak / DOI |
 |---|---|---|---|---|
 | **ahe_mrta_v3** (önerilen, v4 EDPS) | Yes | Yes | Centralized adaptation, decentralized execution | bu çalışma |
-| big_mrta — Online Weighted Bipartite Graph MRTA | Yes | No/limited | Yes | Ghassemi & Chowdhury, RAS 2022, 10.1016/j.robot.2021.103905 |
-| rostam_ea — Self-Adaptive Evolutionary MRTA | Yes | Yes | No/centralized | Arif & Haider, IDT 2024, 10.3233/IDT-230693 |
-| consensus_dbta — Consensus-Based DBTA | Yes | Partly | Yes | Mahato et al., RAS 2023, 10.1016/j.robot.2022.104270 |
+| big_mrta — Online Weighted Bipartite Graph MRTA | Yes | No/limited | Dağıtık kullanıma uygun | P. Ghassemi and S. Chowdhury, “Multi-robot task allocation in disaster response: Addressing dynamic tasks with deadlines and robots with range and payload constraints,” RAS 147 (2022) 103905, DOI: 10.1016/j.robot.2021.103905 |
+| rostam_ea — RoSTAM-inspired Evolutionary MRTA | Yes | Yes | No/centralized | M. U. Arif and S. Haider, “On-line task allocation for multi-robot teams under dynamic scenarios,” IDT 18(2) (2024) 1053–1076, DOI: 10.3233/IDT-230693 |
+| consensus_dbta — Consensus-Based DBTA2 | Yes | Partly | Yes | P. Mahato, S. Saha, C. Sarkar, and M. Shaghil, “Consensus-based fast and energy-efficient multi-robot task allocation,” RAS 159 (2023) 104270, DOI: 10.1016/j.robot.2022.104270 |
+
+Buradaki `rostam_ea` ve `consensus_dbta` adları benchmark uyarlamalarını belirtir. Özgün
+yayınlardaki yöntem adları sırasıyla **RoSTAM** ve **DBTA/DBTA2**'dir. Consensus-DBTA,
+CBBA tipi görev demeti oluşturmaktan ziyade robotların en iyi tekliflerini paylaşıp görev
+başına ağ-geneli maksimum teklif üzerinde uzlaşmasına dayanır.
 
 **Adil karşılaştırma:** tüm yöntemler aynı seed seti, aynı görev havuzu, aynı robot
 durumları, aynı failure olayları ve aynı Nav2 path-cost cache ile çalışır. Ortak loglanan

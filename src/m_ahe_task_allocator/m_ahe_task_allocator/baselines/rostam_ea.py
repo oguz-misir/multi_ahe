@@ -1,4 +1,8 @@
-"""rostam_ea — RoSTAM-EA: evolutionary online MRTA baseline (Ozalp et al., 2024, IDT; DOI 10.3233/IDT-230693).
+"""rostam_ea — RoSTAM-inspired evolutionary online MRTA baseline.
+
+Source: Arif & Haider (2024), Intelligent Decision Technologies;
+DOI 10.3233/IDT-230693. This is an operational benchmark adaptation, not an
+independent reproduction of the complete source framework.
 
 Two-part chromosome: [task_permutation | robot_partition_counts]
 Fitness: makespan + penalty*deadline_violations + workload_variance_weight
