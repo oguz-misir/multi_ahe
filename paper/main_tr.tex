@@ -1144,7 +1144,7 @@ $n{=}5$ ile --- düzeltmeden sağ çıkmaz. \textit{robot\_failure}'da AHE'nin
 ortalama görev gecikmesi (96~s) toparlanma-yetenekli yöntemler arasında
 en yüksektir (diğerleri 84--89~s) ve arıza-toparlanma süresi (111~s) orta
 sıradadır: Cons-DBTA (179~s)'den hızlı, RoSTAM-EA (85~s) ve commit-once
-BiG-MRTA (57~s)'den yavaş. \textit{mixed\_stress} ve
+BiG-MRTA (57~s)'den yavaş (Şekil~\ref{fig:recovery}). \textit{mixed\_stress} ve
 \textit{deadline\_pressure}'da görev-terk-eden BiG-MRTA en büyük gecikmeleri
 (233--267~s) gösterir, çünkü tamamladığı az sayıda görev çok geç biter ---
 bu yüzden o karşılaştırma birebir değildir. Ancak düzeltilmiş yeniden-gönderim churn metriğinde AHE en
@@ -1273,14 +1273,19 @@ iki ölçekte gerçek-zaman bütçesinin içinde.
   \centering
   \includegraphics[width=0.66\textwidth]{failure_recovery.png}
   \caption{Birincil 5-robot / 25-görev ölçeğinde \textit{robot\_failure} altında
-  arıza-toparlanma davranışı ($n{=}5$ tohum, ortalama $\pm$
-  std): toparlanma süresi, tamamlama oranı ve yeniden-gönderim oranı
-  (yürütme kesintileri tüm yöntemlerde sıfır olduğundan gösterilmedi).
-  Toparlanma süreleri yöntemler arasında istatistiksel olarak
-  ayırt edilemez ($p{>}0.3$); AHE-MRTA, karşılaştırılabilir toparlanma
-  süresini bir ekosistem güncelleme çevrimi içinde (${\leq}2$~s)
-  yetim-kurtarma paradigmasına geçerek reaktif yöntemlerin en yüksek
-  tamamlama oranına çevirir.}
+  arıza-toparlanma davranışı ($n{=}5$ tohum): toparlanma süresi ile
+  tamamlama oranı (ortalama $\pm$ std çubukları; bıyıklar sıfırda
+  kırpılmıştır) ve yeniden-gönderim oranı --- 20 koşunun 17'si tam sıfır
+  olduğundan ve ortalama çubuğunu tek bir tohum taşıyacağından bu panel
+  tohum-başına noktalar, ortalama çizgisi ve yöntem başına toplam olay
+  sayısı ($\Sigma$) ile gösterilmiştir (yürütme kesintileri tüm
+  yöntemlerde sıfır olduğundan gösterilmedi). Toparlanma süreleri
+  yöntemler arasında istatistiksel olarak ayırt edilemez ($p{>}0.3$);
+  yeniden-gönderim yalnız iki temelde görülür (RoSTAM-EA: iki tohumda
+  birer, Cons-DBTA: tek tohumda altı) ve AHE-MRTA, karşılaştırılabilir
+  toparlanma süresini bir ekosistem güncelleme çevrimi içinde
+  (${\leq}2$~s) yetim-kurtarma paradigmasına geçerek reaktif yöntemlerin
+  en yüksek tamamlama oranına çevirir.}
   \label{fig:recovery}
 \end{figure}
 
