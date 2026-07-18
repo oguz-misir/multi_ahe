@@ -802,6 +802,7 @@ def benchmark(
     verbose: bool = False,
     ideal_nav: bool = False,
     seed_start: int = 1,
+    retain_runs: bool = False,
     **eco_kwargs,
 ) -> Dict[str, Dict]:
     results: Dict[str, List[Dict]] = {m: [] for m in methods}
@@ -845,6 +846,12 @@ def benchmark(
             'alloc_fitness':        _m('alloc_fitness'),
             'alloc_fitness_std':    _s('alloc_fitness'),
         }
+    # The normal experiment interface returns compact aggregate statistics.
+    # Figure-level distribution plots additionally need the paired, per-seed
+    # observations; expose them only on request so existing callers and CSVs
+    # remain backward compatible.
+    if retain_runs:
+        return summary, results
     return summary
 
 
@@ -972,6 +979,12 @@ def main():
     parser.add_argument('--ideal-nav', action='store_true',
                         help='Navigation-independent eval: perfect navigation, '
                              'every metric reflects allocation quality alone.')
+    parser.add_argument('--save-fitness-runs', action='store_true',
+                        help='Her tohumun uygunluğunu sim_fitness_seedwise.csv olarak '
+                             'kaydet; dağılım grafikleri ve eşli testler için.')
+    parser.add_argument('--fitness-summary-name', type=str,
+                        default='sim_fitness.csv',
+                        help='Özet uygunluk CSV adı (varsayılan: sim_fitness.csv).')
     parser.add_argument('--robot-counts', type=str, default='',
                         help='Ölçeklenebilirlik sweep: virgülle robot sayıları, ör. "3,5,10". '
                              'Sabit yoğunluk (n_tasks=5×n_robots). → sim_scalability.csv')
@@ -1099,14 +1112,20 @@ def main():
     # ── Normal benchmark mode ─────────────────────────────────────────────
     t0 = time.time()
     fit_csv_rows = []   # [scenario, strategy, fitness_mean, fitness_std, n_seeds]
+    seedwise_fit_rows = []
     for scenario in scenarios:
-        summary = benchmark(
+        bench_out = benchmark(
             methods, scenario, args.seeds,
             n_robots=args.robots, n_tasks=args.tasks,
             exp_duration=args.duration,
             verbose=args.verbose,
             ideal_nav=args.ideal_nav,
+            retain_runs=args.save_fitness_runs,
         )
+        if args.save_fitness_runs:
+            summary, per_seed_runs = bench_out
+        else:
+            summary = bench_out
         print_comparison(summary, scenario, args.seeds)
         # Persist fitness for the cross-method comparison plot. Only the four
         # paper methods are written so plotting stays focused.
@@ -1120,13 +1139,25 @@ def main():
                     'fitness_std':  s.get('alloc_fitness_std', 0.0),
                     'n_seeds': args.seeds,
                 })
+                if args.save_fitness_runs:
+                    for seed, run in enumerate(per_seed_runs[mname], start=1):
+                        seedwise_fit_rows.append({
+                            'scenario': scenario,
+                            'strategy': mname,
+                            'seed': seed,
+                            'robot_count': args.robots,
+                            'task_count': args.tasks,
+                            'duration_s': args.duration,
+                            'ideal_nav': args.ideal_nav,
+                            'alloc_fitness': run['alloc_fitness'],
+                        })
 
     # Save fitness CSV for plot_results.plot_fitness_comparison.
     if fit_csv_rows:
         out_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                                'results', 'processed')
         os.makedirs(out_dir, exist_ok=True)
-        out_csv = os.path.join(out_dir, 'sim_fitness.csv')
+        out_csv = os.path.join(out_dir, args.fitness_summary_name)
         import csv as _csv
         with open(out_csv, 'w', newline='') as f:
             w = _csv.DictWriter(f, fieldnames=list(fit_csv_rows[0].keys()))
@@ -1134,6 +1165,15 @@ def main():
             for row in fit_csv_rows:
                 w.writerow(row)
         print(f"\n[OK]  Fitness CSV → {out_csv}  ({len(fit_csv_rows)} satır)")
+
+    if seedwise_fit_rows:
+        raw_csv = os.path.join(out_dir, 'sim_fitness_seedwise.csv')
+        import csv as _csv
+        with open(raw_csv, 'w', newline='') as f:
+            w = _csv.DictWriter(f, fieldnames=list(seedwise_fit_rows[0].keys()))
+            w.writeheader()
+            w.writerows(seedwise_fit_rows)
+        print(f"[OK]  Seed-wise fitness CSV → {raw_csv}  ({len(seedwise_fit_rows)} satır)")
 
     elapsed = time.time() - t0
     total_runs = len(methods) * args.seeds * len(scenarios)

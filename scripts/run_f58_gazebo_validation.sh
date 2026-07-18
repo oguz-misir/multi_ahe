@@ -238,7 +238,26 @@ case "$PROFILE" in
     full)
         SCALES="3:15 5:25"; SEEDS="1 2 3 4 5"
         COMBOS="ahe_mrta_v3 robot_failure,ahe_mrta_v3 mixed_stress,ahe_mrta_v3 deadline_pressure" ;;
-    *) echo "Usage: $0 {smoke|smoke_p1b|smoke5_p1b|smoke5_p1e|smoke5_p1g|pilot5_p1h|pilot5_p1i|smoke5_p1j|smoke5_p1k|pilot5_p1k|smoke5_p1l|smoke5_p1m|smoke5_p1n|smoke5_p1o|smoke5_p1o_retry|pilot5_p1o|smoke5_p1p|smoke5_p1q|pilot5_p1q|smoke5_p1r|pilot5_p1r|smoke5_p1r_other|pilot5_p1r_other|pilot|pilot_p1b|pilot_all|paper|full}" >&2; exit 2 ;;
+    paper_scale3)
+        # 3r/15t matched scale cell for the n=10 pooled paper protocol.
+        RESULTS_ROOT="${F58_RESULTS_ROOT:-$REPO/results/raw/gazebo_f58_scale3_validation}"
+        PROCESSED_ROOT="${F58_PROCESSED_ROOT:-$REPO/results/processed/gazebo_f58_scale3_validation}"
+        STATS_ROOT="${F58_STATS_ROOT:-$REPO/results/stats/gazebo_f58_scale3_validation}"
+        SCALES="3:15"; SEEDS="1 2 3 4 5 6 7 8 9 10"
+        COMBOS="ahe_mrta_v3 robot_failure,ahe_mrta_v3 mixed_stress,ahe_mrta_v3 deadline_pressure" ;;
+    paper_scale10)
+        # 10r/50t matched scale cell; 10-robot bringup needs the longer
+        # startup/timeout the robust runner would otherwise auto-select.
+        # 360s startup lost seeds under sustained load (9/10 Nav2 ready);
+        # healthy missions measured 821-1464s wall, hence the 2400s cap.
+        RESULTS_ROOT="${F58_RESULTS_ROOT:-$REPO/results/raw/gazebo_f58_scale10_validation}"
+        PROCESSED_ROOT="${F58_PROCESSED_ROOT:-$REPO/results/processed/gazebo_f58_scale10_validation}"
+        STATS_ROOT="${F58_STATS_ROOT:-$REPO/results/stats/gazebo_f58_scale10_validation}"
+        STARTUP="${F58_STARTUP:-480.0}"
+        TIMEOUT="${F58_TIMEOUT:-2400}"
+        SCALES="10:50"; SEEDS="1 2 3 4 5 6 7 8 9 10"
+        COMBOS="ahe_mrta_v3 robot_failure,ahe_mrta_v3 mixed_stress,ahe_mrta_v3 deadline_pressure" ;;
+    *) echo "Usage: $0 {smoke|smoke_p1b|smoke5_p1b|smoke5_p1e|smoke5_p1g|pilot5_p1h|pilot5_p1i|smoke5_p1j|smoke5_p1k|pilot5_p1k|smoke5_p1l|smoke5_p1m|smoke5_p1n|smoke5_p1o|smoke5_p1o_retry|pilot5_p1o|smoke5_p1p|smoke5_p1q|pilot5_p1q|smoke5_p1r|pilot5_p1r|smoke5_p1r_other|pilot5_p1r_other|pilot|pilot_p1b|pilot_all|paper|full|paper_scale3|paper_scale10}" >&2; exit 2 ;;
 esac
 
 mkdir -p "$RESULTS_ROOT"
