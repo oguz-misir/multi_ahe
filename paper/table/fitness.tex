@@ -1,14 +1,17 @@
 \begin{table}[t]
 \centering
 \caption{Allocation fitness (priority-weighted on-time completion),
-100 seeds, 5 robots / 25 tasks. \textbf{Left:} perfect-navigation plane,
+500 seeds, 5 robots / 25 tasks. \textbf{Left:} perfect-navigation plane,
 which isolates allocation quality---AHE-MRTA reaches the optimum
 ($1.000$) in every scenario, matched only by Consensus-DBTA and above
 BiG-MRTA (mixed stress) and RoSTAM-EA (robot failure, mixed stress).
 \textbf{Right:} the stochastic navigation proxy, where Nav2 goal failure
 (not allocation) sets the ceiling; AHE-MRTA and Consensus-DBTA are
-co-leaders with no significant difference (paired Wilcoxon
-$p{=}0.14$/$0.59$/$0.76$). Best per column in \textbf{bold}.}
+co-leaders---robot failure and deadline pressure are statistically tied,
+and the only significant separation is mixed stress, where AHE-MRTA leads
+(paired Wilcoxon $p{=}0.391$/$0.042$/$0.532$). \textbf{Bold} marks the best
+per column; in the stochastic plane only the statistically supported lead
+is bolded.}
 \label{tab:fitness}
 \footnotesize
 \setlength{\tabcolsep}{3.6pt}
@@ -18,10 +21,10 @@ $p{=}0.14$/$0.59$/$0.76$). Best per column in \textbf{bold}.}
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}
 \textbf{Method} & RF & MS & DP & RF & MS & DP \\
 \midrule
-\textbf{AHE-MRTA*} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.488 & 0.480 & 0.447 \\
-BiG-MRTA           & \textbf{1.000} & 0.973 & \textbf{1.000} & 0.447 & 0.221 & 0.448 \\
-RoSTAM-EA          & 0.860 & 0.860 & \textbf{1.000} & 0.401 & 0.414 & 0.432 \\
-Consensus-DBTA     & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.498 & 0.484 & 0.445 \\
+\textbf{AHE-MRTA*} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.484 & \textbf{0.487} & 0.438 \\
+BiG-MRTA           & \textbf{1.000} & 0.974 & \textbf{1.000} & 0.445 & 0.232 & 0.441 \\
+RoSTAM-EA          & 0.861 & 0.864 & \textbf{1.000} & 0.409 & 0.411 & 0.426 \\
+Consensus-DBTA     & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.486 & 0.481 & 0.437 \\
 \bottomrule
 \end{tabular}
 \end{table}

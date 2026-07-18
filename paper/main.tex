@@ -1,6 +1,6 @@
 % IEEE RA-L manuscript
 % AHE-MRTA: Adaptive Heuristic Ecosystem for Multi-Robot Task Allocation
-\documentclass[10pt, onecolumn, letterpaper]{IEEEtran}
+\documentclass[10pt,letterpaper,onecolumn]{IEEEtran}
 
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
@@ -45,58 +45,32 @@
 
 %==============================================================================
 \begin{abstract}
-We propose AHE-MRTA, an Adaptive Heuristic Ecosystem framework for online
-multi-robot task allocation (MRTA) under robot failures, mixed stress, and
-deadline pressure. Rather than committing to a single allocation paradigm,
-AHE-MRTA performs runtime \emph{paradigm switching} via
-Ecosystem-Driven Paradigm Selection (EDPS): five biomimetic hormones
-(spatial, criticality, temporal, stability, recovery) map to five
-classical allocation primitives, and at each event the active primitive is
-chosen by a two-tier rule---fast deterministic context overrides for the
-acute regimes (failure, deadline pressure) and a cooperation/suppression
-hormone dynamic for the remaining events. The F58 extension replaces the
-Euclidean cost with a cached geodesic path cost on the shared occupancy
-map and repairs the primary plan for min--max load only within a
-deadline/distance efficiency envelope; the repair is restricted to the
-terminal phase of the campaign and bound by a remaining-makespan guard
-derived from Nav2 feedback.
-We evaluate AHE-MRTA against three recent baselines
-(BiG-MRTA, RoSTAM-EA, Consensus-DBTA) in three complementary regimes:
-(i) a 100-seed allocation-only/Nav2-independent simulator that isolates
-algorithmic decision quality from physical execution noise, (ii) a
-separate navigation proxy with stochastic goal failure, and (iii) a
-300-experiment Gazebo Harmonic benchmark at three physical scales
-(3, 5, and 10 TurtleBot3 robots running the ROS\,2 Jazzy Nav2 stack).
-In the allocation-only plane F58 attains
-$\mathrm{fitness}{=}\mathrm{CR}{=}1$ and $\mathrm{DVR}{=}0$ across all
-three scenarios and the 3/5/10-robot scales, with an active-robot Jain
-index of 0.982--0.992 and decision latency of at most 0.201~ms.
-In fresh matched F45--F58 Gazebo+Nav2 validation at all three physical
-scales (180 matched runs; 10 common seeds per scenario and scale), F58
-passes the pre-registered acceptance gate in seven of nine
-scale--scenario cells with paired-Wilcoxon support: at the 5-robot
-primary scale, deadline-pressure DVR drops from 0.340 to 0.232, delay
-by 9.0~s, and distance by 20.9~m (all $p{\leq}0.008$), and the
-deadline-pressure gains persist at 10 robots (DVR 0.256$\to$0.210,
-$p{=}0.016$; distance $-16.9$~m, $p{=}0.027$); robot failure passes at
-every scale. The two non-passing cells fail only on criteria whose CIs
-span zero; the only supported costs are decision latency (within the
-50~ms budget at 8--35~ms) and a deadline-pressure distance-balance
-decrease that scales with fleet size.
-In the physical four-method benchmark AHE-MRTA reaches full completion
-in every scenario at the primary 5-robot scale (CR\,=\,1.000) and the
-highest completion rate at 10 robots (CR\,=\,0.976--0.988), and leads
-effective on-time completion under deadline pressure at both scales
-(0.79 vs $\leq$0.66 at 5 robots, 0.76 vs $\leq$0.52 at 10), while the
-consensus and evolutionary baselines reach comparable completion only
-at substantially higher deadline-violation rates (DVR\,=\,0.34--0.42
-vs.\ AHE's 0.21 at 5 robots, 0.43--0.50 vs.\ 0.22 at 10); under mixed
-stress and robot failure AHE co-leads. The fairness-guarded repair that
-delivers this deadline compliance costs 16--35~ms of decision latency,
-above the sub-millisecond commit-once baselines but within the
-real-time budget and $2$--$5{\times}$ below the evolutionary baseline.
-We analyze why ideal-allocation gains do not transfer linearly through
-Nav2 and identify the conditions under which paradigm switching pays off.
+We study online multi-robot task allocation under robot failures, mixed
+stress, and deadline pressure. AHE-MRTA uses Ecosystem-Driven Paradigm
+Selection (EDPS). EDPS is an event-triggered rule that maps five hormone
+states to five fixed allocation behaviours. Explicit overrides handle acute
+failure and deadline regimes. In all other regimes, a fixed dominance dynamic
+selects the behaviour. The F58 configuration extends the F45 core with cached
+geodesic estimated time of arrival (ETA) and a terminal, bounded load-repair
+step.
+
+We evaluate allocation and execution in three separate settings: a 500-seed
+allocation-only campaign, a stochastic navigation proxy, and closed-loop
+Gazebo Harmonic/ROS\,2 Nav2 experiments with 3, 5, and 10 TurtleBot3 robots.
+In the allocation-only campaign, F58 reaches the observed ceiling for
+completion and deadline violations in the tested cells. This setting therefore
+does not separate the leading policies. In the navigation proxy, AHE-MRTA and
+Consensus-DBTA are co-leaders; the only significant separation is a small
+mixed-stress edge for AHE-MRTA. A matched F45--F58
+Gazebo comparison uses 10 common seeds for every scenario--scale cell. It
+meets the pre-specified promotion gate in seven of the nine cells. The
+configuration also increases decision latency and reduces distance balance
+under deadline pressure. The four-method Gazebo benchmark uses five seeds per
+cell. We therefore report it descriptively and do not use it to claim broad
+superiority. The current experiments also do not causally isolate EDPS from
+the other implementation differences in the execution stack. We state this
+limit, keep allocation-only and closed-loop evidence separate, and specify the
+matched selector ablation required for the remaining causal claim.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -108,86 +82,77 @@ optimization, ROS\,2, Gazebo.
 \section{Introduction}
 \label{sec:intro}
 
-Multi-robot task allocation (MRTA) assigns an incoming stream of tasks to a
-team of robots so that a mission objective is met; it underpins inspection,
-delivery, surveillance, and search-and-rescue deployments
-\cite{zitouni2021formal,lei2023convex}. Even its single-task, single-robot,
-instantaneous form is NP-hard \cite{aziz2021complexity}, and field operation
-adds three pressures that a static assignment cannot absorb: robots fail
-unexpectedly, the task stream is non-stationary in urgency and spatial
-density, and many tasks carry hard deadlines whose violation is costly
-\cite{choudhury2021dynamic,park2021games}.
+Multi-robot task allocation (MRTA) decides which robot performs each task and
+in what order. The decision must respect robot capabilities, task
+requirements, and operational constraints. In an operating system, it also
+depends on execution state. A robot may be delayed, unavailable, or committed
+to a task whose value or feasibility has changed. Recent reviews cover
+centralized optimization, distributed and market-based methods,
+metaheuristics, and learning-based policies \cite{chakraa2023review,athira2024systematic}.
+For online MRTA, a low-cost assignment at one instant is not enough. The
+allocator must preserve useful decisions as tasks arrive, robots become
+unavailable, deadlines approach, and execution exposes new constraints.
 
-Recent online MRTA solvers each commit to a \emph{single} allocation
-paradigm, and each paradigm trades one strength for one weakness. Market-
-and auction-based methods bid tasks to robots with low latency and
-robustness, but pay a re-bidding cost when the situation changes
-\cite{quinton2022communication,milot2021market,alshaboti2021fuzzy}.
-Matching-, programming-, and prediction-based methods (bipartite matching,
-linear or convex programs, receding-horizon control) produce high-quality
-plans but scale poorly with re-planning frequency
-\cite{ghassemi2022bigmrta,garciamartin2022predictive,lei2023convex}.
-Consensus- and bundle-based methods yield very stable assignments but adapt
-slowly once the regime shifts \cite{mahato2023consensus}.
-Evolutionary and learning-based methods explore a richer assignment space
-but react slowly to abrupt context changes \cite{rostam2024selfadaptive}. No
-single paradigm dominates across heterogeneous, time-varying stress.
+Existing approaches make different trade-offs. Centralized formulations can
+jointly optimize assignment and routing when global state is available.
+Distributed formulations instead use local decisions and explicit
+communication assumptions. Bai \emph{et al.}\ use group-based distributed
+auctions for delivery requests that appear over time and have time windows
+\cite{bai2023group}. Consensus-based allocation addresses local coordination,
+speed, and energy use \cite{mahato2023consensus}. Game-theoretic clustering
+combines task grouping and allocation \cite{garciamartin2023clustering}.
+Joint allocation--path-planning formulations include timing, workload,
+distance, energy, and deadline objectives \cite{lei2023convex}. Other online
+methods adapt to changes in problem structure \cite{rostam2024selfadaptive}
+or make decentralized energy-aware decisions \cite{bagchi2024energyaware}.
+Because these methods observe and change the system differently, a comparison
+must state the observation model, reallocation event, communication
+assumptions, and outcome metrics.
 
-We argue that the right structure is \emph{not} a better single paradigm but
-a principled mechanism that \emph{switches between paradigms online}, driven
-by current context and recent performance. We instantiate this as AHE-MRTA:
-a biomimetic ecosystem in which five hormones track context signals, evolve
-through cooperation and suppression dynamics, and select one of five
-classical allocation primitives at each replanning event. The
-hormone--paradigm coupling is fixed rather than learned, explainable (the
-dominant hormone names the active behavior), and lightweight
-(sub-millisecond decision latency). A second, methodological contribution
-follows from a recurring difficulty in robotic benchmarks: allocation
-quality and physical execution are entangled, because navigation cost
-depends on world geometry as much as on the assignment \cite{lei2023convex}.
-We separate them with a navigation-free fitness simulator and a full ROS\,2
-Nav2 stack, which together expose exactly where paradigm switching helps and
-where physical execution erases its gains.
+This letter considers online single-task-robot allocation with task arrivals,
+robot failures, mixed stress, and deadline pressure. The allocator acts at a
+task arrival, failure, deadline alarm, or replanning event. It can use only
+the state available at that event. Reassigning a task can reduce estimated
+travel cost but can also preempt execution, disrupt a feasible route, or move
+delay to another robot. Keeping an incumbent task can also be harmful after a
+failure or a sharp reduction in time slack. We therefore use completion and
+deadline violations as primary outcomes. We report delay, workload balance,
+recovery, redispatches, preemptions, and decision latency as trade-offs. A
+strong score in a navigation-independent allocator does not by itself
+demonstrate closed-loop navigation or recovery performance.
 
-\textbf{Contributions:}
+Our method, \emph{AHE-MRTA}, uses Ecosystem-Driven Paradigm Selection (EDPS).
+EDPS is an interpretable event-triggered selector, not a new optimizer at
+every event. Four observable signals---task density, robot availability,
+deadline pressure, and recent failure rate---update five hormone states. The
+selected state activates one fixed behaviour: spatial greedy,
+priority-first, deadline-oriented temporal, commit-once stability-oriented,
+or orphan-first recovery allocation. Acute failure and deadline regimes have
+explicit overrides. A fixed dominance dynamic chooses the behaviour in all
+other cases. The contribution is therefore a transparent rule for switching
+between known policy families. It does not claim that one family is always
+best or that the hormone metaphor alone creates a new solver.
+
+The paper makes four bounded contributions:
 \begin{enumerate}
-  \item \emph{Ecosystem-Driven Paradigm Selection (EDPS):} an online
-    paradigm-switching MRTA framework that maps five biomimetic hormones
-    to five allocation mechanisms. Selection is two-tiered: fast
-    deterministic context overrides handle the acute regimes (robot
-    failure, deadline pressure), while a Lotka--Volterra-type hormone
-    dynamic arbitrates the remaining, lower-pressure events through
-    $\arg\max_i D_i$ (Section~\ref{sec:method}). The coupling is fixed,
-    explainable, and sub-millisecond.
-  \item \emph{Geodesic, efficiency-guarded fairness extension (F58):} a
-    lexicographic min--max load repair with cached geodesic ETA on the
-    shared occupancy map that never increases predicted deadline misses
-    and bounds the total-route increase by $\epsilon{=}0.02$,
-    terminal-gated and Nav2-feedback-guarded (P1R); alongside the
-    Nav2-independent gains we report matched Gazebo validation at all
-    three physical scales (180 runs; 10 common seeds per scenario and
-    scale) that passes the pre-registered physical acceptance gate in
-    seven of nine scale--scenario cells, with decision latency and a
-    deadline-pressure distance-balance decrease as the only supported
-    costs
-    (Section~\ref{sec:f58}).
-  \item \emph{Nav2-independent allocation-only evaluation:} an idealized
-    simulator in which navigation succeeds deterministically; we report
-    fitness, true Jain indices, and geodesic route cost across three
-    scales and 100 seeds per scenario
-    (Section~\ref{sec:results-sim}).
-  \item \emph{Full Gazebo Harmonic + ROS\,2 Jazzy Nav2 validation} with
-    300 experiments across three stress scenarios and three physical
-    scales (3, 5, and 10 robots), comparing four methods on completion
-    rate, deadline violation, recovery time, workload balance,
-    execution preemptions, task re-dispatch rate, and decision latency
-    (Section~\ref{sec:results-gazebo}).
-  \item \emph{Honest reporting of the SIM-to-Gazebo transfer gap:} we
-    document where paradigm switching helps (completion rate, deadline
-    robustness, allocation stability) and where it costs (task delay,
-    recovery time, makespan under failure) and explain the mechanism
-    (Section~\ref{sec:discussion}).
+  \item It specifies Ecosystem-Driven Paradigm Selection (EDPS), an
+  event-triggered, interpretable policy coupling fixed context signals to
+  fixed MRTA behaviours.
+  \item It records decision and execution quantities needed to distinguish
+  allocation quality from navigation and recovery effects.
+  \item It evaluates the policy across multiple robot-team scales in both a
+  navigation-independent allocation-only simulator and a ROS~2/Gazebo stack.
+  \item It reports the matched F45--F58 Gazebo comparison separately, so
+  map-aware ETA and bounded-repair evidence is not conflated with EDPS.
 \end{enumerate}
+
+The evaluation has three layers: allocation-only simulation, a stochastic
+navigation proxy, and closed-loop Gazebo/ROS\,2 execution. The separation
+prevents a navigation or recovery effect from being reported as allocation
+evidence. The F45--F58 study tests a configuration change. It does not test
+the causal effect of EDPS alone in the execution stack. That claim requires a
+matched Gazebo selector ablation. Stating this boundary makes the comparison
+between the adaptive selector and fixed MRTA baselines reproducible.
 
 %==============================================================================
 % Related Work section removed per author request (2026-06-20).
@@ -199,518 +164,624 @@ where physical execution erases its gains.
 \section{Problem Formulation}
 \label{sec:problem}
 
-\textbf{Sets and variables.} Let $\mathcal{R} = \{r_1, \ldots, r_n\}$
-be the robot set and $\mathcal{T}(t)$ the open-task set at time $t$,
-each task $\tau \in \mathcal{T}(t)$ carrying a 2D position $p_\tau$,
-deadline $d_\tau$, priority $\pi_\tau \in \{1,2,3\}$, and capability
-requirement $c_\tau$. Each robot $r$ has state
-$s_r(t) = (p_r, \tau_r^{\mathrm{cur}}, \phi_r)$ encoding position,
-current task, and availability flag (alive / failed).
+\textbf{Event-driven state.} Let $\mathcal{R}=\{r_1,\ldots,r_n\}$ be the
+robot set. A requested task $\tau$ is described by
+\[
+  \xi_\tau=(p_\tau,t^{\mathrm a}_\tau,d_\tau,\pi_\tau,c_\tau),
+\]
+where $p_\tau\in\mathbb{R}^2$ is the goal position,
+$t^{\mathrm a}_\tau$ is its activation time, $d_\tau\in
+\mathbb{R}_{\geq0}\cup\{\infty\}$ is its deadline, $\pi_\tau\in\{1,2,3\}$
+is its priority, and $c_\tau$ is its capability requirement. At event time
+$t_k$, $\mathcal{T}_k$ contains every activated task that is not completed or
+irreversibly cancelled. Robot $r$ has position $p_r^k$, health state
+$\phi_r^k\in\{\mathrm{alive},\mathrm{failed}\}$, navigation status, and
+an ordered queue $q_r^k$. The queue contains tasks assigned but not completed,
+including an in-flight task when one exists.
 
-\textbf{Decision.} At every allocation event $t_k$ (failure, task
-arrival, deadline alarm, replanning timer), the policy produces an
-assignment $x_{r,\tau}(t_k) \in \{0,1\}$ with cardinality constraint
-$\sum_\tau x_{r,\tau} \leq Q$ (per-robot queue cap) and capability
-feasibility $x_{r,\tau} = 1 \Rightarrow c_\tau \subseteq \mathrm{cap}(r)$.
+An allocation event is a task arrival, a robot failure, a deadline alarm, or
+the replanning timer. Let $\mathcal{R}^{\mathrm{av}}_k$ denote robots that
+are alive, not navigation-stuck, and have remaining queue capacity. Let
+$\mathcal{I}_k\subseteq\mathcal{R}\times\mathcal{T}_k$ be the set of
+healthy in-flight robot--task pairs. These pairs are locked: a new allocation
+event may change future queue entries but does not cancel an executing Nav2
+goal.
 
-\textbf{Cost.} The per-pair cost combines the projected arrival time
-$a_{r,\tau}$ (queue wait plus travel), task urgency $U_\tau$ (task age
-normalized by its deadline), criticality $\pi_\tau$, the robot's
-relative queue load $L_r$, its failure risk $F_r$, a navigation-stuck
-indicator $R_r$, and a recent reassignment penalty $\rho_{r,\tau}$:
+\textbf{Feasible event-level decision.} The binary variable
+$x_{r\tau}^k=1$ means that task $\tau$ belongs to robot $r$'s planned queue
+after event $t_k$. The feasible set is
+\begin{align}
+  \mathcal{X}_k=\bigl\{x\in\{0,1\}^{n\times|\mathcal{T}_k|}:&
+  \ \sum_{r\in\mathcal{R}}x_{r\tau}^k\leq1, &&\forall\tau\in\mathcal{T}_k,\label{eq:single-owner}\\
+  &\ \sum_{\tau\in\mathcal{T}_k}x_{r\tau}^k\leq Q, &&\forall r\in\mathcal{R},\label{eq:queue-cap}\\
+  &\ x_{r\tau}^k=1\Rightarrow
+      \bigl(c_\tau\subseteq\mathrm{cap}(r)\bigr), &&\forall r,\tau,\label{eq:cap-feas}\\
+  &\ x_{r\tau}^k=x_{r\tau}^{k-1}, &&\forall(r,\tau)\in\mathcal{I}_k
+  \bigr\}.\label{eq:feasible-set}
+\end{align}
+The first constraint gives a task one owner, the second limits queue length,
+and the third enforces capability compatibility. The final constraint is the
+in-flight safety lock used in the execution stack. Failed or navigation-stuck
+robots cannot receive a new task; their unfinished tasks become eligible for
+redispatch.
+
+\textbf{Arrival prediction and admissibility.} For an eligible pair
+$(r,\tau)$, let $\hat a_{r\tau}^k$ be the predicted completion-arrival time
+obtained by traversing $q_r^k$ and then travelling to $p_\tau$. The predictor
+uses the same route metric as the active configuration: F45 uses its core
+distance estimate, while F58 uses the cached geodesic ETA in
+Eq.~\eqref{eq:f58-eta}. A pair with no route is infeasible. For a finite
+deadline, the hard admission gate is
 \begin{equation}
-  C_{r,\tau} = w_d a_{r,\tau} + w_u U_\tau + w_\pi \pi_\tau^{-1}
-             + w_l L_r + w_f F_r + w_r R_r + \rho_{r,\tau},
+  \hat a_{r\tau}^k>d_\tau+\Delta_s^k
+  \quad\Longrightarrow\quad (r,\tau)\notin\mathcal{F}_k ,
+  \label{eq:admission-gate}
+\end{equation}
+where $\Delta_s^k$ is the adaptive slack and $\mathcal{F}_k$ is the set of
+eligible robot--task pairs. Thus, a task is not assigned to a robot that is
+known to be incompatible, unavailable, unreachable, or predictably late beyond
+the permitted slack.
+
+\textbf{Event-level surrogate.} AHE-MRTA does not claim to solve a global
+multi-objective MRTA optimum. At event $t_k$, the selected paradigm instead
+solves the feasibility-masked surrogate
+\begin{equation}
+  x^k\in\arg\min_{x\in\mathcal{X}_k}
+        \sum_{r\in\mathcal{R}}\sum_{\tau\in\mathcal{T}_k}
+        C_{r\tau}^k x_{r\tau}^k ,
+  \qquad C_{r\tau}^k=\infty\ \text{if }(r,\tau)\notin\mathcal{F}_k .
+  \label{eq:event-surrogate}
+\end{equation}
+The queue order is then set by the active paradigm (Section~\ref{sec:paradigms}).
+This formulation makes the decision rule explicit: it is an online,
+event-level assignment surrogate, not an offline guarantee on the full run.
+
+\textbf{Cost and assignment stability.} For feasible pairs, the cost combines
+estimated arrival time, urgency, priority, queue load, failure risk, navigation state,
+and a non-negative reassignment penalty:
+\begin{equation}
+  C_{r\tau}^k =
+  w_d\hat a_{r\tau}^k + w_u U_\tau^k + w_\pi\pi_\tau^{-1}
+  + w_lL_r^k+w_fF_r^k+w_rR_r^k+\rho_{r\tau}^k .
   \label{eq:cost}
 \end{equation}
-with weight vector $w$ produced by the paradigm selected at $t_k$
-(Section~\ref{sec:method}). The urgency term is held at its base value
-for a task already feasibly queued on its incumbent robot, so an
-approaching deadline pulls \emph{unassigned} or at-risk tasks forward
-without thrashing assignments that are already on time---a churn brake
-complementary to the reassignment penalty $\rho_{r,\tau}$.
+Here $U_\tau^k$ is urgency, $L_r^k$ is relative queue load, $F_r^k$ is the
+method's normalized failure-risk signal, and $R_r^k$ is the navigation-stuck indicator.
+The active EDPS paradigm selects $w$ (Section~\ref{sec:method}). For a
+feasibly queued incumbent task, urgency stays at its base value. Therefore,
+deadline growth pulls unassigned or at-risk tasks forward without repeatedly
+moving a task that is already predicted to finish on time. The penalty
+$\rho_{r\tau}^k$ provides an additional brake on redispatch churn.
 
-\textbf{Objective.} Over the run horizon $[0, T_{\max}]$ we report
-nine metrics: completion rate $\mathrm{CR}$, makespan, average task
-delay, deadline violation rate $\mathrm{DVR}$, failure recovery time,
-Jain workload balance, execution preemptions, task re-dispatch rate,
-and decision latency. CR and
-DVR are primary; the others trace trade-offs. Crucially, delay and DVR
-are computed over \emph{all} requested tasks rather than only completed
-ones (Section~\ref{sec:metrics}): a task left unfinished at $T_{\max}$
-is right-censored at the horizon for delay and counted as a deadline
-miss for DVR. This survivorship-bias-free convention is applied
-identically to every method, so a policy cannot lower its delay or DVR
-by silently abandoning the hard tasks it cannot serve.
+\textbf{Run-level outcomes and timing contract.} The run-level objective is
+to maximize completion and minimize deadline violations without hiding
+unfinished tasks. Let $\mathcal{T}^{\rm done}\subseteq\mathcal{T}^{\rm req}$
+be the tasks completed by $T_{\max}$. Formally,
+\begin{equation}
+  \max\ \mathrm{CR}=
+  \frac{|\mathcal{T}^{\rm done}|}{|\mathcal{T}^{\rm req}|},
+  \qquad
+  \min\ \mathrm{DVR}=
+  \frac{|\{\tau:d_\tau<\infty\ \wedge+  (t_\tau^{\rm c}>d_\tau\ \vee\ \tau\notin\mathcal{T}^{\rm done})\}|}
+  {\max\!\bigl(1,|\{\tau:d_\tau<\infty\}|\bigr)}.
+  \label{eq:primary-outcomes}
+\end{equation}
+The remaining reported quantities---delay, makespan, recovery time, workload
+balance, redispatches, preemptions, decision latency, messages, and
+distance---describe the cost of these outcomes. Delay and DVR are evaluated on
+all requested tasks; an unfinished task is right-censored at $T_{\max}$ for
+delay and is a deadline miss for DVR (Section~\ref{sec:metrics}).
 
-\textbf{Online setting.} Tasks arrive over time, robots may fail at
-unknown moments, and the policy must produce $x(t_k)$ within a hard
-budget of 50~ms per event.
+For the deployed AHE cycle, the decision-time contract is
+$\ell_k=t_k^{\rm publish}-t_k\leq50$~ms. Baseline decision latencies are
+reported as measured comparison outcomes rather than being silently clipped to
+this AHE service target. This distinction preserves the real-time requirement
+while making latency trade-offs visible.
 
 %==============================================================================
 \section{AHE-MRTA: Ecosystem-Driven Paradigm Selection}
 \label{sec:method}
 
-\subsection{Context vector}
+\noindent\textbf{Design principle and event-triggered architecture.}
+\label{sec:method-overview}
+
+AHE-MRTA is not a new global MRTA solver; it is an event-triggered
+\emph{selection hyper-heuristic} operating over a fixed library of
+low-level allocation behaviours \cite{burke2013hyper}. At an allocation
+event, the fleet state, open task pool, and previous queues are observed; the
+selector first updates its context and internal state, then activates one of
+five paradigms, and finally publishes robot-specific queues. Adaptation thus
+occurs in two distinct decision layers: (i) the allocation behaviour to run
+and (ii) the weights assigned to the channels of the common cost function.
+The selector does not run a new inter-robot negotiation protocol; the central
+manager publishes only each robot's own queue.
+
+The persistent selector state comprises a five-dimensional dominance vector
+$D_k\in\mathbb{R}_{\geq0}^{5}$, the last accepted paradigm, and the remaining
+dwell counter for that paradigm. The allocator additionally retains
+in-flight goals, previous task--robot ownership, and an orphan-task pool.
+This second group is not selector memory: it is needed to enforce the
+in-flight lock and reassignment safety rules of Section~\ref{sec:problem}.
+Figure~\ref{fig:mechanism} summarizes the information flow from an event to
+queue publication.
+
+\subsection{Context representation}
 \label{sec:context}
-At each allocation event $t_k$ we compress the joint state of the fleet
-and the open-task set into a four-dimensional context vector
-$c(t_k) \in [0,1]^4$. Let $n = |\mathcal{R}|$ be the fleet size,
-$m = |\mathcal{T}(t_k)|$ the number of open tasks,
-$\mathcal{R}^{\mathrm{av}}$ the set of available robots (alive, not
-navigation-stuck, with queue capacity), and $\mathcal{R}^{\mathrm{f}}$ the
-set of failed or navigation-stuck robots. The components are
+
+At each allocation event $t_k$, the observable system state is compressed
+into the four-dimensional context vector
+\begin{equation}
+  c_k=\big[c_{1,k},c_{2,k},c_{3,k},c_{4,k}\big]^\top\in[0,1]^4 .
+  \label{eq:context-vector}
+\end{equation}
+Let $n=|\mathcal R|$ be the fleet size and
+$m_k=|\mathcal T(t_k)|$ the number of open tasks. Let
+$\mathcal R^{\rm av}_k$ denote alive, non-stuck robots with queue capacity,
+and $\mathcal R^{\rm f}_k$ failed or stuck robots. The components are
 \begin{align}
-  c_1 &= \min\!\big(1,\ m/n\big), &&\text{task density}\label{eq:ctx-start}\\
-  c_2 &= |\mathcal{R}^{\mathrm{av}}| / n, &&\text{robot availability}\\
-  c_3 &= \big|\{\, \tau : d_\tau - t_k \le \Delta_d \,\}\big| / \max(1,m), &&\text{deadline pressure}\\
-  c_4 &= |\mathcal{R}^{\mathrm{f}}| / n, &&\text{failure rate}\label{eq:ctx-end}
+ c_{1,k} &= \min\!\left(1,\frac{m_k}{\max(1,n)}\right),
+ &&\text{task density},\label{eq:ctx-start}\\
+ c_{2,k} &= \frac{|\mathcal R^{\rm av}_k|}{\max(1,n)},
+ &&\text{robot availability},\\
+ c_{3,k} &= \frac{\left|\left\{\tau\in\mathcal T(t_k):
+                d_\tau-t_k\leq\Delta_d\right\}\right|}{\max(1,m_k)},
+ &&\text{deadline pressure},\\
+ c_{4,k} &= \frac{|\mathcal R^{\rm f}_k|}{\max(1,n)},
+ &&\text{failure rate}\label{eq:ctx-end}
 \end{align}
-with deadline horizon $\Delta_d = 60$~s. Each dimension is a
-signal that a distinct family of allocators is built to exploit:
-$c_1,c_2$ encode the demand/supply balance of load-aware
-allocation~\cite{khamis2015multi}; $c_3$ is the temporal slack used by
-deadline-constrained allocation~\cite{tariq2023deadline}; and $c_4$
-measures the disturbance that fault-tolerant allocation must
-absorb~\cite{santos2021resilient}. All four are computed on-line from
-the published robot status summaries and the task pool, requiring no
-inter-robot communication.
+Here, $\Delta_d=60$~s. Tasks with an infinite deadline do not enter the
+$c_{3,k}$ count. The first two signals describe demand--supply balance, the
+third the fraction of tasks with shrinking time slack, and the last the
+capacity loss requiring recovery. They are computed from the task pool and
+already published robot-status summaries; EDPS therefore adds no inter-robot
+communication burden.
+
+Each paradigm $i\in\{1,\ldots,5\}$ has a designer-defined context prototype
+$V_i\in[0,1]^4$. The prototypes are not learned class centres; they are fixed,
+interpretable priors on which signal combination supports the associated
+behaviour. Compatibility with the current context is
+\begin{equation}
+ v_{i,k}=\frac{V_i^\top c_k}{\|V_i\|_2\,\|c_k\|_2}
+ \quad\text{and}\quad \mathbf v_k=[v_{1,k},\ldots,v_{5,k}]^\top,
+ \label{eq:context-compatibility}
+\end{equation}
+with zero compatibility if either vector has zero norm. Table~
+\ref{tab:hormones-proto} gives the prototypes.
 
 \input{table/proto_vectors.tex}
 
-\subsection{Dominance dynamics}
-The dominance vector $D(t) \in \mathbb{R}^5_{\geq 0}$ encodes the
-current ecosystem state. Each paradigm $i$ has a fixed \emph{context prototype}
-$V_i \in [0,1]^4$ (Table~\ref{tab:hormones-proto}); the compatibility score
-$v_i(t_k) = \cos(V_i, c(t_k))$ measures how well the current context matches
-paradigm $i$'s effective regime. Two sparse matrices govern lateral interactions:
-the \emph{cooperation matrix} $A$ (2~nonzero entries) and the
-\emph{suppression matrix} $S$ (1~nonzero entry) implement winner-reinforce
-and winner-suppress dynamics (Table~\ref{tab:as-matrices}). The update
-is
+\subsection{Dominance update and cost weights}
+\label{sec:dominance}
+
+The dominance vector is initialized uniformly and kept on the probability
+simplex at every event: $D_0=\frac15\mathbf1$, $D_k\succeq0$, and
+$\|D_k\|_1=1$. Let $N^{\rm c}_k$ and $N^{\rm f}_k$ be, respectively, the
+numbers of completed and failed tasks between events $k$ and $k+1$. The
+compatibility-scaled performance feedback and failure support are
 \begin{equation}
-\begin{split}
-  D(t_{k+1}) &= \mathrm{normalize}\!\left(\mathrm{clip}_{[0,1]}\!\Big(
-      \alpha\,D(t_k) + \eta\,A\,D(t_k) - \lambda\,S\,D(t_k) \right. \\
-      &\qquad \left.
-      + \beta\,\mathbf{p}(t_k) + \gamma\,\mathbf{v}(t_k) + \delta\,\mathbf{b}(t_k)
-      \Big)\right),
-\end{split}
-  \label{eq:dominance}
+  \mathbf p_k=g_k\mathbf v_k,\qquad
+  g_k=\frac{N^{\rm c}_k-N^{\rm f}_k}
+            {\max(1,N^{\rm c}_k+N^{\rm f}_k)},\qquad
+  \mathbf b_k=c_{4,k}\,[-0.3,0,0,0.4,0.6]^\top .
+  \label{eq:dominance-inputs}
 \end{equation}
-with $\alpha{=}0.65$ (momentum), $\eta{=}\lambda{=}0.12$ (cooperation/suppression
-weights), $\beta{=}0.40$ (performance), $\gamma{=}0.20$ (compatibility),
-$\delta{=}0.20$ (failure-recovery boost). Here $\mathbf{p}(t_k)$ is the
-per-hormone performance-feedback vector
-$(\mathrm{CR}_k - \mathrm{FR}_k)\cdot \mathbf{v}(t_k)$ (completion minus
-failure rate, scaled by compatibility); $\mathbf{v}(t_k) = (v_i)_{i=1}^5$ is the
-compatibility vector; and $\mathbf{b}(t_k)$ is a sparse failure-recovery boost
-that spikes H\_RECOV and H\_STAB when robot failures are detected.
-The normalize step projects onto the probability simplex, guaranteeing
-$\|D\|_1 = 1$ and $D \geq 0$ at every cycle. The $\eta A D - \lambda S D$
-terms make Eq.~\eqref{eq:dominance} a winner-reinforce / winner-suppress
-competition of Lotka--Volterra type, a population dynamic shown to be an
-effective coordination primitive for multi-robot
-systems~\cite{peng2023competition}. Read as a selection rule over a fixed
-portfolio of low-level allocation heuristics, the update instantiates a
-\emph{hyper-heuristic}~\cite{burke2013hyper}: the ecosystem does not solve
-the assignment itself but chooses, online and per event, which classical
-solver should.
+Thus, a failure supports H\_RECOV and H\_STAB while reducing the dominance
+of the purely spatial behaviour. The cooperation matrix $A$ and suppression
+matrix $S$ are sparse. $A_{ij}>0$ means that paradigm $j$ supports paradigm
+$i$; $S_{ij}>0$ means that $j$ suppresses $i$. Their nonzero entries are
+reported in Table~\ref{tab:as-matrices}.
 
-\paragraph{Weight generation.} The dominance vector sets the cost weights of
-Eq.~\eqref{eq:cost} through a fixed heuristic-to-weight matrix
-$M\in\mathbb{R}^{7\times5}$ and a low-temperature softmax, blended with a base
-weight $w_0$:
+The update is
 \begin{equation}
-  w_{\mathrm{eco}}(t_k)=\mathrm{softmax}\!\big(M D(t_k),\,T_w\big),\quad
-  w(t_k)=(1-\beta_e)\,w_0+\beta_e\,w_{\mathrm{eco}}(t_k),
-  \label{eq:weights}
+\begin{aligned}
+ D_{k+1}=\operatorname{Proj}_{\Delta^4}\!\Big(&
+ \operatorname{clip}_{[0,1]}\big[\alpha D_k+\eta A D_k-\lambda S D_k\\
+ &{}+\beta\mathbf p_k+\gamma\mathbf v_k+\delta\mathbf b_k\big]\Big),
+\end{aligned}
+\label{eq:dominance}
 \end{equation}
-with $T_w{=}0.3$ and blend $\beta_e{=}0.7$; under failure ($c_4{>}0$) the blend
-shifts toward a recovery profile $w_{\mathrm r}$ by
-$\theta{=}\min(0.8,\,0.5{+}0.6\,c_4)$. Of the seven implementation weight
-channels, the six of Eq.~\eqref{eq:cost} are live; the seventh (a
-battery-slack weight) is provably inert---the physical stack carries no
-battery model, so its cost term is identically zero, and ablating it in
-the idealized plane is a no-op---and enters only the softmax
-normalization. This is the \emph{only} channel through
-which the Lotka--Volterra state influences a decision when no override fires.
-
-\paragraph{Cost shaping.} Two non-linear terms sharpen
-Eq.~\eqref{eq:cost} for deadlines. A \emph{hard feasibility gate} rejects a
-pair whose projected arrival $a_{r,\tau}$ exceeds the deadline beyond an
-adaptive slack $\Delta_s$,
-$\;a_{r,\tau}>d_\tau+\Delta_s\Rightarrow C_{r,\tau}{=}\infty$; and an
-\emph{urgency escalation} inflates the temporal term once a task passes a
-fraction $U_0{=}0.7$ of its deadline budget,
-$\hat U_\tau = U_\tau\big(1+\zeta\,e^2\big)$ with
-$e=(U_\tau-U_0)/(1-U_0)$, so at-risk \emph{unassigned} tasks are pulled
-forward while on-time incumbents are exempt (a churn brake).
-
-\subsection{F58: Geodesic ETA and epsilon-bounded load repair}
-\label{sec:f58}
-The Euclidean distance of the F45 core can under-estimate true route time
-on an obstacle-rich map. F58-P0 uses the same \texttt{obstacle\_map.pgm}
-map as Gazebo and a 0.55~m inflated occupancy mask. Let $d_G$ denote the
-shortest-path length found by sparse Dijkstra on the eight-connected
-free-cell graph and cached over start/goal cells. With robot $r$'s current
-queue $Q_r=(q_1,\ldots,q_k)$, the arrival estimate for candidate $\tau$ is
-\begin{equation}
- a_{r,\tau}=t_k+\frac{d_G(p_r,p_{q_1})+
- \sum_{i=1}^{k-1}d_G(p_{q_i},p_{q_{i+1}})+d_G(p_{q_k},p_\tau)}{v_r}
- +\sum_{i=1}^{k}(s_{q_i}+h),
- \label{eq:f58-eta}
-\end{equation}
-where with an empty queue the sum contains only $d_G(p_r,p_\tau)$. If no
-path exists the pair is infeasible. The hard deadline gate, the rescue
-decision, the F27 reassignment margin, and the paradigm costs therefore
-all share one route metric.
-
-F58-P1 performs a bounded move search only over new tasks after EDPS
-produces the primary plan $x^0$. Let $B_r(x)$ be the sum of the active
-robot's realised travel plus its committed route and service load. The
-repair solves
-\begin{equation}
- \min_x\;\max_{r\in\mathcal R^{\rm av}} B_r(x)
- \quad\text{s.t.}\quad
- M(x)\le M(x^0),\quad D_G(x)\le(1+\epsilon)D_G(x^0),
- \label{eq:f58-repair}
-\end{equation}
-where $M$ is the predicted number of deadline misses, $D_G$ the total
-geodesic distance, and $\epsilon=0.02$. Ties are broken by the predicted
-active-robot Jain index, load range, and distance, in that order; no
-incumbent or currently executing Nav2 goal is cancelled for fairness. A
-final safety pass enforces single ownership per task and keeps a healthy
-in-flight task locked to its current owner. F58 changes neither the
-hormones nor the paradigm library; it only adds the shared cost oracle
-and the safe post-EDPS repair.
-
-F58-P1R adds two guards that make the repair compatible with physical
-execution. \emph{Terminal activation}: the repair opens only once the
-number of remaining active tasks falls to three times the number of
-healthy robots; mid-campaign moves disturb queue stability under Nav2,
-while end-of-tail imbalance becomes visible only in this phase.
-\emph{Nav2-feedback remaining-makespan guard}: the
-\texttt{navigation\_effort} measurement already published by the robot
-interface (remaining distance along the global path, consistent with the
-Nav2 \texttt{NavigateToPose} feedback contract) replaces the static
-lattice query for the task currently being executed, and no fairness move
-may increase the fleet's maximum estimated remaining finish time. The
-envelope of Eq.~\eqref{eq:f58-repair} is thus additionally constrained by
-a makespan bound derived from real execution state.
+where $\operatorname{Proj}_{\Delta^4}$ normalizes the vector onto the
+five-element probability simplex. The rule combines interaction-inspired
+winner-reinforcement and competitor-suppression terms with short-horizon
+performance and context compatibility \cite{peng2023competition}. It is not
+an online learned model and does not provide an optimality guarantee; all
+matrices and coefficients are fixed.
 
 \input{table/as_matrices.tex}
 
-\subsection{Dispatch}
-The dispatcher first checks two hard context overrides (failure rate $>0.05$
-forces H\_RECOV; deadline pressure $>0.5$ forces H\_TEMP); if neither triggers,
-it selects the paradigm
-$p^*(t_k) = \arg\max_i D_i(t_k)$
-and runs the corresponding mechanism (Table~\ref{tab:hormones}). Paradigm
-\texttt{H\_TEMP} is the default fallback when the dominance is uninformative
-(entropy near maximum). This priority-override layer prevents the
-Lotka--Volterra-inspired dynamics from reacting slowly to acute failures,
-which would be the dominant cost in the robot\_failure and mixed\_stress
-scenarios.
+\paragraph{Weight generation.} EDPS also produces the seven weights of the
+common cost function. The channels correspond, in order, to travel time,
+priority, battery risk, queue load, failure risk, deadline urgency, and
+reassignment/recovery cost. The fixed paradigm--weight map is
+\begin{equation}
+M=\begin{bmatrix}
+0.9&0.1&0.1&0.3&0.3\\
+0.1&0.9&0.5&0.5&0.1\\
+0.1&0.1&0.1&0.3&0.3\\
+0.1&0.1&0.1&0.1&0.3\\
+0.1&0.1&0.1&0.9&0.9\\
+0.1&0.5&0.9&0.1&0.1\\
+0.1&0.1&0.1&0.3&0.9
+\end{bmatrix}.
+\label{eq:weight-map}
+\end{equation}
+Accordingly,
+\begin{equation}
+  w^{\rm eco}_k=\operatorname{softmax}\!\left(\frac{MD_k}{T_w}\right),
+  \qquad w_k=0.3w_0+0.7w^{\rm eco}_k,
+  \label{eq:weights}
+\end{equation}
+where $T_w=0.3$. When recovery mode is active, $w_k$ is additionally blended
+toward $w_{\rm rec}$ with
+$\theta_k=\min(0.80,0.50+0.60c_{4,k})$. If deadline pressure exceeds $0.5$
+and recovery mode is inactive, the urgency channel is multiplied by $1.5$.
+These weights are the context-dependent part of the common cost in
+Section~\ref{sec:problem}. The Gazebo execution stack has no battery model,
+so the battery cost component is zero; its channel nevertheless remains in
+the softmax vector.
 
-\paragraph{Work conservation.} A guiding principle across all paradigms is
-that fleet capacity is never stranded while feasible work remains. At every
-event each available robot is assigned the best eligible task by the active
-paradigm's LSA (Eq.~\eqref{eq:lsa}), and the recovery paradigm
-(\texttt{orphan\_first}) re-dispatches tasks orphaned by a robot failure or
-a navigation abort, so a disturbance costs at most a re-attempt rather than
-a permanently lost task. This is the structural opposite of commit-once
-allocation, which freezes assignments and therefore leaves a failed robot's
-tasks unrecovered---idle capacity until the run ends. As
-Section~\ref{sec:results-sim} shows, this work-conserving recovery is the
-mechanism behind AHE-MRTA's resilience margin: the commit-once baseline
-loses $24.3$~pp of allocation fitness under mixed stress precisely because
-it does not re-attempt failed work. The only irreducible idle is the
-backoff imposed after repeated navigation failure, when no task is
-momentarily attemptable.
+\paragraph{Feasibility and stability.} Every paradigm applies the hard
+admission gate of Eq.~\eqref{eq:admission-gate} and the single-owner and
+in-flight constraints. For unassigned or at-risk tasks that have consumed
+more than $0.7$ of their deadline budget, the urgency penalty is increased
+nonlinearly. A task expected to finish on time with its incumbent owner is
+exempt. Changing a previous owner requires at least a $10\%$ improvement in
+estimated arrival; orphan and rescue tasks are exempt from this margin rule.
+These safeguards prevent event-triggered replanning from becoming gratuitous
+task migration.
+
+\subsection{F58 configuration: geodesic ETA and bounded load repair}
+\label{sec:f58}
+
+F58 is an optional cost-oracle and post-processing configuration on top of
+the F45 core; it changes neither the EDPS selector nor the paradigm library.
+F45 uses Euclidean travel distance. F58-P0 uses cached geodesic distance
+$d_G$ on the 0.55~m-inflated occupancy mask of the
+\texttt{obstacle\_map.pgm} shared with Gazebo, using an eight-connected
+free-cell graph. A pair is infeasible if no route exists. For robot $r$ with
+ordered queue $Q_r=(q_1,\ldots,q_j)$, the route-profile ETA for candidate
+$\tau$ is
+\begin{equation}
+\hat a_{r\tau,k}=t_k+
+\frac{d_G(p_r,p_{q_1})+
+\sum_{\ell=1}^{j-1}d_G(p_{q_\ell},p_{q_{\ell+1}})+
+d_G(p_{q_j},p_\tau)}{v_r}
++\sum_{\ell=1}^{j}(s_{q_\ell}+h),
+\label{eq:f58-eta}
+\end{equation}
+which reduces to $d_G(p_r,p_\tau)$ for an empty queue. Here,
+$s_{q_\ell}$ is service time and $h$ is the fixed allowance for queued
+navigation. The same route metric is used by the admission gate, paradigm
+costs, and repair.
+
+After the primary plan $x^0$ is produced, F58-P1 considers local candidates
+that change the robot only for newly assigned tasks. It therefore never
+cancels an executing Nav2 goal. Let $M(x)$ be the predicted number of
+deadline misses, $D_G(x)$ total geodesic distance, $J(x)$ the projected
+active-robot Jain index, $B_r(x)$ accumulated and committed productive load,
+and $F(x)$ the maximum predicted remaining completion time. The admissible
+candidate set is
+\begin{equation}
+\begin{aligned}
+\mathcal N(x^0)=\big\{x:\;&M(x)\leq M(x^0),\quad
+D_G(x)\leq(1+\epsilon)D_G(x^0),\\
+&J(x)\geq J(x^0),\quad
+\max_rB_r(x)\leq\max_rB_r(x^0),\\
+&F(x)\leq F(x^0)\big\},\qquad \epsilon=0.10 .
+\end{aligned}
+\label{eq:f58-repair}
+\end{equation}
+Within this set, candidates are ranked by first increasing $J(x)$ and then,
+in order, decreasing maximum load, load range, and total distance. Repair is
+enabled only in the terminal phase, when the remaining active-task count is at
+most three times the healthy-robot count. For an executing first task, $F(x)$
+can use Nav2's published remaining-path length instead of a static grid query.
+These guards prevent F58 from accepting a visually more balanced reassignment
+that increases deadline misses, route cost, or remaining makespan.
+
+The F45--F58 comparison tests the effect of map-aware ETA and bounded repair;
+it does not independently test the causal effect of the EDPS selector. This
+distinction is maintained in the interpretation of the results.
+
+\subsection{Paradigm dispatch and dwell hysteresis}
+\label{sec:dispatch}
+
+Acute conditions do not wait for the dominance update to respond. The raw
+choice $\tilde p_k$ follows the priority order
+\begin{equation}
+\tilde p_k=
+\begin{cases}
+\mathrm{H\_RECOV}, & c_{4,k}>0.05,\\
+\mathrm{H\_TEMP}, & c_{4,k}\leq0.05\ \wedge\ c_{3,k}>0.50,\\
+\arg\max_i D_{i,k}, & \text{otherwise}.
+\end{cases}
+\label{eq:dispatch}
+\end{equation}
+Thus, recovery has priority when an event contains both failure and deadline
+pressure. H\_TEMP is the fallback if $D_k$ is absent or its component range
+is below $10^{-4}$, i.e., if the state is not discriminative.
+
+Because the raw choice can switch rapidly, a change other than H\_RECOV is
+held for four allocation events. More specifically, if
+$\tilde p_k\ne p_{k-1}$ while the dwell counter is positive, the dispatcher
+returns $p_k=p_{k-1}$ and decrements the counter. Once a change is accepted,
+the counter is reset to $\rho=4$. H\_RECOV bypasses this hold, so a detected
+failure does not defer the recovery pass to the next event. This mechanism
+retains override reactivity while limiting ping-pong switching in normal
+regimes.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\textwidth]{fig1.drawio.png}
-  \caption{The Ecosystem-Driven Paradigm Selection mechanism. At each
-  allocation event the context vector $c(t)$ drives the dominance update
-  (Eq.~\ref{eq:dominance}) through the fixed cooperation/suppression
-  matrices $A,S$; the dominant hormone $p^*=\arg\max_i D_i$ selects one of
-  five allocation paradigms, which the AHE allocator runs to publish
-  per-robot task queues.}
+  \caption{Ecosystem-Driven Paradigm Selection. Context $c_k$ updates the
+  dominance state; failure/deadline overrides and dwell hysteresis select the
+  active paradigm. The selected paradigm and cost weights produce
+  robot-specific queues through feasibility-masked assignment.}
   \label{fig:mechanism}
 \end{figure}
 
-\input{table/hormones.tex}
-
 \subsection{Paradigm library}
 \label{sec:paradigms}
-The five paradigms share one primitive and differ only in how they
-shape its inputs. Given a feasibility-masked cost matrix $C^{(p)}$, each
-paradigm $p$ solves a linear sum assignment (LSA)
+The five behaviours share the same feasible set and cost infrastructure;
+they differ in task-processing order, cost shaping, and treatment of
+incumbent ownership. Given a feasibility-masked cost matrix $C^{(p)}_k$, the
+common assignment kernel is
 \begin{equation}
-  x^{(p)} = \arg\min_{x \in \mathcal{X}}
-            \sum_{r \in \mathcal{R}} \sum_{\tau \in \mathcal{T}(t_k)}
-            C^{(p)}_{r,\tau}\, x_{r,\tau},
+  x^{(p)}_k\in\arg\min_{x\in\mathcal X_k}
+  \sum_{r\in\mathcal R}\sum_{\tau\in\mathcal T(t_k)}
+  C^{(p)}_{r\tau,k}\,x_{r\tau}.
   \label{eq:lsa}
 \end{equation}
-where $\mathcal{X}$ enforces the per-robot queue cap
-$\sum_\tau x_{r,\tau} \le Q$, the single-assignment constraint
-$\sum_r x_{r,\tau} \le 1$, and capability feasibility; infeasible pairs
-are masked with $C^{(p)}_{r,\tau} = \infty$. Writing $C_{r,\tau}$ for the
-base cost of Eq.~\eqref{eq:cost}, the paradigms instantiate $C^{(p)}$ and
-the queue ordering as follows.
+For an infeasible robot--task pair, $C^{(p)}_{r\tau,k}=\infty$. In the
+implementation, linear sum assignment (LSA) is repeated across task tiers or
+processing phases. Equation~\eqref{eq:lsa} is therefore the surrogate for
+one assignment pass, not a claim of global optimality for the entire run.
+
+\input{table/hormones.tex}
+
 \begin{itemize}
-  \item \emph{spatial\_greedy} (H\_SPATIAL): $C^{(p)}_{r,\tau}=T^{\mathrm{trav}}_{r,\tau}$,
-        travel time only, assigned greedily to the nearest feasible robot
-        --- the distance-minimising rule of metric
-        MRTA~\cite{khamis2015multi,dutta2019task}.
-  \item \emph{priority\_first} (H\_CRIT): tasks are partitioned into
-        criticality tiers $\pi_\tau{=}3{>}2{>}1$ and Eq.~\eqref{eq:lsa} is
-        solved tier-by-tier, so critical tasks claim robots first, as in
-        tiered auction/consensus assignment~\cite{choi2009consensus,zhang2023auction}.
-  \item \emph{edf\_strict} (H\_TEMP, default): tasks are ordered by
-        earliest deadline $d_\tau$ and inserted under a hard feasibility
-        gate ($\text{arrival}>d_\tau\Rightarrow C^{(p)}=\infty$); this is
-        the bipartite realisation of earliest-deadline-first scheduling
-        for deadline-constrained allocation~\cite{tariq2023deadline,tang2023contextaware}.
-        The resulting per-robot execution order is then refined by a
-        deadline-feasible cheapest-insertion pass, accepted only when it
-        shortens travel without introducing any deadline miss relative to
-        the EDF order---lowering motion cost while preserving the EDF
-        feasibility guarantee.
-  \item \emph{commit\_once} (H\_STAB): incumbent assignments are frozen
-        (a task already on $r$'s queue keeps an unbeatable sticky bonus),
-        eliminating reassignment churn as in self-adaptive commit-once
-        evolution~\cite{rostam2024selfadaptive}.
-  \item \emph{orphan\_first} (H\_RECOV): tasks orphaned by a failed or
-        stuck robot are assigned on a dedicated rescue pass before all
-        others, the recovery-prioritising rule of resilient
-        MRTA~\cite{santos2021resilient,dutta2019task}.
+  \item \textbf{H\_SPATIAL / \emph{spatial\_greedy}:} Tasks are processed
+  in deadline order and assigned to the eligible robot with the smallest
+  expected arrival time. This follows the nearest-feasible rule used in
+  metric MRTA \cite{khamis2015multi,dutta2019task}.
+
+  \item \textbf{H\_CRIT / \emph{priority\_first}:} Tasks are partitioned
+  into priority tiers $\pi_\tau=3,2,1$. LSA is applied first to the most
+  critical tier and then to lower tiers, so critical tasks claim capacity
+  first. The design follows the tiered allocation idea in priority-aware
+  auction and consensus strategies \cite{choi2009consensus,zhang2023auction}.
+
+  \item \textbf{H\_TEMP / \emph{edf\_strict}:} The default temporal
+  behaviour processes tasks in increasing $d_\tau$ order and applies the
+  hard deadline gate. The implementation uses a fast pass for near-deadline
+  tasks, a recovery pass for any current orphans, and an LSA pass for the
+  remaining tasks. Queue order may be improved by cheapest-insertion
+  candidates that preserve deadline feasibility. The behaviour applies EDF to
+  deadline-constrained MRTA \cite{tariq2023deadline,tang2023contextaware}.
+
+  \item \textbf{H\_STAB / \emph{commit\_once}:} Tasks with a previous owner
+  that remains eligible are kept with that owner. Only new tasks receive a
+  single-pass allocation. This lowers reassignment churn but limits
+  flexibility after a failure, making the stability trade-off explicit
+  \cite{rostam2024selfadaptive}.
+
+  \item \textbf{H\_RECOV / \emph{orphan\_first}:} Tasks left by failed,
+  stuck, or navigation-aborted robots are first redistributed among healthy
+  robots through LSA; remaining tasks then receive temporal allocation.
+  Recovery therefore obtains a dedicated decision pass before new work
+  \cite{santos2021resilient,dutta2019task}.
 \end{itemize}
-The paradigms are independent (no shared state across switches); the only
-persistent state is $D(t)$. The LSA primitive in Eq.~\eqref{eq:lsa} is
-cubic in $\max(n,m)$ in the worst case; the paradigm selection itself
-resolves in sub-millisecond time, while the geodesic-ETA fairness repair
-raises the deployed decision latency to the 16--35~ms reported in
-Section~\ref{sec:results-gazebo}---still well within the real-time
-budget at every evaluated scale.
 
 \subsection{Algorithm}
+\label{sec:ahe-loop}
+
+Algorithm~\ref{alg:ahe} gives the execution order at one EDPS event. A task
+arrival, robot failure, deadline alarm, or replanning timer triggers the
+cycle. Only queues are published at the end: $D_k$, $A$, $S$, $V$, and the
+full cost matrix remain at the manager node.
+
 \begin{algorithm}[t]
 \caption{AHE-MRTA Event Cycle}
 \label{alg:ahe}
 \begin{algorithmic}[1]
-\REQUIRE robots $\mathcal{R}$, open tasks $\mathcal{T}(t_k)$, state
-$D(t_k)$, fixed $A, S, V$, hyperparameters $\alpha,\eta,\lambda,\beta,\gamma,\delta$
-\STATE $c \gets \textsc{ContextVector}(\mathcal{R}, \mathcal{T}(t_k))$
-        \hfill \COMMENT{4 signals, eq.\ $c_1$--$c_4$}
-\STATE $\mathbf{v} \gets (\cos(V_i, c))_{i=1}^5$;
-        $\;\mathbf{p} \gets (\mathrm{CR}_k-\mathrm{FR}_k)\cdot\mathbf{v}$;
-        $\;\mathbf{b} \gets \textsc{FailureBoost}(\mathcal{R})$
-\STATE $D \gets \mathrm{normalize}\!\big(\mathrm{clip}_{[0,1]}\!\big(
-        \alpha D + \eta A D - \lambda S D + \beta\mathbf{p} + \gamma\mathbf{v} + \delta\mathbf{b}\big)\big)$
-\STATE $p^* \gets \textsc{ContextOverride}(c)$ \textbf{ if triggered, else } $\arg\max_i D_i$
-\STATE $x \gets \textsc{Paradigm}_{p^*}(\mathcal{R}, \mathcal{T}(t_k))$
-  \hfill \COMMENT{Table~\ref{tab:hormones}}
-\STATE $x \gets \textsc{EpsilonLoadRepair}(x,d_G,\epsilon)$
-  \hfill \COMMENT{Eq.~\ref{eq:f58-repair}; P1R terminal gate}
-\STATE $x \gets \textsc{SingleOwnerAndInFlightLock}(x)$
-\STATE \textbf{publish} per-robot task queues from $x$
-\STATE \textbf{return} $D, x$
+\REQUIRE $\mathcal R$, $\mathcal T(t_k)$, previous queues, $D_k$,
+         $p_{k-1}$, dwell counter $h_k$; fixed $A,S,V,M$
+\STATE $c_k\gets\textsc{ContextVector}(\mathcal R,\mathcal T(t_k))$
+\STATE Update the feasibility mask, orphan pool, and in-flight locks
+\STATE $\mathbf v_k\gets(\cos(V_i,c_k))_{i=1}^{5}$;
+       $\mathbf p_k,\mathbf b_k\gets\textsc{PerformanceAndFailureSupport}()$
+\STATE $D_{k+1}\gets\textsc{UpdateDominance}(D_k,\mathbf v_k,
+       \mathbf p_k,\mathbf b_k,A,S)$ \hfill \COMMENT{Eq.~\eqref{eq:dominance}}
+\STATE $w_k\gets\textsc{GenerateWeights}(D_{k+1},c_k,M)$
+       \hfill \COMMENT{Eq.~\eqref{eq:weights}}
+\STATE $\tilde p_k\gets\textsc{RawChoice}(c_k,D_{k+1})$
+       \hfill \COMMENT{Eq.~\eqref{eq:dispatch}}
+\STATE $(p_k,h_{k+1})\gets\textsc{ApplyDwell}(\tilde p_k,p_{k-1},h_k)$
+\STATE $x_k\gets\textsc{Paradigm}_{p_k}(\mathcal R,\mathcal T(t_k),w_k)$
+       \hfill \COMMENT{Table~\ref{tab:hormones}}
+\IF{F58 repair is enabled}
+  \STATE $x_k\gets\textsc{EpsilonLoadRepair}(x_k,d_G,\epsilon)$
+\ENDIF
+\STATE $x_k\gets\textsc{SingleOwnerAndInFlightLock}(x_k)$
+\STATE Publish robot-specific queues and store $(D_{k+1},p_k,h_{k+1})$
 \end{algorithmic}
 \end{algorithm}
 
 \subsection{Configuration}
-The hormone--paradigm map (Table~\ref{tab:hormones}), the $A/S$ matrices
-(Table~\ref{tab:as-matrices}), the context prototype $V$, and all scalar
-hyperparameters ($\alpha{=}0.65$, $\eta{=}\lambda{=}0.12$, $\beta{=}0.40$,
-$\gamma{=}0.20$, $\delta{=}0.20$, softmax temperature $T{=}0.3$) are set
-once and held fixed across all scenarios and scales. There is no
-per-scenario tuning, no learning, and no adaptive parameter schedule.
-The scalar weights were fixed at round, interpretable values---momentum
-$\alpha$ above the feedback gain $\beta$ for stability, equal and small
-cooperation/suppression ($\eta{=}\lambda$), and a moderate recovery boost
-$\delta$---rather than searched per metric; because the deterministic
-overrides dominate the acute regimes, the allocation outcomes are
-insensitive to these values within the ranges we examined (a single-step
-$\pm$ change leaves all reported fitness gaps inside one standard
-deviation), which is itself a robustness property rather than a tuned fit.
+\label{sec:method-config}
+
+The same selector settings are used at all scenarios and fleet scales:
+$\alpha=0.65$, $\beta=0.40$, $\gamma=0.20$,
+$\eta=\lambda=0.12$, $\delta=0.20$, $T_w=0.3$, and $\rho=4$.
+The base cost profile is
+$w_0=(0.34,0.10,0.04,0.16,0.10,0.22,0.04)$ and the recovery profile is
+$w_{\rm rec}=(0.55,0.04,0.03,0.22,0.09,0.05,0.02)$, in the channel order
+given under \emph{Weight generation}. These quantities are neither relearned
+nor retuned by event or scenario.
+
+Context, dominance, override, and dwell updates have fixed dimension and are
+therefore $O(1)$. The dominant cost is the LSA call within a paradigm, whose
+worst-case complexity for one square assignment pass is
+$O\!\left(\max(n,m_k)^3\right)$. When F58 is enabled, the geodesic cache
+reduces repeated goal queries and load repair is restricted to a fixed number
+of local move passes. Computational load thus stems from the selected paradigm
+and optional route/repair layers rather than from the selector itself.
 
 %==============================================================================
 \section{Experimental Design}
 \label{sec:setup}
 
 \subsection{Hardware Platform}
-All experiments run on an Intel Core i7-11800H workstation
-(8~physical cores / 16~threads, base clock 2.30~GHz, 16~GiB DDR4
-RAM, Ubuntu\,24.04~LTS, Linux\,6.17). The machine carries an
-NVIDIA RTX\,3050\,Mobile GPU for which no proprietary driver is
-available; all rendering (Gazebo and RViz) therefore uses Mesa
-llvmpipe software rasterisation (\texttt{LIBGL\_ALWAYS\_SOFTWARE=1},
-\texttt{GALLIUM\_DRIVER=llvmpipe}). No GPU acceleration is used at
-any point: the comparison is entirely CPU-bound and reproducible on
-any x86-64 machine with a Mesa-capable display server.
+All experiments run on an Intel Core i7-11800H workstation with eight physical
+cores, 16 threads, a 2.30~GHz base clock, 16~GiB DDR4 RAM, Ubuntu,24.04~LTS,
+and Linux,6.17. The machine has an NVIDIA RTX,3050,Mobile GPU, but no
+proprietary driver is installed. Gazebo and RViz therefore use Mesa llvmpipe
+software rasterization (\texttt{LIBGL\_ALWAYS\_SOFTWARE=1},
+\texttt{GALLIUM\_DRIVER=llvmpipe}). No experiment uses GPU acceleration. The
+reported comparison is CPU-bound.
 
 \subsection{Software Stack}
-We run \textbf{Gazebo Harmonic} (gz-sim\,8.x)~\cite{koenig2004design}
-with \textbf{ROS\,2 Jazzy} (Dec\,2024)~\cite{macenski2022ros2} and
-\textbf{Nav2}~\cite{macenski2023nav2}. Robots are \textbf{TurtleBot3
-Waffle Pi}~\cite{robotis2023turtlebot3}, each carrying a 360-ray 2-D
-lidar (5~Hz, 8~m range) and an IMU (200~Hz), and driven through a
-differential-drive controller ($v_{\max}{=}0.26$~m/s,
-$\omega_{\max}{=}1.82$~rad/s).
+We use \textbf{Gazebo Harmonic} (gz-sim\,8.x)~\cite{koenig2004design},
+\textbf{ROS\,2 Jazzy}~\cite{macenski2022ros2}, and \textbf{Nav2}
+\cite{macenski2023nav2}. Each robot is a \textbf{TurtleBot3 Waffle Pi}
+\cite{robotis2023turtlebot3} with a 360-ray two-dimensional lidar (5~Hz,
+8~m range), a 200~Hz IMU, and a differential-drive controller
+($v_{\max}{=}0.26$~m/s, $\omega_{\max}{=}1.82$~rad/s).
 
-Every robot runs a fully independent Nav2 lifecycle inside its own
-ROS\,2 namespace: global/local costmaps with 0.40~m inflation radius,
-a Regulated Pure-Pursuit controller, and a behavior-tree navigator.
-Localization is provided as \emph{ground truth}---a static
-\texttt{map}$\to$\texttt{odom} transform anchored at each robot's spawn
-pose---so that the benchmark isolates allocation quality from
-localization error (a deliberate experimental control;
-Sec.~\ref{sec:limitations}). A \texttt{ros\_gz\_bridge} relays
+Each robot has an independent Nav2 lifecycle in its own ROS\,2 namespace.
+The stack uses global and local costmaps with a 0.40~m inflation radius, a
+Regulated Pure-Pursuit controller, and a behavior-tree navigator. We provide
+ground-truth localization through a static \texttt{map}$\to$\texttt{odom}
+transform anchored at each robot's spawn pose. This is an experimental control:
+it isolates allocation effects from localization error
+(Section~\ref{sec:limitations}). The \texttt{ros\_gz\_bridge} relays
 \texttt{/scan}, \texttt{/odom}, \texttt{/cmd\_vel}, \texttt{/joint\_states},
-and TF per robot; a TF-relay node aggregates per-robot namespaced TF
-trees into the global frame for visualization. All Nav2 parameters
-are identical across methods.
+and TF for each robot. A TF relay aggregates the namespaced trees for
+visualization. All methods use identical Nav2 parameters.
 
 \subsection{Inspection Arena}
-The arena is a $20{\times}20$~m walled indoor mock-up. Two horizontal
-divider walls with a $1.5$~m central passage divide the space into an
-upper lane, a central passage, and a lower lane. Two rows of square
+The arena is a $20{\times}20$~m walled indoor mock-up. Two horizontal walls
+with a 1.5~m central passage create upper and lower lanes. Two rows of square
 pillars ($0.5{\times}0.5$~m) line the side walls, and four cylindrical
-obstacles ($r{=}0.35$~m) are placed in the lanes. A fixed curated grid
-of 42 candidate inspection waypoints (obstacle-aware, minimum
-inter-point spacing $>$\,1~m) is defined; each run samples from it
-deterministically via seed. Figure~\ref{fig:scenario-maps} shows the
-arena layout together with scale-dependent spawn positions and sampled
+obstacles ($r{=}0.35$~m) lie in the lanes. We define 42 fixed inspection
+waypoints. The waypoints are obstacle-aware and at least 1~m apart. Each run
+samples its task set deterministically from this grid using its seed.
+Figure~\ref{fig:scenario-maps} shows the arena, spawn positions, and sampled
 task sets.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\textwidth]{fig2.drawio.png}
-  \caption{System architecture. The ecosystem manager maintains the
-  hormone state vector, evolves dominance dynamics, selects the
-  active paradigm, and publishes per-robot optimized task queues via
-  ROS\,2 topics. Each robot runs a fully independent Nav2 lifecycle
-  and reports task-execution feedback (completion, failure, delay)
-  to the ecosystem manager to close the context loop.}
+  \caption{System architecture. The ecosystem manager updates the hormone
+  state, selects the active paradigm, and publishes one task queue per robot
+  through ROS\,2 topics. Each robot runs its own Nav2 lifecycle and returns
+  completion, failure, and delay feedback to the manager.}
   \label{fig:system}
 \end{figure}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\textwidth]{scenario_maps_panel.png}
-  {\small\caption{Scale-dependent arena configurations.
-  \textbf{Left:} 3r/15t -- robots form a central column; moderate density.
-  \textbf{Centre:} 5r/25t -- two spawn columns; proportionally higher density.
-  \textbf{Right:} 10r/50t -- all five columns active; high-density task set.
-  Blue stars: task goals (seed\,1); coloured triangles: robot spawns.
-  All waypoints are obstacle-free.}}
+  {\small\caption{Arena configurations by scale. \textbf{Left:} 3r/15t,
+  with robots in one central column. \textbf{Centre:} 5r/25t, with two spawn
+  columns. \textbf{Right:} 10r/50t, with all five columns active. Blue stars
+  are task goals for seed\,1; colored triangles are robot spawns. All
+  waypoints are obstacle-free.}}
   \label{fig:scenario-maps}
 \end{figure}
 
 \subsection{Evaluation Scales}
 \label{sec:scales}
-Three Gazebo scales are evaluated (Table~\ref{tab:scales}), each
-running 60 experiments ($4$~methods $\times$ $3$~scenarios
-$\times$ $5$~seeds):
+We evaluate three Gazebo scales (Table~\ref{tab:scales}). Each scale contains
+60 runs: $4$ methods $\times$ $3$ scenarios $\times$ $5$ seeds.
 
 \input{table/scales.tex}
 
-Nav2 lifecycle race conditions at $N{>}3$ (the per-robot
-$\texttt{odom}\!\rightarrow\!\texttt{base\_link}$ transform arriving
-after costmap activation) were resolved by staggering the
-lifecycle-manager activation by $6i$~s for robot $i$ at 3r/5r and
-$20i$~s at 10r, plus an identity-transform broadcast at node startup.
-All three scales use the same arena, obstacle map, and Nav2
-parameters.
+At $N{>}3$, some per-robot \texttt{odom}$\!\rightarrow\!$\texttt{base\_link}
+transforms arrived after costmap activation. We resolve this lifecycle race by
+delaying activation for robot $i$ by $6i$~s at 3r and 5r and by $20i$~s at
+10r. We also broadcast an identity transform at node startup. All scales use
+the same arena, obstacle map, and Nav2 parameters.
 
 \subsection{Stress Scenarios}
 \label{sec:scenarios}
-Three scenarios stress different allocation aspects:
+The three scenarios stress different allocation requirements:
 
 \begin{itemize}
-  \item \textbf{robot\_failure:} one randomly chosen robot is
-        hard-failed at $t = 0.3 \cdot T_{\max}$ (at 3r: $t{\approx}165$~s).
-        Its assigned tasks become orphaned and must be redistributed.
-        Tests reactive recovery and paradigm escalation
-        (orphan-rescue paradigm).
+  \item \textbf{robot\_failure:} one randomly chosen robot fails at
+        $t=0.3\cdot T_{\max}$ (approximately 165~s at 3r). Its assigned tasks
+        become orphaned and must be redistributed. This scenario tests
+        reactive recovery and the orphan-rescue behaviour.
 
-  \item \textbf{mixed\_stress:} tasks carry heterogeneous priorities
-        (low / medium / high, ratio 1:2:2) and one robot fails at
-        $t = 0.2 \cdot T_{\max}$. Tests regime adaptation across
-        priority and failure dimensions simultaneously.
+  \item \textbf{mixed\_stress:} tasks have low, medium, and high priorities
+        in a 1:2:2 ratio. One robot fails at $t=0.2\cdot T_{\max}$. This
+        scenario tests adaptation to priority and failure at the same time.
 
-  \item \textbf{deadline\_pressure:} every task shares a tight
-        deadline $d_\tau = t_{\mathrm{spawn}} + 90$~s (roughly
-        1.3$\times$ the Nav2 travel time to the farthest waypoint
-        at $v_{\max}$). Tests urgency-driven bipartite dispatch and
-        EDF ordering.
+  \item \textbf{deadline\_pressure:} every task has deadline
+        $d_\tau=t_{\mathrm{spawn}}+90$~s. This is about 1.3 times the Nav2
+        travel time to the farthest waypoint at $v_{\max}$. The scenario tests
+        urgency-driven dispatch and EDF ordering.
 \end{itemize}
 
 \subsection{Baseline Methods}
 \label{sec:baselines}
-We compare against one representative of each dominant online-MRTA
-solver family; together they span the
-design space that AHE-MRTA switches over. All baselines are
-re-implemented in our framework from the original papers and share an
-identical event loop, ROS\,2 topic interface, cost inputs (arrival
-time, urgency, priority, load), per-robot queue cap $Q$, and Nav2
-client; \emph{only the allocation policy differs}. Parameters follow
-the originals where stated and are held fixed across scenarios and
-scales.
+We compare one representative from each online-MRTA solver family represented
+in the AHE-MRTA library. We re-implement all baselines in the same framework.
+They share the event loop, ROS\,2 topic interface, cost inputs (arrival time,
+urgency, priority, and load), per-robot queue cap $Q$, and Nav2 client. Only
+the allocation policy differs. We use source-paper parameters where they are
+specified and keep them fixed across scenarios and scales.
 
 \paragraph{BiG-MRTA~\cite{ghassemi2022bigmrta} (bipartite matching).}
-Builds a bipartite robot--task graph with a fixed multi-criteria edge
-cost and solves a maximum-weight matching at each event; assignments
-are \emph{committed once} and never revisited. Included as the
-deterministic, lowest-latency single-paradigm solver. Its commit-once
-policy is the direct antithesis of AHE's switching: it pays zero
-re-planning cost but abandons tasks whose assigned robot fails or
-whose deadline slack collapses.
+BiG-MRTA builds a bipartite robot--task graph with fixed multi-criteria edge
+cost and solves a maximum-weight matching at each event. It commits an
+assignment once and never revisits it. It is the deterministic,
+lowest-latency, single-paradigm comparison. Its policy avoids replanning but
+does not recover a task when its assigned robot fails or time slack collapses.
 
 \paragraph{RoSTAM-EA~\cite{rostam2024selfadaptive} (evolutionary).}
-Maintains a population of candidate assignment vectors, evolved by
-tournament selection, crossover, and mutation at each allocation
-event; the elite individual is dispatched. Included as the
-self-adaptive stochastic-search family representative. It explores a
-richer assignment space than one-shot matching but at two to three
-orders of magnitude higher decision latency, and its re-optimisation
-is blind to \emph{why} the context changed.
+RoSTAM-EA evolves candidate assignment vectors with tournament selection,
+crossover, and mutation at each allocation event. It dispatches the elite
+individual. It represents self-adaptive stochastic search. It searches a
+richer assignment space than one-shot matching, but its decision latency is
+two to three orders of magnitude higher. Its reoptimization does not encode
+the cause of a context change.
 
 \paragraph{Consensus-DBTA~\cite{mahato2023consensus} (consensus bundle).}
-Robots iteratively bid on task bundles and resolve conflicts through a
-consensus phase, producing highly stable assignments (allocation
-instability ${\approx}\,0$). Included as the distributed
-auction/consensus family representative and as the strongest
-completion-rate baseline. Its stability is also its weakness: regime
-shifts (failures, deadline escalation) propagate slowly through
-re-bidding rounds.
+Consensus-DBTA has robots iteratively bid on task bundles and resolve
+conflicts in a consensus phase. It produces highly stable assignments
+(allocation instability ${\approx}\,0$). It represents distributed
+auction/consensus and is the strongest completion-rate baseline in this
+study. Re-bidding rounds can delay response to a failure or rapid deadline
+escalation.
 
-No ablation variants (e.g., single-paradigm AHE without switching) are
-included; the five paradigms themselves are classical primitives, so
-the single-paradigm behaviour is approximated by the corresponding
-baseline family (Table~\ref{tab:hormones}).
+We do not include a single-paradigm AHE ablation. Each paradigm is a classical
+primitive, and the corresponding baseline family approximates its
+single-paradigm behavior (Table~\ref{tab:hormones}).
+
+\paragraph{Comparison scope.} The baseline implementations share the event
+loop, interfaces, and cost inputs, but they are operational re-implementations
+rather than independent replications of every source system. The four-method
+benchmark therefore compares these implementations in one common stack. It is
+not a universal ranking of the cited algorithms. A controlled Gazebo EDPS
+ablation against fixed paradigms is required before any closed-loop difference
+can be attributed to the selector itself (Section~\ref{sec:limitations}).
 
 \subsection{Metrics}
 \label{sec:metrics}
-We report eight metrics: completion rate (CR), deadline violation
-rate (DVR), makespan, average task delay, workload balance (Jain),
-task re-dispatch rate, decision latency, and
-message count. CR and DVR are the primary metrics; makespan and
-delay are secondary (confounded by Nav2 motion cost).
+We report completion rate (CR), deadline violation rate (DVR), makespan,
+all-task average delay, failure-recovery time, workload balance (Jain), task
+redispatch rate, execution preemptions, decision latency, and message count.
+We also report total travel distance where applicable. CR and DVR are the
+primary outcomes. The other metrics describe efficiency and trade-offs.
 
-\paragraph{Survivorship-bias-free delay and DVR.} Reporting delay and
-DVR over only the \emph{completed} subset of tasks rewards a policy for
-abandoning work: the hard tasks a method drops---typically the distant,
-late, or contended ones---never enter its denominator, so its average
-delay and violation rate are computed over an easier, self-selected
-sample. We remove this bias by scoring delay and DVR over \emph{all}
-requested tasks. Let $\mathcal{T}$ be the requested set, $t^{\mathrm{a}}_\tau$
-the activation and $t^{\mathrm{c}}_\tau$ the completion time of task
-$\tau$, and $T_{\max}$ the run horizon. The per-task delay is
-right-censored at the horizon for unfinished tasks,
+\paragraph{All-task delay and DVR.} A completed-only average rewards a policy
+that abandons difficult work. Distant, late, or contended tasks then disappear
+from the denominator. We avoid this survivorship bias by scoring delay and
+DVR over \emph{all} requested tasks. Let $\mathcal{T}$ be the requested set,
+$t^{\mathrm{a}}_\tau$ the activation time, $t^{\mathrm{c}}_\tau$ the
+completion time, and $T_{\max}$ the run horizon. Delay for an unfinished task
+is right-censored at the horizon:
 \begin{equation}
   \delta_\tau =
   \begin{cases}
@@ -721,8 +792,8 @@ right-censored at the horizon for unfinished tasks,
   \overline{\delta} = \frac{1}{|\mathcal{T}|}\sum_{\tau\in\mathcal{T}}\delta_\tau ,
   \label{eq:fairdelay}
 \end{equation}
-and a deadline-bearing task counts as a violation if it completes late
-\emph{or} is never completed,
+Any task with a deadline is a violation if it completes late \emph{or} never
+completes:
 \begin{equation}
   \mathrm{DVR} =
   \frac{\bigl|\{\tau : d_\tau<\infty \;\wedge\; (t^{\mathrm{c}}_\tau>d_\tau \;\vee\;
@@ -730,166 +801,145 @@ and a deadline-bearing task counts as a violation if it completes late
        {\bigl|\{\tau : d_\tau<\infty\}\bigr|}.
   \label{eq:fairdvr}
 \end{equation}
-The convention is applied identically to every method and at every
-scale. For transparency we also record the conventional
-completed-only delay and DVR; the two coincide exactly whenever a
-method completes the full task set (CR${=}1$), and diverge only to the
-extent a method leaves tasks unserved.
+We apply this convention to every method and scale. We also record
+completed-only delay and DVR. The two definitions coincide when CR${=}1$ and
+differ only when a method leaves tasks unserved.
 
 \subsection{Statistical Analysis}
-Pairwise two-sided Mann--Whitney U tests with Bonferroni correction
-applied within each scenario family (3~baselines $\times$ 7~metrics =
-21~tests per scenario). At the 5-robot primary scale each cell has
-$n{=}5$ runs (one density, 25 tasks); the
-3-robot scale pools three densities ($n{=}15$) and the 10-robot scale
-has $n{=}5$. We additionally report Cliff's $\delta$ as an effect-size
-estimate robust to small cells. The 100-seed allocation-only simulator
-serves as algorithmic validation and the stochastic navigation proxy as
-a resilience test; Gazebo results serve as validation under realistic
-execution noise.
+We use pairwise, two-sided Mann--Whitney U tests with Bonferroni correction
+within each scenario family (three baselines $\times$ seven metrics, or 21
+tests per scenario). At the primary 5-robot scale, each cell has $n{=}5$ runs
+(one density and 25 tasks). The 3-robot scale pools three densities
+($n{=}15$), and the 10-robot scale has $n{=}5$. We also report Cliff's
+$\delta$, an effect-size estimate suited to small cells. The four-method
+Gazebo cells with $n{=}5$ are descriptive. We make no cross-method
+superiority claim from an uncorrected or non-significant comparison. The
+500-seed allocation-only campaign and stochastic navigation proxy are
+separate controlled tests. The matched F45--F58 Gazebo study uses paired tests
+with 10 common seeds per scenario and scale. Gazebo results describe behavior
+in the evaluated execution stack, not general deployment performance.
 
 %==============================================================================
 \section{Allocation-Fitness Results (Nav2-Independent)}
 \label{sec:results-sim}
 
-In the true Nav2-independent plane every navigation attempt succeeds
-deterministically; injected fleet robot failures are retained as part of
-the scenario. The robot pose advances to the goal after every completed
-task, and both the allocator and the execution oracle use the geodesic
-path length on the same inflated occupancy map. The metrics therefore
-measure allocation, sequencing, and post-failure redistribution quality
-rather than local-planner/recovery noise.
+In the Nav2-independent setting, every navigation attempt succeeds
+deterministically. Injected robot failures remain part of the scenario. After
+each completed task, the robot pose advances to the goal. The allocator and
+execution oracle both use geodesic distance on the same inflated occupancy
+map. The metrics therefore measure allocation, queue order, and recovery
+after failure, rather than local-planner noise.
 
 \input{table/f58_allocation.tex}
 
-In Table~\ref{tab:f58-allocation}, F58 preserves
+Table~\ref{tab:f58-allocation} shows that F58 has
 $\mathrm{fitness}{=}\mathrm{CR}{=}1$ and $\mathrm{DVR}{=}0$ in all nine
 scale--scenario cells. The active-robot Jain index is 0.988--0.992 at 3r,
-0.984--0.986 at 5r, and 0.982--0.990 at 10r; decision latency never
-exceeds 0.201~ms even in the largest 10r/50t cell. Before the
-single-assignment safety pass, six seeds of the 10r development runs
-allowed a task to execute on two robots simultaneously, inflating CR to
-1.02. After the in-flight owner lock was added, these seeds and the full
-10r campaign were re-run, and CR is exactly 1.000 in every F58 cell.
+0.984--0.986 at 5r, and 0.982--0.990 at 10r. Decision latency is at most
+0.201~ms, including the largest 10r/50t cell. During development, six 10r
+seeds allowed one task to execute on two robots, which inflated CR to 1.02.
+After adding the in-flight owner lock, we reran those seeds and the complete
+10r campaign. CR is then exactly 1.000 in every F58 cell.
 
-To isolate F58's contribution from F45 we ran a seed-matched campaign in
-four cells: 3r/15t, 5r/25t, and 10r/50t (seeds 1--100), plus a fresh
-5r/25t holdout range never used to select the repair threshold (seeds
-501--600). Both arms share the same geodesic execution oracle; the
-statistics are paired Wilcoxon tests with Holm correction over 10 metric
-families per cell$\times$scenario. Of 120 tests, 51 are significant after
-Holm and 39 of them favour F58: mean delay drops by 0.97--2.25~s, total
-geodesic distance by 10--28~m, and churn decreases, while the
-active-robot Jain index rises by $+0.005$--$0.029$ and the all-robot Jain
-index by $+0.006$--$0.027$ (strongest at 10r/50t; Cliff's $\Delta$ up to
-0.92). The remaining 12 significant differences are all in decision
-latency ($+0.02$--$0.12$~ms, far below the 50~ms budget). Outside latency
-no metric regresses significantly; CR, fitness, and DVR sit at the
-ceiling and are bit-identical in both arms in all four cells. The 3r cell
-is neutral---the terminal repair rarely triggers in a small fleet---and
-the holdout range preserves the main-cell gains.
-This shows that F58's allocation-only gain comes not from completing more
-tasks but from producing the same complete coverage with shorter geodesic
-routes and delays.
+To separate F58 from F45, we ran a seed-matched campaign in four cells:
+3r/15t, 5r/25t, and 10r/50t with seeds 1--100, plus a 5r/25t holdout with
+seeds 501--600. The holdout was not used to choose the repair threshold.
+Both arms use the same geodesic execution oracle. We use paired Wilcoxon
+tests with Holm correction over 10 metric families per cell--scenario. Of
+120 tests, 51 are significant after Holm correction; 39 favor F58. Mean
+delay decreases by 0.97--2.25~s, total geodesic distance by 10--28~m, and
+churn decreases. The active-robot Jain index increases by
+$+0.005$--$0.029$ and the all-robot index by $+0.006$--$0.027$. The largest
+effect is at 10r/50t, where Cliff's $\Delta$ reaches 0.92. The remaining 12
+significant differences are decision-latency increases of 0.02--0.12~ms,
+which are far below the 50~ms budget. No metric other than latency regresses
+significantly. CR, fitness, and DVR are at the ceiling and bit-identical in
+both arms. The 3r cell is neutral because terminal repair rarely activates in
+a small fleet. The holdout preserves the main-cell pattern. F58 therefore
+does not complete more tasks in this setting; it produces the same complete
+coverage with shorter geodesic routes and delays.
 
 \subsection{Separate resilience experiment: navigation-proxy}
-The preceding experiment line simplifies navigation \emph{cost} to a
-fixed-time edge in the robot--task graph while keeping navigation
-\emph{outcomes} position-dependent and stochastic (a goal can fail and
-must be re-attempted). This condition is not purely Nav2-independent; it
-is retained below as a \emph{navigation proxy} that compares only how
-resiliently the methods recover after failed goals. Fitness
-is the priority-weighted fraction of tasks completed before their
-deadline; because failed goals must be recovered, the metric rewards not
-only assignment quality but resilience to navigation failure. With 100
-seeds per scenario, AHE-MRTA attains optimal allocation fitness in the
-perfect-navigation plane and, under the stochastic proxy, is a
-statistical co-leader with Consensus-DBTA (no pairwise difference
-significant, paired Wilcoxon $p{\geq}0.14$), so the residual proxy
-spread is a navigation-resilience effect, not an allocation-quality
-gap (Table~\ref{tab:fitness}):
+The next experiment simplifies navigation \emph{cost} to a fixed-time edge in
+the robot--task graph. Navigation \emph{outcomes} remain position-dependent
+and stochastic: a goal can fail and must be reattempted. This is not a
+Nav2-independent setting. We use it as a navigation proxy for recovery after
+failed goals. Fitness is the priority-weighted fraction of tasks completed
+before their deadline. Because a failed goal must be recovered, fitness
+captures both allocation and resilience to navigation failure. With 500 seeds
+per scenario, AHE-MRTA reaches optimal allocation fitness in the
+perfect-navigation setting. In the stochastic proxy it is statistically tied
+with Consensus-DBTA under robot failure and deadline pressure (paired
+Wilcoxon $p\geq0.391$) and holds a small significant edge under mixed stress
+($+0.007$, $p{=}0.042$). The residual spread is
+therefore not an allocation-quality gap (Table~\ref{tab:fitness}):
 
 \input{table/fitness.tex}
 
-At the primary scale (25 tasks / 5 robots, Table~\ref{tab:fitness},
-left), the perfect-navigation plane isolates allocation quality:
-AHE-MRTA attains the optimum ($1.000$ priority-weighted on-time
-completion) in every scenario, matched only by Consensus-DBTA and
-strictly above BiG-MRTA under \textit{mixed\_stress} ($0.973$) and
-RoSTAM-EA under \textit{robot\_failure} and \textit{mixed\_stress}
-($0.860$). AHE-MRTA is therefore never behind on allocation quality; its
-optimum is shared with Consensus-DBTA rather than exceeded, because
-$1.000$ is the ceiling. Once navigation is made stochastic
-(Table~\ref{tab:fitness}, right), the ceiling drops for every method as
-Nav2 goal failure---not allocation---becomes binding, and AHE-MRTA and
-Consensus-DBTA converge to statistical indistinguishability (numerically
-separated by at most $0.010$; no pairwise difference significant, paired
-Wilcoxon $p{=}0.14$/$0.59$/$0.76$ under robot failure / mixed stress /
-deadline pressure; all inside one standard deviation $\approx0.09$). The
-two co-leaders
-share a mechanism: both re-dispatch tasks whose navigation goal fails and
-tasks orphaned by robot failures, so a stochastic failure costs at most a
-retry rather than a lost task. The commit-once BiG-MRTA fixes assignments
-and never re-routes, so it cannot recover these tasks and trails by
-$25.9$~pp under \textit{mixed\_stress} (0.221) and $4.1$~pp under
-\textit{robot\_failure} (0.447); this gap is \emph{recovery resilience},
-not assignment quality. Under \textit{deadline\_pressure} the three
-recovery-capable methods fall within a $0.3$~pp band: once deadlines bind
-tightly, late retries earn no on-time credit, so the recovery advantage
-compresses (Sec.~\ref{sec:deadline-tie}). On the physical Nav2 stack the same
-resilience reappears as AHE's highest completion rate against BiG-MRTA
-($+27.2$~pp under deadline pressure), where BiG abandons overdue tasks
-(Sec.~\ref{sec:results-gazebo}, Table~\ref{tab:deadline}).
-Figure~\ref{fig:fitness} summarizes:
+At the primary scale (25 tasks and 5 robots; Table~\ref{tab:fitness}, left),
+AHE-MRTA and Consensus-DBTA both reach the ceiling of 1.000
+priority-weighted on-time completion in every scenario. This does not
+establish an allocation advantage. When navigation becomes stochastic
+(Table~\ref{tab:fitness}, right), all methods fall below the ceiling. AHE-MRTA
+and Consensus-DBTA remain co-leaders. The largest
+AHE--Consensus mean gap is 0.007, under mixed stress and in AHE-MRTA's
+favour; paired Wilcoxon $p$ values are 0.391, 0.042,
+and 0.532 for robot failure, mixed stress, and deadline pressure. Both implementations
+redispatch failed or orphaned tasks, which is consistent with their similar
+proxy outcomes. The proxy neither isolates that mechanism nor predicts a
+closed-loop Nav2 result. We report Gazebo point estimates separately in
+Section~\ref{sec:results-gazebo}. Figure~\ref{fig:fitness} summarizes the
+proxy results.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.66\textwidth]{fitness_comparison.png}
-  \caption{Stochastic navigation-proxy allocation fitness (mean $\pm$ std), 100
-  seeds per cell, 5 robots / 25 tasks (primary scale). AHE-MRTA and
-  Consensus-DBTA are statistical co-leaders, indistinguishable in every
-  scenario (largest gap $0.010$; no pairwise difference significant,
-  paired Wilcoxon $p{\geq}0.14$)---all well inside one
-  standard deviation ($\approx0.09$).}
+  \caption{Navigation-proxy fitness at the primary 5-robot/25-task scale
+  (500 seeds per cell). Boxes show the interquartile range, centre lines the
+  median, diamonds the mean, and whiskers 1.5 interquartile ranges; points are
+  outliers. AHE-MRTA and Consensus-DBTA are statistically tied under robot
+  failure and deadline pressure (paired Wilcoxon $p\geq0.391$); the only
+  significant separation is mixed stress, where AHE-MRTA leads by 0.007
+  ($p{=}0.042$).}
   \label{fig:fitness}
 \end{figure}
 
 \subsection{Navigation-proxy scalability (F45)}
 \label{sec:scalability}
 
-Scalability is established in two complementary ways. In the
-navigation-proxy plane, the simplified arrival model lets us
-sweep robot counts cheaply at high statistical power. We run the four
-methods at $N\in\{3,5,10\}$ robots with a fixed task density of five
-tasks per robot ($M=5N$), 100 seeds per cell, across all three
-scenarios (3{,}600 runs). Physical Gazebo validation is carried out at
-the 3r, 5r, and 10r scales. Table~\ref{tab:scalability} and
-Figure~\ref{fig:scalability} report the results averaged over scenarios.
+We examine scalability in two settings. In the navigation proxy, the
+simplified arrival model permits a high-power sweep over robot count. We run
+four methods at $N\in\{3,5,10\}$ robots, with five tasks per robot
+($M=5N$), 100 seeds per cell, and all three scenarios. This produces 3,600
+runs. We also evaluate closed-loop Gazebo execution at 3r, 5r, and 10r.
+Table~\ref{tab:scalability} and Figure~\ref{fig:scalability} average proxy
+results over scenarios.
 
 \input{table/scalability.tex}
 
-AHE-MRTA retains the highest fitness at every scale (Table~\ref{tab:scalability}).
-At $N=3$ it ties Consensus-DBTA (0.436 vs 0.436); at $N=5$ the
-margin is $+0.1$~pp over Consensus-DBTA and $+10.5$~pp over BiG-MRTA,
-and at $N=10$ it leads by $+0.2$~pp over Consensus-DBTA. In this
-allocation-only harness AHE's decision latency stays at ${\approx}0.55$~ms
-even at ten robots---nearly four orders of magnitude under the 5\,s
-replanning period and ${\approx}12\times$ faster than RoSTAM-EA
-($6.8$~ms at $N=10$)---while on the full Nav2 stack the same geodesic
-repair costs the 16--35~ms reported in Section~\ref{sec:results-gazebo}.
+AHE-MRTA is tied or numerically highest on proxy fitness at every scale
+(Table~\ref{tab:scalability}). At $N=3$, it ties Consensus-DBTA
+(0.436 versus 0.436). The AHE--Consensus differences are only $+0.1$~pp at
+$N=5$ and $+0.2$~pp at $N=10$. We do not interpret these small differences
+as a performance separation. Proxy decision latency remains about 0.55~ms at
+10 robots. This is nearly four orders of magnitude below the 5~s replanning
+period and about 12 times lower than RoSTAM-EA (6.8~ms at $N=10$). In the
+closed-loop Nav2 stack, geodesic repair instead gives the 16--35~ms latency
+reported in Section~\ref{sec:results-gazebo}.
 
-Physical Gazebo validation at the 5- and 10-robot scales (60
-experiments each) confirms these simulator trends on the full Nav2
-stack; the per-scenario results are reported together with the
-3-robot benchmark in Section~\ref{sec:results-gazebo}.
+The 5- and 10-robot Gazebo studies contain 60 runs each. Their per-scenario
+results appear with the 3-robot benchmark in Section~\ref{sec:results-gazebo}.
+They are not a direct confirmation of the proxy because they use a different
+noise model and fewer seeds.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.78\textwidth]{scalability_panel.png}
-  \caption{Scalability versus robot count (stochastic navigation-proxy, 100
-  seeds, mean over the three scenarios): (a)~fitness, (b)~completion
-  rate, (c)~recovery time, (d)~decision latency. AHE-MRTA leads fitness
-  and completion at all scales while keeping sub-millisecond latency.}
+  \caption{Scalability by robot count in the stochastic navigation proxy.
+  Values are means over three scenarios with 100 seeds per cell:
+  (a) fitness, (b) completion rate, (c) recovery time, and (d) decision
+  latency. AHE-MRTA is tied with or numerically close to Consensus-DBTA on
+  fitness; the small proxy differences are not treated as separation.}
   \label{fig:scalability}
 \end{figure}
 
@@ -897,36 +947,27 @@ stack; the per-scenario results are reported together with the
 \section{Gazebo Benchmark Results}
 \label{sec:results-gazebo}
 
-We report the full physical-stack Gazebo benchmark. Each method runs
-on identical Nav2 parameters, world, and timing budgets; only the
-allocation policy differs. Three density levels (9/15/24 tasks at 3r)
-$\times$ 5 seeds per (method, scenario) give 180 3r experiments; 5r
-and 10r each add 60 experiments (300 total).
-Mann--Whitney U with Bonferroni correction across all comparisons.
+We report the closed-loop Gazebo benchmark. Methods use identical Nav2
+parameters, world, and timing budgets; only the allocation policy differs.
+At 3r, three density levels (9, 15, and 24 tasks) with five seeds per
+method--scenario combination give 180 runs. The 5r and 10r studies add 60
+runs each, for 300 runs in total. We use Bonferroni-corrected Mann--Whitney U
+tests as described in Section~\ref{sec:metrics}.
 
-Figure~\ref{fig:setup-paths} shows the experimental setup and a
-representative qualitative result: the pre-built Nav2 occupancy map
-(left) and the actual robot trajectories executed by all four methods
-on the same \textit{mixed\_stress} instance (right, 5 robots / 25
-tasks, seed 1). Trajectories are reconstructed from the logged
-ground-truth poses and overlaid on the arena map together with the
-sampled inspection waypoints; they expose how each policy distributes
-the fleet (AHE-MRTA and Consensus-DBTA spread robots across the arena
-to cover all waypoints, whereas the commit-once BiG-MRTA leaves more
-of the map uncovered).
+Figure~\ref{fig:setup-paths} shows the occupancy map and representative
+trajectories from one \textit{mixed\_stress} instance (5 robots, 25 tasks,
+seed 1). We reconstruct trajectories from logged ground-truth poses and
+overlay them on the arena and sampled waypoints. In this example, AHE-MRTA
+and Consensus-DBTA distribute robots across the arena and cover every
+waypoint. Commit-once BiG-MRTA leaves a larger area uncovered. This is a
+qualitative illustration, not an aggregate comparison.
 
-Figure~\ref{fig:deployment} complements this static-map view with a
-live snapshot of the largest 10-robot configuration, captured mid-run
-under AHE-MRTA on a \textit{dynamic\_task\_arrival} instance. The
-Gazebo Harmonic physics view shows all ten TurtleBot3 robots dispersed
-across the arena toward their assigned waypoints, while the concurrent
-RViz view renders the shared occupancy map overlaid with every robot's
-current Nav2 global plan (one colour per robot) and ground-truth pose.
-The two panels share the same arena geometry and make the per-event,
-work-conserving dispatch directly visible: at any instant the fleet is
-fanned out across both lanes rather than queued behind a single
-corridor, which is how the ecosystem keeps fleet capacity occupied as
-new tasks arrive.
+Figure~\ref{fig:deployment} shows a mid-run snapshot of the 10-robot
+configuration under AHE-MRTA on one \textit{dynamic\_task\_arrival} instance.
+The Gazebo view shows robots travelling to assigned waypoints. The concurrent
+RViz view shows the occupancy map, each robot's Nav2 global plan, and its
+ground-truth pose. The snapshot illustrates work-conserving dispatch across
+both lanes; it is not a quantitative result.
 
 \begin{figure*}[t]
   \centering
@@ -940,19 +981,16 @@ new tasks arrive.
     \includegraphics[width=\linewidth]{grid_r5t25_mixed_stress.png}\\[2pt]
     {\small (b) Executed ground-truth trajectories, four methods}
   \end{minipage}
-  \caption{Experimental setup and qualitative trajectories.
-  \textbf{(a)} The pre-built occupancy map (\texttt{obstacle\_map},
-  20$\times$20~m, 0.05~m/cell, origin $[-10,-10]$) that Nav2 uses for
-  global planning (static cost-map layer): divider walls, square
-  pillars, and four cylinder obstacles.
-  \textbf{(b)} Robot trajectories executed on one \textit{mixed\_stress}
-  instance (5 robots / 25 tasks, seed 1) under all four allocators
-  (AHE-MRTA, Consensus-DBTA, BiG-MRTA, RoSTAM-EA, clockwise from top
-  left). Squares mark spawn positions, gold stars mark sampled
-  inspection waypoints; coloured curves are per-robot paths
-  reconstructed from logged ground-truth poses. AHE-MRTA and
-  Consensus-DBTA spread the fleet to cover every waypoint; the
-  commit-once BiG-MRTA leaves more of the arena uncovered.}
+  \caption{Experimental map and representative trajectories.
+  \textbf{(a)} The static Nav2 occupancy map (\texttt{obstacle\_map}) is
+  $20\times20$~m with 0.05~m cells and origin $[-10,-10]$. It contains divider
+  walls, square pillars, and four cylindrical obstacles.
+  \textbf{(b)} Paths from one \textit{mixed\_stress} run (5 robots, 25 tasks,
+  seed 1) for AHE-MRTA, Consensus-DBTA, BiG-MRTA, and RoSTAM-EA (clockwise from
+  top left). Squares are spawn positions, gold stars are sampled waypoints,
+  and colored curves are paths reconstructed from ground-truth poses. This
+  single-run figure is qualitative; it does not establish an aggregate method
+  ranking.}
   \label{fig:setup-paths}
 \end{figure*}
 
@@ -968,19 +1006,15 @@ new tasks arrive.
     \includegraphics[width=\linewidth]{rviz_10r_example.png}\\[2pt]
     {\small (b) RViz --- map + live Nav2 plans}
   \end{minipage}
-  \caption{Representative live snapshot of the largest (10-robot)
-  deployment executing under AHE-MRTA on a
-  \textit{dynamic\_task\_arrival} instance.
-  \textbf{(a)} Gazebo Harmonic 3-D physics: the ten TurtleBot3
-  Waffle\,Pi robots (blue) dispersed across the $20{\times}20$~m
-  inspection arena---divider walls, square pillars, and cylinder
-  obstacles (orange)---each driving to an assigned inspection waypoint.
-  \textbf{(b)} The concurrent RViz view in the shared map frame: the
-  pre-built occupancy map overlaid with each robot's current Nav2
-  global plan (one colour per robot) and ground-truth pose. The
-  colour-coded plans show the fleet fanned out across both lanes---the
-  visual signature of the ecosystem's per-event, work-conserving
-  dispatch.}
+  \caption{Representative live snapshot of one 10-robot AHE-MRTA run on a
+  \textit{dynamic\_task\_arrival} instance. Both panels are captured from
+  the same paused simulation instant of the same run, so robot positions
+  correspond one-to-one. \textbf{(a)} Gazebo Harmonic (top-down view)
+  shows the ten TurtleBot3 Waffle\,Pi robots travelling in the
+  $20\times20$~m arena. \textbf{(b)} RViz shows the occupancy map, current
+  Nav2 global plan for each robot, and ground-truth-anchored poses. The
+  image illustrates the execution state of one run; it is not comparative
+  evidence.}
   \label{fig:deployment}
 \end{figure}
 
@@ -988,52 +1022,45 @@ new tasks arrive.
 
 \input{table/latex_deadline_table.tex}
 
-\subsection{Matched physical validation of F58}
+\subsection{Matched Gazebo validation of F58}
 \label{sec:f58-gazebo}
 \input{table/f58_gazebo.tex}
 \input{table/f58_gazebo_scales.tex}
 
-AHE-MRTA* denotes the full configuration (P0+P1R) used throughout the
-four-method benchmark; to isolate what its geodesic-ETA fairness repair
-contributes over the F45 core, we ran both configurations as a matched
-core-vs-full ablation from the same source snapshot, on common seeds and
-three scenarios: an initial five-seed wave followed by an independent
-five-seed replication wave (seeds 6--10), pooling to 10 matched seeds
-per scenario (30 F45 + 30 F58 runs). Every run completed 25/25
-tasks; the quality gate detected no TF time jump in any run, and the
-event-integrity audit found no post-completion assignment or resurrection
-of a completed task. The pre-registered promotion gate requires 0.01
-non-inferiority on CR/DVR, no regression in active-robot Jain, a 50~ms
-budget on mean decision latency, and improvement in at least two of
-distance, physical redispatch, delay, and makespan.
+AHE-MRTA* is the full P0+P1R configuration used in the four-method
+benchmark. To measure the added geodesic-ETA and fairness-repair components,
+we compare F58 with F45 in a matched core-versus-full study. Both arms start
+from the same source snapshot and use common seeds in three scenarios. We run
+an initial five-seed wave and an independent replication wave with seeds 6--10.
+The combined study has 10 matched seeds per scenario (30 F45 and 30 F58
+runs). Every run completes 25 of 25 tasks. The quality gate finds no TF time
+jump, and the event audit finds no assignment after completion or resurrection
+of a completed task. The pre-specified promotion gate requires 0.01
+noninferiority in CR and DVR, no reduction in active-robot Jain, mean decision
+latency below 50~ms, and improvement in at least two of distance, Gazebo
+redispatch, delay, and makespan.
 
-Table~\ref{tab:f58-gazebo} shows that the gate passes in all three
-scenarios at $n{=}10$, and the pooled sample now supports paired
-Wilcoxon significance rather than the directional-consistency evidence
-available at $n{=}5$. Under \textit{deadline\_pressure}, F58 keeps CR at
-1.000 while cutting DVR by 10.8 percentage points (0.340$\to$0.232,
-$p{=}0.008$), mean delay by 9.0~s ($p{=}0.004$), total distance by
-20.9~m ($p{=}0.004$), and coordination messages by 3.5 per run
-($p{=}0.008$); the active-robot Jain index rises by $+0.017$
-($p{=}0.031$) and makespan improves by 11.0~s (CI $[0.4, 20.3]$,
-$p{=}0.061$). Under \textit{mixed\_stress}, distance drops by 10.2~m
-($p{=}0.004$), the active-robot Jain index rises by $+0.024$
-($p{=}0.008$), and mean delay falls by 3.2~s ($p{=}0.049$), with DVR,
-makespan, and coordination messages statistically flat. Under
-\textit{robot\_failure}, mean failure-recovery time shortens by 34.0~s
-(CI $[8.2, 58.2]$, $p{=}0.037$) and DVR falls from 0.020 to 0.004;
-delay, distance, and the Jain indices are statistically flat. CR is
-1.000 in every run of all three scenarios, and decision latency stays
-within budget at 17--23~ms (against F45's sub-millisecond latency; the
-price of the geodesic cache plus repair search). The one consistent cost
-beyond latency is the distance-Jain index ($-0.020$ under deadline
-pressure, $p{=}0.006$): the repair improves workload fairness and total
-efficiency at the expense of distance balance. The replication wave
-alone reproduced every direction of gain (deadline-pressure makespan
-was in fact stronger, $-18.4$~s), and the pooled sample shows no other
-statistically supported regression; the Nav2-independent 100-seed
-campaign (Section~\ref{sec:results-sim}) remains the higher-powered
-evidence.
+At the 5r primary scale, the gate passes in all three scenarios
+(Table~\ref{tab:f58-gazebo}). The pooled $n{=}10$ sample supports paired
+Wilcoxon tests, unlike the directional-only evidence at $n{=}5$. Under
+\textit{deadline\_pressure}, F58 keeps CR at 1.000 and reduces DVR by
+10.8 percentage points (0.340 to 0.232, $p{=}0.008$), mean delay by 9.0~s
+($p{=}0.004$), distance by 20.9~m ($p{=}0.004$), and messages by 3.5 per run
+($p{=}0.008$). Active-robot Jain increases by $+0.017$ ($p{=}0.031$), and
+makespan decreases by 11.0~s (CI $[0.4,20.3]$, $p{=}0.061$). Under
+\textit{mixed\_stress}, distance decreases by 10.2~m ($p{=}0.004$),
+active-robot Jain increases by $+0.024$ ($p{=}0.008$), and mean delay falls
+by 3.2~s ($p{=}0.049$). DVR, makespan, and messages are statistically flat.
+Under \textit{robot\_failure}, mean recovery time decreases by 34.0~s
+(CI $[8.2,58.2]$, $p{=}0.037$), and DVR falls from 0.020 to 0.004; delay,
+distance, and Jain indices are statistically flat. CR is 1.000 in every run.
+Decision latency is 17--23~ms, below budget but above F45 because of the
+geodesic cache and repair search. The consistent additional cost is lower
+distance Jain under deadline pressure ($-0.020$, $p{=}0.006$). Thus, the
+repair trades distance balance for workload fairness and total efficiency.
+The replication wave reproduces every gain direction; its deadline-pressure
+makespan decrease is 18.4~s. The allocation-only 500-seed campaign remains
+the higher-powered evidence.
 
 To probe scale robustness we then repeated the same matched protocol at
 the two remaining physical scales---3 robots / 15 tasks and 10 robots /
@@ -1065,118 +1092,88 @@ with fleet size ($-0.009$ at 3r, $p{=}0.037$; $-0.020$ at 5r;
 $-0.052$ at 10r, CI $[-0.103, -0.004]$). CR stays within the 0.01
 non-inferiority band (0.988--1.000) in every cell.
 
-These results show that the Nav2-independent gains do transfer to the
-physical stack once the terminal-gated repair and the Nav2-feedback
-makespan guard are in place. The four-method benchmark of
-Section~\ref{sec:results-gazebo} reports this full configuration as
-AHE-MRTA*; the present matched campaign therefore doubles as a
-\emph{core-vs-full ablation}, isolating what the geodesic-ETA fairness
-repair contributes over the F45 core on identical seeds---the deadline
-and distance gains above are exactly that marginal contribution, and
-they are what lift AHE from the co-leadership of the idealized plane to
-the deadline-pressure lead in the physical benchmark.
+Within this map, common-seed protocol, and Nav2 stack, the matched study
+supports the F58 map-aware ETA and bounded-repair configuration over F45. The
+four-method benchmark reports the full configuration as AHE-MRTA*. This
+core-versus-full ablation tests repair components only. It does not show that
+EDPS causes the descriptive deadline-pressure pattern in the four-method
+benchmark.
 
-\paragraph{Where AHE wins.}
-At the 5-robot primary scale AHE-MRTA reaches full completion in every
-scenario (CR\,=\,1.000), whereas the task-abandoning BiG-MRTA drops to
-0.728 under \textit{deadline\_pressure} and 0.752 under
-\textit{mixed\_stress}. On effective on-time completion
-($\mathrm{CR}{\times}(1{-}\mathrm{DVR})$) AHE-MRTA now leads in all three
-scenarios at the primary scale: \textit{robot\_failure} (0.98 vs
-0.90--0.91 for the baselines), \textit{mixed\_stress} (0.72 vs
-$\leq$0.70), and---most notably---\textit{deadline\_pressure} (0.79 vs
-$\leq$0.66). The deadline lead is where the fairness-guarded
-configuration pays off: its geodesic-ETA repair cuts the deadline
-violation rate to 0.208, against 0.34--0.42 for the recovery-capable
-baselines, so the co-leadership seen in the idealized fitness plane
-(Sec.~\ref{sec:results-sim}) resolves in AHE's favour once the repair
-acts on physical routes. AHE's paradigm
-selection dispatches orphan-rescue and EDF-bipartite primitives that
-keep outstanding tasks reachable; the advantage widens with scale under
-deadline pressure (effective on-time 0.76 vs $\leq$0.52 at 10 robots),
-while under \textit{mixed\_stress} and \textit{robot\_failure} at 10
-robots AHE and the strongest baseline are statistically level
-(Consensus-DBTA 0.65 and BiG-MRTA 0.93 respectively). We therefore read
-the physical result as cautious leadership---AHE leads under deadline
-pressure at both scales and co-leads elsewhere---rather than uniform
-dominance, given the $n{=}5$ per-cell power.
+\paragraph{Descriptive Gazebo patterns.}
+At the primary 5-robot scale, AHE-MRTA completes every task in the reported
+runs (CR\,=\,1.000). BiG-MRTA has lower point estimates under
+\textit{deadline\_pressure} (0.728) and \textit{mixed\_stress} (0.752). The
+full AHE-MRTA* configuration also has the largest reported effective
+on-time-completion point estimates under deadline pressure: 0.79 at 5 robots
+and 0.76 at 10 robots. The largest baseline point estimates are 0.66 and 0.52,
+respectively. These observations are descriptive. The four-method cells have
+$n{=}5$, and no Bonferroni-corrected cross-method comparison supports a
+general ranking.
 
-\paragraph{Where AHE costs.}
-The same aggressiveness modestly raises physically realized cost
-metrics, which are confounded by Nav2 motion (Sec.~\ref{sec:discussion})
-and---at $n{=}5$ per cell---do not survive correction. Under
-\textit{robot\_failure} AHE's average task delay (96~s) is the highest
-among the recovery-capable methods (84--89~s for the others), and its
-failure-recovery time (111~s) is mid-pack: faster than Consensus-DBTA
-(179~s) but slower than RoSTAM-EA (85~s) and the commit-once BiG-MRTA
-(57~s). Under \textit{mixed\_stress} and \textit{deadline\_pressure} the
-abandoning BiG-MRTA instead shows the largest delays (233--267~s),
-because its few completed tasks finish very late, so that comparison is
-not like-for-like. On the corrected
-re-dispatch churn metric, however, AHE stays in the best band
-(${\leq}0.01$ re-dispatches per task with zero execution preemptions),
-comparable to or below the commit-once baselines: the apparent
-``instability'' gap reported by the raw counters was an artifact of
-measuring allocator \emph{invocation cadence} rather than physical
-re-assignments (Sec.~\ref{sec:discussion}). The chief cost is decision
-latency: the geodesic-ETA cache plus fairness repair raises AHE's mean
-decision time to 16--22~ms at 5 robots (26--30~ms at 10), an order of
-magnitude above the sub-millisecond commit-once baselines---the price
-of the physical-route reasoning that produces the deadline gains above,
-and still well inside the real-time allocation budget.
+The matched F45--F58 campaign gives stronger common-seed evidence for the
+map-aware ETA and bounded-repair configuration, including the reported changes
+in deadline violations and route distance. It does not isolate EDPS because
+both arms use the same selector. Similarly, the four-method comparison cannot
+attribute a Gazebo difference to EDPS because methods differ in several
+components. The evaluated full configuration is therefore promising under
+deadline pressure, but a fixed-paradigm/no-override Gazebo ablation is needed
+before assigning the pattern to paradigm switching.
 
-\paragraph{Efficiency.} Table~\ref{tab:efficiency} reports the
-secondary efficiency metrics. AHE-MRTA's decision latency (16--22~ms
-at the primary scale) sits between the sub-millisecond commit-once
-baselines (BiG-MRTA 0.13--0.30~ms; Consensus-DBTA 0.4--2.4~ms) and the
-evolutionary RoSTAM-EA (46--96~ms), and stays within the real-time
-budget at every scale. The consensus baselines
-attain near-perfect workload balance and minimal message counts by
-committing once; AHE trades some of that balance, and its sub-millisecond
-latency, for the adaptivity and deadline compliance quantified above.
+\paragraph{Costs of AHE.}
+Reactive behavior can increase execution costs. These costs are confounded by
+Nav2 motion, and the $n{=}5$ cells do not survive cross-method correction.
+Under \textit{robot\_failure}, AHE's average delay is 96~s, compared with
+84--89~s for the other recovery-capable methods. Its 111~s recovery time is
+lower than Consensus-DBTA's 179~s, but higher than RoSTAM-EA's 85~s and
+commit-once BiG-MRTA's 57~s. Under \textit{mixed\_stress} and
+\textit{deadline\_pressure}, BiG-MRTA has the largest delay (233--267~s)
+because its completed tasks finish very late; this is not a like-for-like
+comparison when it abandons other tasks. On corrected redispatch churn, AHE is
+in the best band: at most 0.01 redispatches per task and zero execution
+preemptions. The earlier apparent instability came from counting allocator
+invocations rather than executed reassignments (Section~\ref{sec:discussion}).
+The main direct cost is decision latency. Geodesic ETA and fairness repair give
+16--22~ms at 5 robots and 26--30~ms at 10 robots. These values exceed the
+sub-millisecond commit-once baselines but remain within the 50~ms budget.
+
+\paragraph{Efficiency.} Table~\ref{tab:efficiency} gives secondary
+efficiency metrics. At the primary scale, AHE-MRTA takes 16--22~ms per
+decision. BiG-MRTA takes 0.13--0.30~ms, Consensus-DBTA 0.4--2.4~ms, and
+RoSTAM-EA 46--96~ms. AHE remains within budget at every scale. Consensus
+methods have nearly perfect workload balance and few messages because they
+commit assignments. AHE trades some of this balance and latency for reactive
+changes and the reported deadline outcomes.
 
 \input{table/latex_efficiency_table.tex}
 
-\paragraph{Effect sizes.} Because small cells limit the power of
-significance tests, we report Cliff's $\delta$
-(Table~\ref{tab:effectsize}; sign normalised so $\delta{>}0$ always
-favours AHE). The pattern matches the mechanism: AHE-MRTA shows large
-\emph{favorable} effects on completion against BiG-MRTA
-($\delta{=}{+}1.00$ under \textit{mixed\_stress} and
-\textit{deadline\_pressure}, ${+}0.60$ under \textit{robot\_failure})
-and---the new signature of the fairness-guarded configuration---on
-deadline compliance across every baseline under
-\textit{deadline\_pressure} (DVR $\delta{=}{+}0.68$ vs BiG-MRTA and
-Cons-DBTA, ${+}1.00$ vs RoSTAM-EA) and under \textit{robot\_failure}
-(${+}0.40$ to ${+}0.80$). The large \emph{unfavorable} effects now
-concentrate on a single metric---recovery time against the commit-once
-BiG-MRTA (RecT $\delta{=}{-}0.84$ under \textit{robot\_failure})---while
-against the reactive Consensus-DBTA recovery is level
-($\delta{=}{+}0.04$). On the corrected re-dispatch churn metric AHE is
-competitive-to-better ($\delta{=}{+}0.40$ vs RoSTAM-EA, ${+}0.20$ vs
-Cons-DBTA under \textit{robot\_failure}). This quantifies the central
-trade-off: AHE wins on completion and deadline compliance, at the cost
-of recovery latency against the task-abandoning baseline and of the
-16--22~ms decision time analysed above.
+\paragraph{Effect sizes.} Small cells limit the power of significance tests,
+so Table~\ref{tab:effectsize} reports Cliff's $\delta$. Its sign is normalized
+so $\delta>0$ favors AHE. Completion effects versus BiG-MRTA are large:
+$+1.00$ under \textit{mixed\_stress} and \textit{deadline\_pressure}, and
+$+0.60$ under \textit{robot\_failure}. Deadline-compliance effects under
+\textit{deadline\_pressure} are $+0.68$ versus BiG-MRTA and Consensus-DBTA,
+and $+1.00$ versus RoSTAM-EA. Under \textit{robot\_failure}, they range from
+$+0.40$ to $+0.80$. The largest unfavorable effect is recovery time versus
+commit-once BiG-MRTA ($-0.84$ under \textit{robot\_failure}). Recovery is
+nearly level versus reactive Consensus-DBTA ($+0.04$). On corrected redispatch
+churn, AHE is comparable or better ($+0.40$ versus RoSTAM-EA and $+0.20$
+versus Consensus-DBTA under \textit{robot\_failure}). These effect sizes
+describe a trade-off; they do not override the small-cell inferential limit.
 
 \input{table/latex_effectsize_table.tex}
 
-\paragraph{Statistical significance.} At the 5-robot primary scale
-($n{=}5$ per cell) no comparison survives Bonferroni correction: with
-$n{=}5$ the smallest achievable two-sided Mann--Whitney $p$
-(${\approx}0.008$) already exceeds the corrected threshold
-($0.05/21{\approx}0.0024$), so the scale is structurally underpowered
-(18 of 63 reach raw $p{<}0.05$). The statistical power lies at the
-3-robot scale ($n{=}15$ per cell), where 14 of 63 comparisons survive
-correction in the same directional pattern; at the 10-robot scale
-($n{=}5$ per cell) again none survive. We
-therefore treat the Gazebo benchmark as \emph{validation under
-realistic execution noise} and rely on the 100-seed allocation-fitness
-comparison (Section~\ref{sec:results-sim}) as the primary hypothesis
-test. The consistent effect-size pattern (Table~\ref{tab:effectsize})
-corroborates the fitness ranking.
+\paragraph{Statistical significance.} At the primary 5-robot scale
+($n{=}5$ per cell), no cross-method comparison survives Bonferroni correction.
+With $n{=}5$, the smallest possible two-sided Mann--Whitney value is about
+0.008, above the corrected threshold of about 0.0024. The scale is therefore
+underpowered; 18 of 63 comparisons reach only raw $p<0.05$. At 3 robots
+($n{=}15$ per cell), 14 of 63 comparisons survive correction in the same
+direction. At 10 robots ($n{=}5$), none survive. We treat the Gazebo benchmark
+as validation under the evaluated execution noise and use the 500-seed
+allocation-fitness study (Section~\ref{sec:results-sim}) as the primary
+hypothesis test. Effect sizes support, but do not replace, this distinction.
 
-\paragraph{Physical validation at 5 and 10 robots.}
+\paragraph{Descriptive Gazebo results at 5 and 10 robots.}
 Figure~\ref{fig:gazebo-10r} shows the 10-robot benchmark
 (Section~\ref{sec:scales}; 60 of 60 experiments completed). AHE-MRTA
 attains the highest---or tied-highest---completion rate in every
@@ -1209,35 +1206,26 @@ scales.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\textwidth]{baseline_comparison_multi_metric.png}
-  \caption{Multi-metric comparison at the primary 5-robot / 25-task scale
-  (Gazebo Harmonic, robot\_failure + mixed\_stress scenarios
-  pooled, $n{=}5$ seeds per cell, mean\,$\pm$\,std): completion rate (CR), tasks
-  completed, average delay, workload balance (Jain), deadline
-  violation rate (DVR), and decision latency (log scale). AHE-MRTA
-  reaches full completion (CR\,=\,1.000) at the lowest deadline
-  violation rate; the consensus baseline matches its completion with
-  marginally lower delay in some cells by committing once, at higher
-  DVR, while BiG-MRTA's low DVR reflects abandoned tasks (lowest CR).
-  AHE-MRTA trades decision latency and some delay for reactive
-  reallocation, which widens its deadline lead at larger scales
-  (Fig.~\ref{fig:gazebo-10r}).}
+  \caption{Multi-metric results at the primary 5-robot/25-task scale
+  (Gazebo Harmonic; \textit{robot\_failure} and \textit{mixed\_stress}
+  pooled; $n{=}5$ seeds per cell; mean $\pm$ standard deviation). Panels show
+  completion rate, tasks completed, average delay, workload balance, deadline
+  violation rate, and log decision latency. These pooled point estimates
+  illustrate trade-offs but do not provide a Bonferroni-corrected method
+  ranking.}
   \label{fig:gazebo-multi}
 \end{figure}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\textwidth]{baseline_comparison_10r.png}
-  \caption{Multi-metric comparison at the 10-robot scale (60
-  experiments: 4 methods $\times$ 3 scenarios $\times$ 5 seeds, all
-  scenarios pooled; decision latency on log scale). AHE-MRTA attains the
-  highest (or tied-highest) completion rate in every scenario
-  (CR\,=\,0.976--0.988) and leads effective on-time completion under
-  deadline pressure ($\approx$0.76 vs $\leq$0.52); the EDF baselines
-  reach comparable CR only at far higher deadline-violation rates
-  (DVR\,=\,0.43--0.50 versus AHE's 0.22 under deadline pressure).
-  AHE's decision latency is 26--30~ms---the geodesic-repair cost, above
-  the sub-millisecond commit-once baselines but well below RoSTAM-EA's
-  52--107~ms at 10 robots.}
+  \caption{Multi-metric results at the 10-robot scale (60 runs: four methods,
+  three scenarios, and five seeds; decision latency on a log scale). The
+  descriptive deadline-pressure point estimate for AHE-MRTA is effective
+  on-time completion of about 0.76, compared with baseline point estimates no
+  larger than 0.52. AHE decision latency is 26--30~ms, above commit-once
+  baselines and below RoSTAM-EA's 52--107~ms. The $n{=}5$ cross-method cells
+  are descriptive and do not establish a corrected ranking.}
   \label{fig:gazebo-10r}
 \end{figure}
 
@@ -1296,58 +1284,53 @@ scales.
 
 \subsection{Why does ideal-fitness not transfer linearly to Gazebo?}
 
-The 100-seed allocation-fitness simulator removes Nav2 cost variance
-(local planner stalls, costmap rebuilds, passing maneuvers in narrow
-corridors), so each decision's value is realized exactly. In Gazebo,
-two effects degrade AHE's advantage:
+The 500-seed allocation-fitness simulator removes Nav2 cost variance, such as
+local-planner stalls, costmap rebuilds, and passing maneuvers in narrow
+corridors. It therefore realizes each decision's value exactly. In Gazebo,
+two execution effects can reduce an allocation advantage:
 
 \begin{enumerate}
-  \item \textbf{Switch cost is realized physically.} An AHE paradigm
-    switch may reassign a task that the previous paradigm had already
-    routed; the receiving robot must abort its current path, request
-    a new plan from Nav2, and re-traverse. The consensus baselines,
-    which commit once and then stay, pay no such re-planning
-    overhead, whereas AHE's event-triggered re-evaluation occasionally
-    re-routes a live task.
-  \item \textbf{Makespan is dominated by physical execution.} Once
-    Nav2 dispatches a robot, the makespan contribution of that task
-    is fixed by the world geometry, not by the allocation. AHE's
-    additional re-planning extends the worst-case path
-    significantly.
+  \item \textbf{Switching has an execution cost.} A paradigm change can
+    reassign a queued task. The new robot must plan and travel to it. A
+    commit-once method avoids this replanning overhead.
+  \item \textbf{Geometry dominates makespan.} After Nav2 dispatches a
+    robot, path length and local motion depend strongly on the map. Extra
+    replanning can increase the longest remaining route.
 \end{enumerate}
 
-The Gazebo data is consistent with this: AHE's CR and DVR (which
-reward correct decisions, not fast execution) match the strongest
-baselines, while makespan and instability (which penalize re-planning)
-trail the static-commit baselines.
+The Gazebo data is consistent with these effects. AHE's CR and DVR point
+estimates are close to the strongest baselines, while metrics sensitive to
+replanning, such as makespan and redispatch, can be less favorable.
 
-\subsection{When does paradigm switching pay off?}
+\subsection{Observed operating patterns and attribution boundary}
 
-The empirical answer from our data:
+The following per-cell patterns describe the evaluated full configuration.
+They are not causal estimates of paradigm switching because no selector-only
+ablation is available:
 
 \begin{itemize}
-  \item \textbf{When deadline compliance matters more than raw
-    coverage.} On \textit{deadline\_pressure}, the consensus and
+  \item \textbf{Deadline-compliance pattern.} On \textit{deadline\_pressure}, the consensus and
     evolutionary baselines match AHE's completion only at
     $1.6$--$2.3\times$ its deadline-violation rate (5r: AHE
     DVR\,=\,0.208 vs Cons-DBTA's 0.336 and RoSTAM-EA's 0.416; 10r: AHE
-    0.220 vs 0.428 and 0.504), so AHE attains the highest effective
-    on-time completion at both scales (${\approx}0.79$ at 5r,
-    ${\approx}0.76$ at 10r). This is the clearest win of the
-    fairness-guarded configuration and the one that lifts AHE from
-    idealized-plane co-leadership to a physical lead.
-  \item \textbf{When failures orphan many tasks.} Under
+    0.220 vs 0.428 and 0.504). The full configuration has the largest
+    effective on-time-completion point estimates at both scales
+    (${\approx}0.79$ at 5r, ${\approx}0.76$ at 10r). This is a pattern of the
+    fairness-guarded configuration. The matched F45--F58 study supports the
+    configuration comparison, but not a selector-only explanation.
+  \item \textbf{Failure-recovery pattern.} Under
     \textit{robot\_failure} AHE combines full completion at 5 robots
     (CR\,=\,1.000, DVR\,=\,0.016, effective on-time ${\approx}0.98$
     vs ${\leq}0.91$) with tied-highest completion at 10
-    robots (CR\,=\,0.976, level with BiG-MRTA on effective on-time);
-    the orphan-rescue paradigm re-dispatches the failed robot's queue
-    within one ecosystem cycle.
-  \item \textbf{Not when a single regime dominates the whole run and
+    robots (CR\,=\,0.976, level with BiG-MRTA on effective on-time).
+    The implementation invokes an orphan-rescue behaviour after a failure,
+    but the present four-method comparison does not identify its marginal
+    causal effect.
+  \item \textbf{No evident advantage when a single regime dominates the whole run and
     makespan is the objective.} Under uniform deadline pressure at
     3 robots, the EDF-style specialists already reach full
-    completion (RoSTAM, Cons-DBTA and AHE all at CR\,=\,1.000), so AHE's
-    switching yields no meaningful completion edge over them while
+    completion (RoSTAM, Cons-DBTA and AHE all at CR\,=\,1.000), so the full
+    AHE configuration shows no meaningful completion edge over them while
     adding delay; on the strict on-time fitness AHE is within noise of
     BiG-MRTA at this scale (0.420 vs 0.417). Its raw-CR advantage
     exists only against the task-abandoning commit-once policy
@@ -1402,16 +1385,15 @@ boost (\emph{no-recovery-boost}: $\delta{=}0$), holding everything else fixed
 The eight variants span a mean-fitness range of only $[0.519,0.528]$
 (spread $0.009$, $\ll$ one standard deviation): \emph{no} configuration
 statistically separates from full EDPS, and removing the overrides or the
-recovery boost leaves Plane-A fitness essentially unchanged. This is the
-expected consequence of the saturation identified above (under perfect
-navigation every method reaches $\approx1.0$): in the navigation-free plane,
-allocation quality is not the differentiator, so the switching machinery
-\emph{cannot} and does not improve it. The value of EDPS is therefore not
-idealized allocation fitness but the physical-stack behaviour
-(Sec.~\ref{sec:results-gazebo}), where event-triggered recovery and regime-
-appropriate paradigm selection drive the completion, deadline-robustness, and
-latency advantages. We report this ablation explicitly rather than omit it: it
-delimits, honestly, \emph{where} the contribution lies.
+recovery boost leaves Plane-A fitness essentially unchanged. This proxy
+ablation establishes only that the tested selector variants do not separate
+on this navigation-proxy metric. It neither establishes a benefit of EDPS in
+the physical stack nor rules one out. The four-method Gazebo comparison also
+cannot fill that gap because its policies differ in more than the selector.
+Thus, physical differences reported here must be attributed to the evaluated
+full configurations, not to EDPS alone. A causal test requires matched Gazebo
+runs of the full configuration against fixed-paradigm, no-override, and
+no-recovery-boost variants on common seeds and at least one additional map.
 
 \subsection{Communication footprint}
 AHE-MRTA publishes only per-robot optimized task queues; the
@@ -1438,7 +1420,7 @@ primary scale ($n{=}5$ per cell) no comparison survives Bonferroni
 correction---$n{=}5$ is structurally underpowered---whereas at 3 robots
 ($n{=}15$) 14 of 63 do; at 10 robots the five seeds per cell are
 likewise underpowered and no comparison survives correction. We mitigate by
-reporting 100-seed Nav2-independent fitness as the primary hypothesis
+reporting 500-seed Nav2-independent fitness as the primary hypothesis
 test and Cliff's $\delta$ as a sample-size-robust effect measure; a
 larger 10-robot seed budget would add inferential support.
 (ii) \textbf{Recovery-time variance:} Recovery time under
@@ -1475,65 +1457,51 @@ EDPS as a context-driven override cascade \emph{with} an adaptive
 dynamics tier, not as a dynamics-only selector. The ablation in
 Table~\ref{tab:ablation} (Sec.~\ref{sec:ablation}) confirms this: removing the
 overrides or the recovery boost, and replacing the selector with any single
-fixed paradigm, all leave Plane-A fitness within $0.9$~pp of EDPS. The
-switching machinery's value is thus confined to the physical stack (Plane B),
-not the navigation-free plane.
+fixed paradigm, all leave Plane-A fitness within $0.9$~pp of EDPS. This
+navigation-proxy observation must not be extrapolated into a physical-stack
+claim: no matched physical selector ablation is yet available.
 (ix) \textbf{Allocation-fitness model.} The Plane-A simulator uses a
 position-dependent navigation-failure model chosen to \emph{stress} allocation
 robustness; its failure rate is deliberately higher than the ground-truth
 Gazebo stack (where Nav2 reaches goals almost always). Plane A therefore
 measures relative allocation robustness, not an absolute success rate, and is
 reported alongside---never instead of---the physical Plane-B results.
+(x) \textbf{Missing physical EDPS ablation:} The matched F45--F58 study
+isolates map-aware ETA and bounded repair, not the selector. The four-method
+physical benchmark compares different policies but has $n{=}5$ per cell and
+does not hold every non-selector component fixed. A decisive follow-up is a
+common-seed Gazebo experiment of EDPS, each fixed paradigm, no-override, and
+no-recovery-boost variants, with a pre-specified primary metric, at least
+20--30 seeds per condition, and more than one map.
 
 %==============================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented AHE-MRTA, an ecosystem-driven paradigm-switching framework
-for online multi-robot task allocation, together with its geodesic,
-efficiency-guarded F58 extension. Across 100-seed true Nav2-independent
-allocation-only simulation, F58 AHE holds fitness and CR at 1.000 and
-DVR at 0.000 across 3/5/10 robots and all three scenarios, with active
-Jain 0.982--0.992 and decision latency of at most 0.201~ms. In a
-four-cell seed-matched F45 comparison (3r/5r/10r plus a fresh holdout;
-51 of 120 tests significant after Holm) delay falls by 1--2.2~s and
-geodesic distance by 10--28~m with CR/DVR unchanged, while the
-active-robot Jain index rises by 0.005--0.029; the only cost is a
-decision-latency increase of up to 0.12~ms. In the separate stochastic
-navigation proxy, AHE and the strongest consensus baseline
-(Consensus-DBTA) are statistical co-leaders. Across a 300-experiment Gazebo
-benchmark (3r, 5r, and 10r physical scales) with ROS\,2 Jazzy and Nav2
-on TurtleBot3 robots, AHE-MRTA reaches full completion at the primary
-5-robot scale (CR\,=\,1.000) and the highest completion rate at 10
-robots (CR\,=\,0.976--0.988), and leads effective on-time completion
-under deadline pressure at both scales (0.79 vs $\leq$0.66 at 5r, 0.76
-vs $\leq$0.52 at 10r); the consensus and evolutionary
-baselines match its completion under deadline pressure only by
-incurring up to $2{\times}$ higher deadline-violation rates
-(DVR\,=\,0.34--0.50 vs AHE's 0.21--0.22), while under mixed stress and
-robot failure AHE co-leads---cautious leadership rather than uniform
-dominance at $n{=}5$ per cell.
-The fairness-guarded repair that delivers this deadline compliance
-raises decision latency to 16--35~ms across scales---above the
-sub-millisecond commit-once baselines but within the real-time budget
-and $2$--$5{\times}$ below the evolutionary RoSTAM-EA---at the further
-cost of higher makespan and task delay relative to static-commit
-consensus methods under mixed-stress conditions.
-In the matched physical campaign at all three scales (180 runs; 10
-common seeds per scenario and scale), F58 (P1R) passes the
-fairness-guarded promotion gate in seven of nine scale--scenario cells
-with paired-Wilcoxon support: at the primary scale DVR, delay, and
-geodesic distance fall, the active-robot Jain index rises, and failure
-recovery shortens by 34~s; the deadline-pressure DVR and distance gains
-persist at 10 robots, and the two non-passing cells fail only on
-criteria whose CIs span zero. This matched campaign doubles as a
-core-vs-full ablation of AHE-MRTA*: it isolates the geodesic-ETA
-fairness repair as the component that lifts AHE from the co-leadership
-of the idealized plane to its deadline-pressure lead in the physical
-benchmark. We hope the decomposition
-into ideal allocation fitness vs.\ realized Gazebo metrics is useful
-to other MRTA studies struggling to separate algorithm quality from
-physical execution noise.
+We presented AHE-MRTA, an event-triggered MRTA framework with fixed,
+context-driven paradigm selection. We evaluated its F58 configuration, which
+adds geodesic ETA and bounded load repair. In the 500-seed allocation-only
+campaign, leading policies reach the same completion and deadline ceiling.
+This campaign therefore does not rank them. In the stochastic navigation
+proxy, AHE-MRTA and Consensus-DBTA are statistically tied except for a small
+mixed-stress edge to AHE-MRTA ($+0.007$, $p{=}0.042$). The two settings
+provide complementary evidence, not one global performance ranking.
+
+The matched F45--F58 Gazebo study uses 10 common seeds in each
+scenario--scale cell. It meets the pre-specified promotion gate in seven of
+nine cells. Within the evaluated map and Nav2 stack, it gives controlled
+evidence for the full map-aware ETA and bounded-repair configuration. It also
+shows the associated latency and distance-balance trade-offs. The four-method
+Gazebo benchmark has five seeds per cell. We therefore report its point
+estimates as descriptive operating patterns, not as universal superiority.
+
+The current experiments do not causally isolate EDPS in closed-loop execution.
+F45--F58 holds the selector fixed, and the external baselines differ in more
+than the selector. The required next experiment is a matched, multi-map Gazebo
+ablation of EDPS against fixed paradigms, no-override, and no-recovery-boost
+variants. It should use a pre-specified primary endpoint and a larger
+common-seed budget. Separating allocation-only, configuration-level, and
+closed-loop evidence is essential for interpreting the present results.
 
 \FloatBarrier
 %==============================================================================
