@@ -32,7 +32,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import matplotlib.transforms as mtransforms
+from matplotlib.ticker import MaxNLocator
 from pathlib import Path
 from typing import Optional
 
@@ -172,51 +172,42 @@ def _bar_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
     return bars
 
 
-def _strip_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
-                 count_metric: Optional[str] = None):
-    """Per-run strip plot with a mean tick; for rare / near-zero event metrics.
+def _event_count_panel(ax, df, methods, metric, ylabel,
+                       higher_better: bool = False):
+    """Integer event-total bars for rare discrete events; proposed emphasised.
 
-    A mean±std bar misleads here on three counts: most runs are exactly
-    zero (invisible bars), a single seed can carry the whole mean, and the
-    std whisker dips below zero although the metric cannot. Plotting every
-    run makes the sparsity itself the message. count_metric, if given,
-    annotates each method with its raw event total (Σ) across the runs.
+    A mean±std rate bar misleads for a metric like re-dispatches: most
+    runs are exactly zero (invisible bars), a single seed can carry the
+    whole mean, and the std whisker dips below zero although the metric
+    cannot. The raw event total, annotated with how many seeds contribute
+    it, states the finding directly.
     """
     valid = [m for m in methods if m in df["strategy"].unique()]
     colors = [METHOD_PALETTE.get(m, "#999999") for m in valid]
-    data = [df[df["strategy"] == m][metric].dropna().values for m in valid]
+    totals, seeds_hit, n_runs = [], [], 0
+    for m in valid:
+        vals = df[df["strategy"] == m][metric].dropna()
+        totals.append(int(vals.sum()))
+        seeds_hit.append(int((vals > 0).sum()))
+        n_runs = max(n_runs, len(vals))
 
-    ax.axhline(0.0, color="#bbbbbb", linewidth=0.8, zorder=1)
-    rng = np.random.default_rng(7)
-    for i, (m, vals, c) in enumerate(zip(valid, data, colors)):
-        jitter = rng.uniform(-0.16, 0.16, size=len(vals))
-        ax.scatter(i + jitter, vals, s=22, color=c, edgecolor="black",
-                   linewidth=1.0 if m == PROPOSED else 0.4, zorder=3)
-        mn = float(np.mean(vals)) if len(vals) else 0.0
-        ax.hlines(mn, i - 0.28, i + 0.28, color="black",
-                  linewidth=1.6 if m == PROPOSED else 1.0, zorder=4)
-        ax.annotate(f"{mn:.3g}", xy=(i, mn), xytext=(0, 4),
+    x = np.arange(len(valid))
+    edge_w = [1.4 if m == PROPOSED else 0.6 for m in valid]
+    bars = ax.bar(x, totals, color=colors, edgecolor="black")
+    for b, w in zip(bars, edge_w):
+        b.set_linewidth(w)
+    for i, (tot, hit) in enumerate(zip(totals, seeds_hit)):
+        note = str(tot) if tot == 0 else \
+            f"{tot} ({hit} seed{'s' if hit > 1 else ''})"
+        ax.annotate(note, xy=(i, tot), xytext=(0, 2),
                     textcoords="offset points", ha="center", va="bottom",
-                    fontsize=6.5, fontweight="bold", zorder=5,
-                    bbox=dict(boxstyle="round,pad=0.1", fc="white",
-                              ec="none", alpha=0.78))
-
-    if count_metric is not None and count_metric in df.columns:
-        trans = mtransforms.blended_transform_factory(ax.transData,
-                                                      ax.transAxes)
-        for i, m in enumerate(valid):
-            tot = df[df["strategy"] == m][count_metric].dropna().sum()
-            ax.text(i, 0.985, f"$\\Sigma$={int(tot)}", transform=trans,
-                    ha="center", va="top", fontsize=6.5, color="#444444")
-
-    ymax = max((float(v.max()) for v in data if len(v)), default=0.0)
-    if ymax <= 0:
-        ymax = 1.0
-    ax.set_ylim(-0.06 * ymax, 1.34 * ymax)
-    ax.set_xticks(range(len(valid)))
+                    fontsize=6.5, fontweight="bold")
+    ax.margins(y=0.18)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_xticks(x)
     ax.set_xticklabels([METHOD_LABELS.get(m, m) for m in valid],
                        rotation=45, ha="right")
-    ax.set_ylabel(ylabel)
+    ax.set_ylabel(f"{ylabel} ({n_runs} seeds)")
     arrow = "$\\uparrow$" if higher_better else "$\\downarrow$"
     ax.set_title(f"{arrow} better", fontsize=9)
 
@@ -374,12 +365,12 @@ def plot_failure_recovery(df_summary: Optional[pd.DataFrame],
                        "Completion Rate", True)
         # Execution preemptions are 0 for every method at this scale (no method
         # interrupts an in-flight task), so that panel cannot discriminate;
-        # show the corrected re-dispatch rate instead (Sec. discussion).
-        # Re-dispatch is a rare discrete event (17 of 20 runs are exactly
-        # zero), so it gets the per-run strip panel, not a mean±std bar.
-        _strip_panel(axes[2], rf, methods, "redispatch_per_task",
-                     "Re-dispatch / Task", False,
-                     count_metric="task_redispatch")
+        # show corrected re-dispatches instead (Sec. discussion). Re-dispatch
+        # is a rare discrete event (17 of 20 runs are exactly zero; one seed
+        # carries all of Consensus-DBTA's events), so report raw event totals
+        # rather than a mean±std rate bar.
+        _event_count_panel(axes[2], rf, methods, "task_redispatch",
+                           "Total Re-dispatches")
 
     fig.tight_layout()
     out_path = out_dir / "failure_recovery.png"
