@@ -25,6 +25,7 @@ from launch.actions import (
     TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -295,7 +296,7 @@ def _make_rviz_config(robot_count: int) -> str:
                     'Invert Z Axis': False,
                     'Name': 'Current View',
                     'Near Clip Distance': 0.009999999776482582,
-                    'Scale': 60 if robot_count <= 3 else (45 if robot_count <= 5 else 30),
+                    'Scale': 60 if robot_count <= 3 else (48 if robot_count <= 5 else 44),
                     'Target Frame': '<Fixed Frame>',
                     'Value': 'TopDownOrtho',
                     'X': 0,
@@ -388,6 +389,7 @@ def _launch_setup(context, *_args, **_kwargs):
         name='gz_path_visualizer_node',
         output='screen',
         parameters=[{'use_sim_time': True}],
+        condition=IfCondition(LaunchConfiguration('use_gz_markers')),
     )
 
     rviz = Node(
@@ -397,8 +399,11 @@ def _launch_setup(context, *_args, **_kwargs):
         output='screen',
         arguments=['-d', rviz_config],
         parameters=[{'use_sim_time': True}],
-        # RViz on its own virtual screen :3; Gazebo + all other nodes use :2
-        additional_env={'DISPLAY': ':3'},
+        # RViz uses a dedicated virtual display so software rendering cannot
+        # block Gazebo's GUI event loop during synchronized capture.
+        additional_env={
+            'DISPLAY': context.launch_configurations.get('rviz_display', ':3')
+        },
     )
 
     # Relay per-robot /robot_N/tf[_static] → global /tf[_static] so RViz sees all frames
@@ -437,10 +442,13 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument('gz_gui',        default_value='true'),
         DeclareLaunchArgument('use_rviz',      default_value='true'),
         DeclareLaunchArgument('rviz_delay',    default_value='110.0'),
+        DeclareLaunchArgument('use_gz_markers', default_value='true'),
+        DeclareLaunchArgument('gz_display',    default_value=':2'),
+        DeclareLaunchArgument('rviz_display',  default_value=':3'),
     ]
 
     sw_render = [
-        SetEnvironmentVariable('DISPLAY', ':2'),  # Gazebo + all nodes → virtual screen :2
+        SetEnvironmentVariable('DISPLAY', LaunchConfiguration('gz_display')),
         # Software rendering required: RTX 3050 Mobile has no driver;
         # OGRE1 (not OGRE2) via GLX to avoid EGL driCreateNewScreen3 segfault.
         SetEnvironmentVariable('LIBGL_ALWAYS_SOFTWARE', '1'),

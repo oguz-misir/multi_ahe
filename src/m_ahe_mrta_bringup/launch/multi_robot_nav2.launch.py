@@ -198,18 +198,21 @@ def _nav2_nodes(robot_ns: str, params_file: str, robot_description: str, map_yam
         remappings=tf_remap,
     )
 
-    # map→odom: identity transform.
-    # Gazebo Harmonic diff_drive initializes odometry at the model's world pose
-    # (absolute coordinates), so odom frame = world frame = map frame.
-    # No offset needed; replacing AMCL with this static publisher gives exact
-    # ground-truth localization for simulation experiments.
+    # map→odom: spawn-pose offset.
+    # Gazebo Harmonic diff_drive initializes odometry at ZERO (spawn-relative),
+    # NOT at the model's world pose (verified 2026-07-18: every robot's first
+    # logged pose is (0,0) while ground truth sits on the spawn grid). Anchoring
+    # odom at the spawn pose therefore yields exact ground-truth localization:
+    # map pose = spawn + odom displacement. An identity transform here instead
+    # shifts each robot's believed frame by -spawn, desynchronizing Nav2/RViz
+    # from the physical arena.
     map_odom_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name=f'static_tf_map_odom_{robot_ns}',
         output='screen',
         arguments=[
-            '0', '0', '0',
+            str(spawn_x), str(spawn_y), '0',
             '0', '0', '0',
             f'{robot_ns}/map', f'{robot_ns}/odom',
         ],
