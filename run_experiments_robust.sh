@@ -313,7 +313,9 @@ run_one() {
 
     echo "   ▶ Başlatılıyor..."
     local t_start=$SECONDS
-    if timeout "$TIMEOUT_SEC" bash -c "$cmd" > "$log_file" 2>&1; then
+    # -k: ros2 launch teardown can wedge under heavy load (D-state children
+    # ignore TERM); escalate to KILL so a run can never block the batch.
+    if timeout -k 60 "$TIMEOUT_SEC" bash -c "$cmd" > "$log_file" 2>&1; then
         echo "   ✓ Tamamlandı ($(( SECONDS - t_start ))s)"
     else
         local ec=$?

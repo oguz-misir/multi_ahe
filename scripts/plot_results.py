@@ -4,7 +4,7 @@ Generate the paper figure set from processed CSV files.
 
 Produces exactly the figures referenced by paper/main.tex / main_tr.tex:
 
-  fitness_comparison.png               (sim_fitness.csv)
+  fitness_comparison.png               (sim_fitness_seedwise.csv; fallback: sim_fitness.csv)
   scalability_panel.png                (sim_scalability.csv)
   baseline_comparison_multi_metric.png (all_summary.csv, 3r)
   baseline_comparison_10r.png          (gazebo_10r/all_summary.csv)
@@ -562,49 +562,91 @@ def plot_communication_footprint(df_comm: Optional[pd.DataFrame],
 
 
 def plot_fitness_comparison(processed_dir: Path, out_dir: Path, dpi: int) -> None:
-    """Nav2-independent allocation fitness, grouped bars per scenario.
+    """Stochastic-navigation fitness, grouped distributions per scenario.
 
-    Source: sim_fitness.csv written by scripts/simulate_and_tune.py
-    (idealised stochastic-stress simulation, 100 seeds per scenario).
+    A genuine box plot requires one fitness observation per seed.  The
+    seed-wise CSV is therefore preferred; the legacy aggregate CSV retains
+    the mean±SD bar-chart fallback for older result bundles.
     """
+    raw_path = processed_dir / "sim_fitness_seedwise.csv"
     fpath = processed_dir / "sim_fitness.csv"
-    if not fpath.exists():
-        print(f"[skip] {fpath.name} yok — fitness karşılaştırma çizilmedi "
-              "(önce: python3 scripts/simulate_and_tune.py --seeds 100 --scenario all)")
+    raw_df = pd.read_csv(raw_path) if raw_path.exists() else None
+    if raw_df is None and not fpath.exists():
+        print(f"[skip] sim_fitness_seedwise.csv yok — fitness karşılaştırma çizilmedi "
+              "(önce: python3 scripts/simulate_and_tune.py --seeds 100 --scenario all "
+              "--save-fitness-runs)")
         return
-    df = pd.read_csv(fpath)
+    df = pd.read_csv(fpath) if fpath.exists() else None
     scen_order = ["robot_failure", "mixed_stress", "deadline_pressure"]
     scen_labels = {"robot_failure": "Robot Failure",
                    "mixed_stress": "Mixed Stress",
                    "deadline_pressure": "Deadline Pressure"}
 
-    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 3.4))
+    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 3.55))
     n_m = len(METHOD_ORDER)
-    bar_w = 0.8 / n_m
     x_pos = np.arange(len(scen_order))
 
-    for i, m in enumerate(METHOD_ORDER):
-        vals, errs = [], []
-        for s in scen_order:
-            sel = df[(df["scenario"] == s) & (df["strategy"] == m)]
-            vals.append(float(sel["fitness_mean"].iloc[0]) if len(sel) else 0.0)
-            errs.append(float(sel["fitness_std"].iloc[0]) if len(sel) else 0.0)
-        offset = (i - (n_m - 1) / 2) * bar_w
-        bars = ax.bar(x_pos + offset, vals, bar_w, yerr=errs,
-                      label=METHOD_LABELS[m], color=METHOD_PALETTE[m],
-                      edgecolor="black",
-                      linewidth=1.2 if m == PROPOSED else 0.5,
-                      error_kw={"linewidth": 0.6, "capsize": 2})
-        for b, v in zip(bars, vals):
-            ax.text(b.get_x() + b.get_width() / 2, v + 0.015,
-                    f"{v:.3f}", ha="center", va="bottom", fontsize=7.5)
+    required = {"scenario", "strategy", "seed", "alloc_fitness"}
+    has_seedwise = raw_df is not None and required.issubset(raw_df.columns)
+    if has_seedwise:
+        raw_df = raw_df[raw_df["scenario"].isin(scen_order) &
+                        raw_df["strategy"].isin(METHOD_ORDER)].copy()
+        offsets = (np.arange(n_m) - (n_m - 1) / 2) * 0.21
+        for i, m in enumerate(METHOD_ORDER):
+            samples = [raw_df.loc[(raw_df["scenario"] == s) &
+                                  (raw_df["strategy"] == m), "alloc_fitness"].to_numpy()
+                       for s in scen_order]
+            if not all(len(v) for v in samples):
+                raise ValueError(f"Eksik tohum-verisi: {m}")
+            positions = x_pos + offsets[i]
+            bp = ax.boxplot(
+                samples, positions=positions, widths=0.17, patch_artist=True,
+                showmeans=True, showfliers=True, manage_ticks=False,
+                boxprops={"facecolor": METHOD_PALETTE[m], "alpha": 0.72,
+                          "edgecolor": "black", "linewidth": 1.3 if m == PROPOSED else 0.7},
+                medianprops={"color": "black", "linewidth": 1.1},
+                whiskerprops={"color": "black", "linewidth": 0.7},
+                capprops={"color": "black", "linewidth": 0.7},
+                meanprops={"marker": "D", "markerfacecolor": "white",
+                           "markeredgecolor": "black", "markersize": 4},
+                flierprops={"marker": "o", "markerfacecolor": METHOD_PALETTE[m],
+                            "markeredgecolor": "none", "markersize": 2, "alpha": 0.35},
+            )
+            for box in bp["boxes"]:
+                box.set_linewidth(1.3 if m == PROPOSED else 0.7)
+        legend_handles = [
+            mpatches.Patch(facecolor=METHOD_PALETTE[m], edgecolor="black",
+                           linewidth=1.3 if m == PROPOSED else 0.7,
+                           label=METHOD_LABELS[m])
+            for m in METHOD_ORDER
+        ]
+        ax.legend(handles=legend_handles, loc="lower center",
+                  bbox_to_anchor=(0.5, 1.01), ncol=4, frameon=False,
+                  columnspacing=1.4, handlelength=2.0)
+    else:
+        # Backward-compatible summary view; this deliberately is not labelled
+        # as a box plot because means and standard deviations do not identify
+        # a distribution or its quartiles.
+        bar_w = 0.8 / n_m
+        for i, m in enumerate(METHOD_ORDER):
+            vals, errs = [], []
+            for s in scen_order:
+                sel = df[(df["scenario"] == s) & (df["strategy"] == m)]
+                vals.append(float(sel["fitness_mean"].iloc[0]) if len(sel) else 0.0)
+                errs.append(float(sel["fitness_std"].iloc[0]) if len(sel) else 0.0)
+            offset = (i - (n_m - 1) / 2) * bar_w
+            ax.bar(x_pos + offset, vals, bar_w, yerr=errs,
+                   label=METHOD_LABELS[m], color=METHOD_PALETTE[m],
+                   edgecolor="black", linewidth=1.2 if m == PROPOSED else 0.5,
+                   error_kw={"linewidth": 0.6, "capsize": 2})
+        ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01),
+                  ncol=4, frameon=False, columnspacing=1.4, handlelength=2.0)
 
     ax.set_xticks(x_pos)
     ax.set_xticklabels([scen_labels[s] for s in scen_order])
     ax.set_ylabel("Allocation fitness ($\\uparrow$ better)")
     ax.set_ylim(0, 0.78)
-    ax.legend(loc="upper right", ncol=4, frameon=False)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
     fpath_out = out_dir / "fitness_comparison.png"
     fig.savefig(fpath_out, dpi=dpi)
     plt.close(fig)
@@ -651,8 +693,11 @@ def plot_scalability_panel(processed_dir: Path, out_dir: Path, dpi: int) -> None
             ax.set_yscale("log")
             ax.set_ylabel(ylabel + " (log)")
         ax.set_title(f"({chr(97 + k)})", fontsize=9, loc="left")
-    axes[0].legend(loc="best", frameon=False, ncol=2, fontsize=8)
-    fig.tight_layout()
+    # Shared legend below all four panels so it never overlaps the curves.
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.tight_layout(rect=[0, 0.06, 1, 1])
+    fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False,
+               fontsize=8, bbox_to_anchor=(0.5, 0.0))
     fpath_out = out_dir / "scalability_panel.png"
     fig.savefig(fpath_out, dpi=dpi)
     plt.close(fig)
