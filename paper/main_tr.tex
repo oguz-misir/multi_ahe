@@ -1276,16 +1276,17 @@ iki ölçekte gerçek-zaman bütçesinin içinde.
   \caption{Birincil 5-robot / 25-görev ölçeğinde \textit{robot\_failure} altında
   arıza-toparlanma davranışı ($n{=}5$ tohum): toparlanma süresi ile
   tamamlama oranı (ortalama $\pm$ std çubukları; bıyıklar sıfırda
-  kırpılmıştır) ve her tohumun ham değeri bindirilmiş ortalama çubuk
-  olarak yeniden-gönderim oranı. Sağ panelde std bıyığının yerini
-  tohum-başına noktalar alır: 20 koşunun 17'sinde yeniden-gönderim tam
-  sıfırdır ve Consensus-DBTA'nın altı olayının tümü tek bir tohumdadır
-  (yürütme kesintileri tüm yöntemlerde sıfır olduğundan gösterilmedi).
-  Toparlanma süreleri yöntemler arasında istatistiksel olarak ayırt
-  edilemez ($p{>}0.3$); yeniden-gönderim yalnız iki temelde görülür ve
-  AHE-MRTA, karşılaştırılabilir toparlanma süresini bir ekosistem
-  güncelleme çevrimi içinde (${\leq}2$~s) yetim-kurtarma paradigmasına
-  geçerek reaktif yöntemlerin en yüksek tamamlama oranına çevirir.}
+  kırpılmıştır) ve tohum$\times$yöntem yeniden-gönderim olay matrisi ---
+  her hücre bir koşudur, dolu hücreler olay sayısını taşır ve $\Sigma$
+  satır toplamını verir. Matris her olayı üreten tohuma bağlar: 20
+  koşunun 17'sinde yeniden-gönderim sıfırdır, RoSTAM-EA'nın iki olayı
+  iki ayrı tohumdan gelir ve Consensus-DBTA'nın altı olayının tümü tek
+  bir tohumdadır (yürütme kesintileri tüm yöntemlerde sıfır olduğundan
+  gösterilmedi). Toparlanma süreleri yöntemler arasında istatistiksel
+  olarak ayırt edilemez ($p{>}0.3$); AHE-MRTA, karşılaştırılabilir
+  toparlanma süresini bir ekosistem güncelleme çevrimi içinde
+  (${\leq}2$~s) yetim-kurtarma paradigmasına geçerek reaktif yöntemlerin
+  en yüksek tamamlama oranına çevirir.}
   \label{fig:recovery}
 \end{figure}
 
