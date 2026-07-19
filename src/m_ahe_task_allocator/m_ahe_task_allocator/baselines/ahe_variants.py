@@ -7,12 +7,10 @@ paradigma seçimi** yapar — biomimetik feedback'le hangi paradigmanın şu an
 en uygun olduğuna karar verir. Bu, no-free-lunch'ı context-aware paradigma
 sentezi ile aşan ilk AHE-MRTA framework'üdür.
 
-7 hormon → 7 paradigma:
+Etkin v4.6 yapılandırması: 5 hormon → 5 paradigma:
   D[SpatialOpportunist]    → spatial_greedy   (nearest-feasible)
   D[CriticalityGuardian]   → priority_first   (priority-tiered LSA)
   D[TemporalRegulator]     → edf_strict       (3PHA + EDF, default)
-  D[ResourceDistributor]   → load_balance     (workload-variance min)
-  D[EnergyConservator]     → battery_gated    (battery margin filter)
   D[StabilityController]   → commit_once      (hard sticky, no reassign)
   D[RecoveryCoordinator]   → orphan_first     (orphan-first rescue)
 
@@ -398,7 +396,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
     # 3PHA, ardışık 4 fazda farklı objective ile çalışır → her metrik en güçlü
     # fazdan kazanır, hiçbir faz diğerini bozmaz.
     # ─── v4 EDPS — Ecosystem-Driven Paradigm Selection ───
-    # 7 hormon → 7 mekanizma ailesi. argmax(dominance) → paradigma seçici.
+    # 5 hormon → 5 mekanizma ailesi. argmax(dominance) → paradigma seçici.
     # H_TEMP (idx 2) → 3PHA default. Diğerleri yeni mekanizma metodları.
     EDPS_ENABLED = True
     THREE_PHASE_ENABLED = True
@@ -925,7 +923,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
     def _select_paradigm(self, context: Optional[EcosystemContext]) -> int:
         """F23 sarmalayıcı: paradigma bekleme (dwell) + ham seçim.
 
-        H_RECOV (6) seçimi beklemeyi bypass eder — arıza reaktifliği korunur.
+        H_RECOV (4) seçimi beklemeyi bypass eder — arıza reaktifliği korunur.
         F50 aktifse statik hafif-seçici kullanılır (dinamik EDPS atlanır).
         """
         if self.F50_LIGHTWEIGHT_SELECTOR:
@@ -956,11 +954,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
         argmax sadece fallback.
 
         Öncelik sırası (en yüksek öncelik üstte):
-          1. failure_rate > 0.05 → H_RECOV (6) — orphan_first
+          1. failure_rate > 0.05 → H_RECOV (4) — orphan_first
           2. deadline_p > 0.5    → H_TEMP (2) — edf_strict (default rich path)
-          3. batt_risk > 0.3     → H_ENERGY (4) — battery_gated
-          4. workload_var > 0.5  → H_RES (3) — load_balance
-          5. argmax(dominance)   → klasik EDPS davranış (fallback)
+          3. argmax(dominance)   → klasik EDPS davranış (fallback)
         """
         if context is None or not context.dominance:
             return 2  # default: H_TEMP edf_strict (3PHA full pipeline)
@@ -2181,7 +2177,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # ════════════════════════════════════════════════════════════════
         # v4 EDPS — Ecosystem-Driven Paradigm Selection
         # ════════════════════════════════════════════════════════════════
-        # Hormone (dominance) argmax → 7 paradigmadan birini seç.
+        # Hormone (dominance) argmax → 5 paradigmadan birini seç.
         # AHE'nin ekosistemi (cooperation/suppression dynamics) hangi MRTA
         # paradigmasının şu an en uygun olduğuna karar verir. Bu, mevcut
         # weighted-cost bipartite'in ötesinde STRÜKTÜREL adaptasyondur.
