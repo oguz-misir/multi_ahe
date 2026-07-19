@@ -171,52 +171,53 @@ def _bar_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
     return bars
 
 
-def _event_matrix_panel(ax, df, methods, metric,
-                        higher_better: bool = False):
-    """Seed×method event matrix for rare discrete events.
+def _unit_count_panel(ax, df, methods, metric, ylabel,
+                      higher_better: bool = False):
+    """Waffle-style unit bar for rare discrete events: 1 square = 1 event.
 
-    Each cell is one run: zero-event runs stay light gray, nonzero runs
-    are filled in the method colour (intensity scaled by count) and
-    annotated with the integer count; Σ gives the row total. This
-    attributes every event to the seed that produced it---exactly the
-    information a mean±std bar destroys when a single seed carries the
-    whole mean.
+    Every event is countable individually, squares from different seeds
+    are separated by a gap, and zero-event methods show an explicit 0,
+    so the panel stays honest where a mean±std bar would show invisible
+    bars, a single-seed-driven mean, and a below-zero whisker. No
+    numeric y-axis: the squares themselves are the scale.
     """
     valid = [m for m in methods if m in df["strategy"].unique()]
-    seeds = sorted(df["seed"].unique())
-    max_c = max(1, int(df[metric].max()))
-    for yi, m in enumerate(valid):
-        sub = df[df["strategy"] == m]
-        for xi, s in enumerate(seeds):
-            vals = sub.loc[sub["seed"] == s, metric]
-            c = int(vals.iloc[0]) if len(vals) else 0
-            face = "#f2f2f2" if c == 0 else METHOD_PALETTE.get(m, "#999999")
-            alpha = 1.0 if c == 0 else 0.35 + 0.65 * c / max_c
-            ax.add_patch(plt.Rectangle((xi + 0.05, yi + 0.05), 0.9, 0.9,
-                                       facecolor=face, alpha=alpha,
-                                       edgecolor="#cccccc", linewidth=0.6))
+    x = np.arange(len(valid))
+    unit, gap = 1.0, 0.4
+    y_top = 1.0
+    for xi, m in enumerate(valid):
+        per_seed = [int(v) for v in
+                    df[df["strategy"] == m].sort_values("seed")[metric]]
+        color = METHOD_PALETTE.get(m, "#999999")
+        lw = 1.4 if m == PROPOSED else 0.6
+        y = 0.0
+        for c in per_seed:
+            for _ in range(c):
+                ax.add_patch(plt.Rectangle((xi - 0.28, y + 0.07), 0.56,
+                                           unit - 0.14, facecolor=color,
+                                           edgecolor="black", linewidth=lw))
+                y += unit
             if c:
-                ax.text(xi + 0.5, yi + 0.5, str(c), ha="center",
-                        va="center", fontsize=8, fontweight="bold")
-        tot = int(sub[metric].sum())
-        ax.text(len(seeds) + 0.12, yi + 0.5, f"$\\Sigma$={tot}",
-                ha="left", va="center", fontsize=6.5, color="#444444")
-    ax.set_xlim(0, len(seeds) + 1.35)
-    ax.set_ylim(len(valid), 0)
-    ax.set_xticks([i + 0.5 for i in range(len(seeds))])
-    ax.set_xticklabels([f"s{int(s)}" for s in seeds], fontsize=7)
-    ax.set_yticks([i + 0.5 for i in range(len(valid))])
-    ax.set_yticklabels([METHOD_LABELS.get(m, m) for m in valid], fontsize=7)
-    for lbl, m in zip(ax.get_yticklabels(), valid):
-        if m == PROPOSED:
-            lbl.set_fontweight("bold")
-    ax.set_xlabel("Seed")
-    ax.tick_params(length=0)
+                y += gap
+        tot = sum(per_seed)
+        n_hit = sum(1 for c in per_seed if c)
+        note = "0" if tot == 0 else \
+            f"{tot} ({n_hit} seed{'s' if n_hit > 1 else ''})"
+        ax.annotate(note, xy=(xi, y - gap if tot else 0.0), xytext=(0, 3),
+                    textcoords="offset points", ha="center", va="bottom",
+                    fontsize=6.5, fontweight="bold")
+        y_top = max(y_top, y)
+    ax.set_xlim(-0.6, len(valid) - 0.4)
+    ax.set_ylim(0, y_top + 0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels([METHOD_LABELS.get(m, m) for m in valid],
+                       rotation=45, ha="right")
+    ax.set_yticks([])
+    ax.set_ylabel(ylabel)
     ax.grid(False)
-    for sp in ax.spines.values():
-        sp.set_visible(False)
+    ax.spines["left"].set_visible(False)
     arrow = "$\\uparrow$" if higher_better else "$\\downarrow$"
-    ax.set_title(f"Re-dispatch Events  {arrow} better", fontsize=9)
+    ax.set_title(f"{arrow} better", fontsize=9)
 
 
 def _box_panel(ax, df, methods, metric, ylabel, log_y: bool = False):
@@ -375,9 +376,10 @@ def plot_failure_recovery(df_summary: Optional[pd.DataFrame],
         # show the corrected re-dispatch rate instead (Sec. discussion).
         # Re-dispatch is a rare discrete event (17 of 20 runs are exactly
         # zero; one seed carries all of Consensus-DBTA's events), so the
-        # seed×method matrix attributes each event to its seed instead of
-        # averaging it away.
-        _event_matrix_panel(axes[2], rf, methods, "task_redispatch")
+        # waffle unit bar shows each event as one countable square with
+        # seed groups separated, instead of averaging events away.
+        _unit_count_panel(axes[2], rf, methods, "task_redispatch",
+                          "Re-dispatch Events")
 
     fig.tight_layout()
     out_path = out_dir / "failure_recovery.png"
