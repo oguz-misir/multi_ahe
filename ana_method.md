@@ -82,18 +82,31 @@ aktifleşir.
 - Robot durumu: `x_i(t) = {pose, availability, battery, nav_state, reliability, workload}`
 - Karar değişkeni: `x_ij(t) ∈ {0,1}`; robot kuyruğu `Q_i(t)` sıralı görev listesi
 
-**Çok amaçlı maliyet:**
+**Olay-düzeyi sözlüksel amaç:** Uygulanabilirlik ve kilitli yürüyen görevler
+uygulandıktan sonra önce atanabilen görev sayısı büyütülür, ardından bu
+maksimum-kardinaliteli planlar arasında maliyet küçültülür. Yalnız maliyeti
+`Σ_iΣ_j x_ij C_ij` biçiminde küçültmek, `Σ_i x_ij ≤ 1` altında hatalı olarak
+``hiç görev atama'' çözümünü üretirdi.
+
+```text
+X*(t) = argmax_{x∈X(t)} Σ_i Σ_j x_ij
+x*(t) = argmin_{x∈X*(t)} Σ_i Σ_j x_ij·Cost(r_i, τ_j, t)
+```
+
+**Normalize çift maliyeti:**
 
 ```text
 Cost(r_i, τ_j, t) = w_d·D_ij + w_p·P_j + w_b·B_i + w_l·L_i + w_f·F_i + w_t·T_j + w_r·R_ij
 W(t) = [w_d, w_p, w_b, w_l, w_f, w_t, w_r]
 ```
 
-`D`=mesafe/path cost, `P`=öncelik cezası, `B`=batarya riski, `L`=iş yükü, `F`=hata riski,
-`T`=deadline gecikme riski, `R`=yeniden atama/recovery maliyeti. **AHE'nin farkı: `W(t)`
+`D`=normalize varış/path cost, `P=(4-priority)/3` öncelik cezası,
+`B`=batarya riski, `L`=göreli iş yükü, `F`=arıza riski,
+`T`=deadline aciliyeti, `R`=navigasyon/toparlanma riski. Deadline, yetenek,
+teklif, sticky ve yeniden-atama düzeltmeleri ayrıca eklenir. **AHE'nin farkı: `W(t)`
 sabit değildir, ekosistem tarafından çevrim içi üretilir.**
 
-**Hedef:** `minimize Σ_i Σ_j x_ij·Cost`; sistem düzeyinde completion↑, delay↓, DVR↓,
+**Koşu düzeyi hedefler:** completion↑, delay↓, DVR↓,
 workload imbalance↓, recovery time↓, decision latency↓.
 
 **Kısıtlar:** `Σ_i x_ij ≤ 1`; uygun olmayan/kritik bataryalı robota atama yok; başarısız
@@ -226,11 +239,12 @@ cost(r_i, τ_j, t) =
  + deadline_penalty_ij
  − DEADLINE_CAPABILITY_W·capability_ij        (W = 2.20)
  − 0.05·bid_ij                                 (hibrit bid)
- − STICKY·[τ_j ∈ prev_queue(r_i)]              (STICKY = 0.30, incumbent bonus)
- + REASSIGN·[prev_robot(τ_j) ≠ r_i]            (REASSIGN = 0.30, instab ↓)
+ − STICKY·[τ_j ∈ prev_queue(r_i)]              (STICKY = 1.00, incumbent bonus)
+ + REASSIGN·[prev_robot(τ_j) ≠ r_i]            (REASSIGN = 1.00, instab ↓)
  + 1.0·[q_i ≥ soft_cap]                        (kapasite)
 
-Hard-deadline gating:  arrival > deadline ise cost = 1.5e5 (reddet, sonraki turda denenir)
+Hard-deadline gating: yeni görevde arrival > deadline ise çift reddedilir;
+                      eski rescue görevinde durum-bağımlı sınırlı pay uygulanır
 Urgency escalation:    T_raw ≥ 0.70 ise üstel artış (URGENCY_SCALE)
 Kuyruk sıralama:       failure_active → cheapest_insertion;  aksi halde → EDF
 Local swap refine:     ≤3 iterasyon, overrun azaltan robot/görev takasları
