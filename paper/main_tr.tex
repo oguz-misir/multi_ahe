@@ -56,8 +56,9 @@ sabit bir baskınlık dinamiği seçer. F58 konfigürasyonu, F45 çekirdeğine
 önbellekli geodezik tahmini varış zamanı (ETA) ve terminal, sınırlı bir yük
 onarım adımı ekler.
 
-Tahsis ve yürütmeyi üç ayrı ortamda değerlendiriyoruz: 500-tohumlu
-allocation-only kampanya, stokastik bir navigasyon vekili ve 3, 5, 10
+Tahsis ve yürütmeyi üç ayrı ortamda değerlendiriyoruz: hücre başına 100
+tohumlu belirlenimci allocation-only kampanya, birincil hücrelerde 500 tohumlu
+stokastik navigasyon vekili ve 3, 5, 10
 TurtleBot3 ile kapalı-çevrim Gazebo Harmonic/ROS\,2 Nav2 deneyleri.
 Allocation-only kampanyada F58, test edilen hücrelerde tamamlanma ve deadline
 ihlali için gözlenen tavana ulaşır. Bu ortam lider politikaları ayırmaz.
@@ -207,53 +208,66 @@ planlanan kuyruğunda olduğu anlamına gelir. Uygulanabilir küme şöyledir:
 uçuş-sırası güvenlik kilididir. Arızalı veya navigasyonda sıkışmış robota yeni
 görev verilmez; tamamlanmamış görevleri yeniden gönderim için uygun olur.
 
-\textbf{Varış tahmini ve kabul edilebilirlik.} Uygun çift $(r,\tau)$ için
-$\hat a_{r\tau}^k$, $q_r^k$ kuyruğu izlenip $p_\tau$ hedefine gidildiğinde
-beklenen bitiş-varış zamanıdır. Tahminci, etkin yapılandırmayla aynı rota
+\textbf{Varış tahmini ve kabul edilebilirlik.} Aday çift $(r,\tau)$ için
+$\hat a_{r\tau}^k$, güncel kuyruk son noktası, kuyruk-uzunluğu gecikme vekili
+ve $p_\tau$ hedefine seyahatten elde edilen tahmini varış zamanıdır. Tahminci, etkin yapılandırmayla aynı rota
 metriğini kullanır: F45 çekirdek mesafe tahminini, F58 ise
 Denklem~\eqref{eq:f58-eta}'daki önbellekli geodezik ETA'yı kullanır. Rota yoksa
-çift uygun değildir. Deadline sonluysa sert kabul kapısı
+çift uygun değildir. Deadline sonluysa kabul kuralı
 \begin{equation}
-  \hat a_{r\tau}^k>d_\tau+\Delta_s^k
+  \hat a_{r\tau}^k>d_\tau+s_{r\tau}^k
   \quad\Longrightarrow\quad (r,\tau)\notin\mathcal{F}_k
   \label{eq:admission-gate}
 \end{equation}
-şeklindedir. Burada $\Delta_s^k$ uyarlanır boşluk, $\mathcal{F}_k$ ise uygun
-robot--görev çiftleri kümesidir. Böylece bilinen biçimde uyumsuz, uygun
-olmayan, erişilemeyen veya izin verilen boşluğun ötesinde geç kalacak bir
-robota görev atanmaz.
+şeklindedir. Burada $\mathcal{F}_k$ uygun çiftler kümesidir. Çifte özgü
+$s_{r\tau}^k$ payı, nominal yapılandırmada yeni görevler için sıfırdır;
+yalnız eski toparlanma görevleri için sınırlı pozitif olabilir ve arıza
+modunda genişletilebilir. Böylece uyumsuz, kullanılamayan, erişilemeyen veya
+görev durumuna tanınan payın ötesinde geç kalacak bir çift reddedilir.
 
-\textbf{Olay düzeyi vekil problem.} AHE-MRTA küresel çok-amaçlı MRTA
-optimumu çözdüğünü iddia etmez. Seçilen paradigma, olay $t_k$'da bunun yerine
-uygunluk maskeli vekil problemi çözer:
+\textbf{Olay düzeyi vekil problem.} Sahiplik kısıtları üst sınır olduğu için,
+negatif olmayan maliyeti doğrudan $\mathcal X_k$ üzerinde küçültmek ``hiç
+atama yapma'' çözümünü kabul ederdi. Uygulama bunun yerine önce kardinaliteyi
+büyütür. Uygun olmayan çiftler maskelenip kilitli mevcut atamalar korunduktan
+sonra
 \begin{equation}
-  x^k\in\arg\min_{x\in\mathcal{X}_k}
+  \mathcal X_k^\star=\arg\max_{x\in\mathcal X_k}
+  \sum_{r\in\mathcal R}\sum_{\tau\in\mathcal T_k}x_{r\tau}^k
+  \label{eq:max-cardinality}
+\end{equation}
+olsun. Seçilen paradigma, maksimum-kardinaliteli olay planları arasında
+şekillendirdiği maliyeti küçültür:
+\begin{equation}
+  x^k\in\arg\min_{x\in\mathcal{X}_k^\star}
         \sum_{r\in\mathcal{R}}\sum_{\tau\in\mathcal{T}_k}
         C_{r\tau}^k x_{r\tau}^k ,
   \qquad C_{r\tau}^k=\infty\ \text{eğer }(r,\tau)\notin\mathcal{F}_k .
   \label{eq:event-surrogate}
 \end{equation}
-Kuyruk sırasını daha sonra etkin paradigma belirler
-(Bölüm~\ref{sec:paradigms}). Bu tanım, karar kuralının tam çevrim için çevrim
-dışı optimalite garantisi değil, çevrim içi ve olay düzeyinde atama vekili
-olduğunu açıklar.
+Tekrarlı LSA geçişleri bu sözlüksel kuralı uygular; uygun kapasite kalmayan
+görevler sonraki olay için açık tutulur. Kuyruk sırasını etkin paradigma
+belirler (Bölüm~\ref{sec:paradigms}). Bu, tam görev süresi için çevrim dışı
+optimum değil, çevrim içi olay-düzeyi bir vekildir.
 
-\textbf{Maliyet ve atama kararlılığı.} Uygun çiftlerde maliyet; tahmini varış zamanı,
-aciliyet, öncelik, kuyruk yükü, arıza riski, navigasyon durumu ve negatif
-olmayan yeniden atama cezasını birleştirir:
+\textbf{Maliyet ve atama kararlılığı.} Uygulama yedi normalize özellik
+kullanır: varış zamanı $A_{r\tau}^k$, öncelik cezası
+$P_\tau=(4-\pi_\tau)/3$, batarya riski $B_r^k$, göreli yük $L_r^k$, arıza
+riski $F_r^k$, deadline aciliyeti $U_\tau^k$ ve navigasyon/toparlanma riski
+$R_r^k$. Uygun bir çiftin ortak maliyeti
 \begin{equation}
   C_{r\tau}^k =
-  w_d\hat a_{r\tau}^k + w_u U_\tau^k + w_\pi\pi_\tau^{-1}
-  + w_lL_r^k+w_fF_r^k+w_rR_r^k+\rho_{r\tau}^k .
+  w_dA_{r\tau}^k+w_pP_\tau+w_bB_r^k+w_lL_r^k
+  +w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k .
   \label{eq:cost}
 \end{equation}
-Burada $U_\tau^k$ aciliyet, $L_r^k$ göreli kuyruk yükü, $F_r^k$ yöntemin
-normalize arıza-riski sinyali ve $R_r^k$ navigasyonda sıkışma göstergesidir. Etkin EDPS
-paradigması $w$ ağırlıklarını seçer (Bölüm~\ref{sec:method}). Kendi kuyruğunda
-uygun olan mevcut görevde aciliyet taban değerinde kalır. Böylece deadline
-yaklaşması, atanmamış veya risk altındaki görevleri öne alır; zamanında
-bitmesi beklenen görevi tekrar tekrar taşımaz. $\rho_{r\tau}^k$ cezası da
-yeniden gönderim çalkantısını azaltır.
+Burada $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$; diğer taban
+özellikler de boyutsuzdur. $\Psi_{r\tau}^k$ düzeltmesi deadline ve kritik
+batarya cezalarını, deadline-yetenek ve teklif bonuslarını, mevcut-sahip
+yapışkanlığını, yeniden atama cezasını ve kapasite cezasını toplar. Böylece
+saniye cinsinden değerlerle normalize özellikler doğrudan toplanmaz. EDPS
+$w$'yu üretir; etkin paradigma görev sırasını ve uygunluğu da şekillendirir.
+Güvenli mevcut görev taban aciliyette kalırken atanmamış veya riskli görev
+doğrusal olmayan aciliyet artışı alır.
 
 \textbf{Koşu düzeyinde sonuçlar ve zamanlama sözleşmesi.} Koşu düzeyi amaç,
 bitmeyen görevleri gizlemeden tamamlanmayı artırmak ve deadline ihlalini
@@ -264,7 +278,8 @@ $T_{\max}$'a kadar tamamlanan görev kümesi olsun. Biçimsel olarak
   \frac{|\mathcal{T}^{\rm done}|}{|\mathcal{T}^{\rm req}|},
   \qquad
   \min\ \mathrm{DVR}=
-  \frac{|\{\tau:d_\tau<\infty\ \wedge+  (t_\tau^{\rm c}>d_\tau\ \vee\ \tau\notin\mathcal{T}^{\rm done})\}|}
+  \frac{|\{\tau:d_\tau<\infty\ \wedge
+  (t_\tau^{\rm c}>d_\tau\ \vee\ \tau\notin\mathcal{T}^{\rm done})\}|}
   {\max\!\bigl(1,|\{\tau:d_\tau<\infty\}|\bigr)}.
   \label{eq:primary-outcomes}
 \end{equation}
@@ -383,8 +398,9 @@ Güncelleme kuralı
 \end{aligned}
 \label{eq:dominance}
 \end{equation}
-biçimindedir. Burada $\operatorname{Proj}_{\Delta^4}$, vektörü beş bileşenli
-olasılık simpleksine normalize eder. Kural, ekolojik etkileşimlerden esinlenen
+biçimindedir. Burada $\operatorname{Proj}_{\Delta^4}$, uygulamadaki
+negatif-olmayan $\ell_1$ normalizasyonunu (toplam sıfırsa tekdüze fallback)
+gösterir; yinelemeli Öklid projeksiyonu değildir. Kural, ekolojik etkileşimlerden esinlenen
 kazananı destekleme--rakibi bastırma terimlerini, kısa dönem başarım ve bağlam
 uyumluluğu ile birleştirir \cite{peng2023competition}. Ancak bu terimler
 öğrenilmiş bir çevrim içi model ya da optimalite garantisi değildir; tüm
@@ -411,7 +427,7 @@ M=\begin{bmatrix}
 \end{equation}
 ile tanımlanır. Buna göre
 \begin{equation}
-  w^{\rm eco}_k=\operatorname{softmax}\!\left(\frac{MD_k}{T_w}\right),
+  w^{\rm eco}_k=\operatorname{softmax}\!\left(\frac{MD_{k+1}}{T_w}\right),
   \qquad
   w_k=0.3w_0+0.7w^{\rm eco}_k,
   \label{eq:weights}
@@ -444,20 +460,18 @@ yapılandırmasıdır. F45'te seyahat mesafesi Öklid uzaklığıdır. F58-P0 is
 Gazebo ile paylaşılan \texttt{obstacle\_map.pgm} üzerindeki 0.55~m şişirilmiş
 doluluk maskesinde, sekiz-komşulu serbest hücre grafiğinden önbellekli
 geodezik mesafe $d_G$ hesaplar. Erişilebilir bir yol yoksa çift uygun
-değildir. Robot $r$'nin sıralı kuyruğu $Q_r=(q_1,\ldots,q_j)$ için rota
-profilindeki aday-varış tahmini
+değildir. Robot $r$'nin sıralı kuyruğu $Q_r=(q_1,\ldots,q_j)$ için $j=0$
+iken $e_r(Q_r)=p_r$, aksi halde $e_r(Q_r)=p_{q_j}$ tanımlansın. Uygulanan
+ETA vekili
 \begin{equation}
 \hat a_{r\tau,k}=t_k+
-\frac{d_G(p_r,p_{q_1})+
-\sum_{\ell=1}^{j-1}d_G(p_{q_\ell},p_{q_{\ell+1}})+
-d_G(p_{q_j},p_\tau)}{v_r}
-+\sum_{\ell=1}^{j}(s_{q_\ell}+h),
+\frac{d_G(e_r(Q_r),p_\tau)}{v_r}+j\,(h+s_\tau),
 \label{eq:f58-eta}
 \end{equation}
-ile bulunur; boş kuyrukta toplam yalnız $d_G(p_r,p_\tau)$ terimine iner.
-Burada $s_{q_\ell}$ servis süresi, $h$ ise kuyruklu navigasyon için sabit
-zaman payıdır. Aynı rota metriği kabul kapısında, paradigma maliyetinde ve
-onarımda kullanılır.
+ile bulunur. Burada $s_\tau$ adayın servis süresi, $h=22$~s ise kuyruktaki
+her görev için sabit navigasyon payıdır. Bu ucuz vekil ara kuyruk
+kenarlarının tamamını yeniden kurduğunu iddia etmez. Aynı son-nokta mesafe
+kâhini kabul kapısında, paradigma maliyetinde ve onarım yükü hesabında kullanılır.
 
 F58-P1, birincil plan $x^0$ üretildikten sonra yalnız yeni atanan görevlerin
 robotunu değiştiren yerel adayları inceler. Böylece yürütülmekte olan bir Nav2
@@ -498,7 +512,7 @@ Ham seçim $\tilde p_k$ aşağıdaki öncelik sırasıyla yapılır:
 \begin{cases}
 \mathrm{H\_RECOV}, & c_{4,k}>0.05,\\
 \mathrm{H\_TEMP}, & c_{4,k}\leq0.05\ \wedge\ c_{3,k}>0.50,\\
-\arg\max_i D_{i,k}, & \text{aksi hâlde}.
+\arg\max_i D_{i,k+1}, & \text{aksi hâlde}.
 \end{cases}
 \label{eq:dispatch}
 \end{equation}
@@ -535,7 +549,7 @@ paylaşır; farklılıkları görev işleme sırası, maliyet şekillendirmesi v
 mevcut sahiplikleri ele alma biçimidir. Uygunluk maskeli maliyet matrisi
 $C^{(p)}_k$ altında ortak atama çekirdeği
 \begin{equation}
-  x^{(p)}_k\in\arg\min_{x\in\mathcal X_k}
+  x^{(p)}_k\in\arg\min_{x\in\mathcal X_k^\star}
   \sum_{r\in\mathcal R}\sum_{\tau\in\mathcal T(t_k)}
   C^{(p)}_{r\tau,k}\,x_{r\tau}
   \label{eq:lsa}
@@ -572,9 +586,8 @@ için küresel optimalite iddiası değildir.
   \item \textbf{H\_STAB / \emph{commit\_once}:} Daha önce atanmış ve
   sahibi hâlâ uygun olan görevler mevcut sahibine bağlı tutulur. Sadece yeni
   görevler için tek geçişli atama yapılır. Böylece yeniden atama çalkantısı
-  düşer; buna karşılık arıza sonrası esneklik sınırlıdır. Bu, çevrim içi
-  commit-once yaklaşımlarının kararlılık takasını açıkça temsil eder
-  \cite{rostam2024selfadaptive}.
+  düşer; buna karşılık arıza sonrası esneklik sınırlıdır. Bu, commit-once
+  yaklaşımlarının kararlılık takasını açıkça temsil eder.
 
   \item \textbf{H\_RECOV / \emph{orphan\_first}:} Arızalı, sıkışmış ya da
   navigasyonu iptal edilmiş robotlardan kalan görevler önce sağlıklı robotlara
@@ -737,39 +750,41 @@ aynı arena, engel haritası ve Nav2 parametrelerini kullanır.
 
 \subsection{Kıyaslama Yöntemleri}
 \label{sec:baselines}
-AHE-MRTA kütüphanesinde temsil edilen her çevrim içi MRTA çözücü ailesinden
-bir yöntemle karşılaştırıyoruz. Tüm temel yöntemleri aynı çerçevede yeniden
-uyguluyoruz. Olay döngüsü, ROS\,2 konu arayüzü, maliyet girdileri (varış
+AHE-MRTA kütüphanesinde temsil edilen her çevrim içi MRTA ailesinden bir
+operasyonel uyarlamayla karşılaştırıyoruz. Tüm uyarlamalar aynı çerçevede
+çalışır. Olay döngüsü, ROS\,2 konu arayüzü, maliyet girdileri (varış
 süresi, aciliyet, öncelik ve yük), robot başına kuyruk sınırı $Q$ ve Nav2
 istemcisi ortaktır. Yalnız tahsis politikası farklıdır. Özgün makalede
-belirtilen parametreleri kullanıyor ve bu parametreleri tüm senaryo ve
-ölçeklerde sabit tutuyoruz.
+belirtilen parametreleri kullanıyor; belirtilmeyen seçimleri benchmark için
+sabitleyip raporluyoruz. Aşağıdaki adlar bu nedenle kaynak sistemlerin bağımsız
+ve eksiksiz replikasyonlarını değil, bu çalışmadaki uygulamaları gösterir.
 
 \paragraph{BiG-MRTA~\cite{ghassemi2022bigmrta} (bipartit eşleme).}
-BiG-MRTA, sabit çok-kriterli kenar maliyetli robot--görev iki parçalı grafiği
-kurar ve her olayda maksimum-ağırlıklı eşleme çözer. Bir atamayı bir kez
+BiG-MRTA uyarlamamız, sabit çok-kriterli kenar faydalı robot--görev iki parçalı
+grafiği kurar ve her olayda maksimum-ağırlıklı eşleme çözer. Bir atamayı bir kez
 taahhüt eder ve tekrar ele almaz. Belirlenimci ve en düşük karar gecikmeli
 tek-paradigma karşılaştırmasıdır. Yeniden planlamayı önler; ancak atanan
 robot arızalanırsa veya zaman payı tükenirse görevi geri kazanmaz.
 
 \paragraph{RoSTAM-EA~\cite{rostam2024selfadaptive} (evrimsel).}
-RoSTAM-EA, aday atama vektörlerini her tahsis olayında turnuva seçimi,
+RoSTAM-esinli EA uyarlamamız, aday atama vektörlerini her tahsis olayında turnuva seçimi,
 çaprazlama ve mutasyonla evrimleştirir. Elit bireyi gönderir. Öz uyarlamalı
 stokastik arama ailesini temsil eder. Tek atışlı eşlemeden daha zengin atama
 uzayını arar; ancak karar gecikmesi iki ila üç mertebe daha yüksektir.
 Yeniden eniyileme, bağlam değişiminin nedenini kodlamaz.
 
-\paragraph{Consensus-DBTA~\cite{mahato2023consensus} (uzlaşma demeti).}
-Consensus-DBTA'da robotlar görev demetlerine yinelemeli teklif verir ve
-çatışmaları uzlaşma aşamasında çözer. Yöntem çok kararlı atamalar üretir
+\paragraph{Consensus-DBTA~\cite{mahato2023consensus} (DBTA2-tarzı uzlaşmalı teklif).}
+Her robot en yüksek değerli iki görev teklifini paylaşır; benzetilmiş ağ-geneli
+maksimum uzlaşması her görev için kazananı belirler ve öncelik turları bir
+robotun çatışan görevleri kazanmasını önler. Yöntem çok kararlı atamalar üretir
 (tahsis kararsızlığı ${\approx}\,0$). Dağıtık açık artırma/uzlaşma ailesini
 temsil eder ve bu çalışmada en güçlü tamamlama oranlı temel yöntemdir.
 Yeniden teklif turları, arızaya veya hızlı deadline artışına tepkiyi
 yavaşlatabilir.
 
-Tek-paradigmalı AHE gibi bir ablasyon varyantı dahil edilmemiştir. Her
-paradigma klasik bir ilkeldir. Karşılık gelen temel yöntem ailesi,
-tek-paradigmalı davranışı yaklaşıklar (Tablo~\ref{tab:hormones}).
+Dış temel yöntemler seçici ablasyonunun yerine geçmez; AHE'den hem tahsis
+mantığı hem paradigma seçimi bakımından ayrılır. Bölüm~\ref{sec:ablation}'daki
+sabit-paradigma vekil ablasyonu, seçici sorusunu yalnız vekil ortamında ele alır.
 
 \paragraph{Karşılaştırmanın kapsamı.} Temel yöntemler aynı olay döngüsünü,
 arayüzleri ve maliyet girdilerini paylaşır. Ancak her kaynak sistemin bağımsız
@@ -810,7 +825,7 @@ sayılır:
   \mathrm{DVR} =
   \frac{\bigl|\{\tau : d_\tau<\infty \;\wedge\; (t^{\mathrm{c}}_\tau>d_\tau \;\vee\;
         \tau\ \text{bitmedi})\}\bigr|}
-       {\bigl|\{\tau : d_\tau<\infty\}\bigr|}.
+       {\max\!\left(1,\bigl|\{\tau : d_\tau<\infty\}\bigr|\right)}.
   \label{eq:fairdvr}
 \end{equation}
 Kural her yönteme ve her ölçekte aynen uygulanır. Ayrıca yalnız tamamlanan
@@ -825,8 +840,9 @@ yoğunluk, 25 görev). 3-robot ölçeğinde üç yoğunluk birleştirilir ($n{=}
 10-robot ölçeğinde $n{=}5$ koşu vardır. Küçük hücreler için uygun etki
 büyüklüğü kestirimi olarak Cliff $\delta$ da raporlanır. $n{=}5$ olan
 dört-yöntemli Gazebo hücreleri betimleyicidir. Düzeltilmemiş veya anlamlı
-olmayan karşılaştırmadan yöntem üstünlüğü sonucu çıkarmayız. 500-tohumlu
-allocation-only kampanya ve stokastik navigasyon vekili ayrı kontrollü
+olmayan karşılaştırmadan yöntem üstünlüğü sonucu çıkarmayız. Hücre başına
+100 tohumlu allocation-only kampanya ile 500-tohumlu birincil stokastik
+navigasyon vekili ayrı kontrollü
 testlerdir. Eşleşmiş F45--F58 Gazebo çalışması, senaryo ve ölçek başına 10
 ortak tohumla eşli test kullanır. Gazebo sonuçları genel konuşlandırma
 başarımını değil, değerlendirilen yürütme yığınındaki davranışı gösterir.
@@ -1080,8 +1096,8 @@ işyükü-adaletini ve toplam verimi mesafe-dengesi aleyhine iyileştirir.
 Replikasyon dalgası tek başına tüm kazanım yönlerini yeniden üretti
 (deadline-pressure makespan'i daha da güçlüydü, $-18.4$~s) ve havuzlanmış
 örneklemde istatistiksel destekli başka gerileme yoktur;
-anlamlılık-düzeyinde en yüksek güçlü kanıt yine Nav2-bağımsız 500-tohum
-kampanyasıdır (Bölüm~\ref{sec:results-sim}).
+konfigürasyon düzeyindeki en yüksek güçlü kanıt yine hücre başına 100 tohumlu
+Nav2-bağımsız kampanyadır (Bölüm~\ref{sec:results-sim}).
 
 Ölçek sağlamlığını sınamak için aynı eşleşmiş protokolü kalan iki
 fiziksel ölçekte de yineledik---3 robot / 15 görev ve 10 robot / 50
@@ -1276,9 +1292,9 @@ iki ölçekte gerçek-zaman bütçesinin içinde.
   \caption{Birincil 5-robot / 25-görev ölçeğinde \textit{robot\_failure} altında
   arıza-toparlanma davranışı ($n{=}5$ tohum): toparlanma süresi ile
   tamamlama oranı (ortalama $\pm$ std çubukları; bıyıklar sıfırda
-  kırpılmıştır) ve tohum$\times$yöntem yeniden-gönderim olay matrisi ---
-  her hücre bir koşudur, dolu hücreler olay sayısını taşır ve $\Sigma$
-  satır toplamını verir. Matris her olayı üreten tohuma bağlar: 20
+  kırpılmıştır) ve her karenin tek bir olay olduğu birim çubuk olarak
+  yeniden-gönderim olayları --- farklı tohumların kareleri boşlukla
+  ayrılır. Bu, metriğin nadir ve kesikli doğasını görünür tutar: 20
   koşunun 17'sinde yeniden-gönderim sıfırdır, RoSTAM-EA'nın iki olayı
   iki ayrı tohumdan gelir ve Consensus-DBTA'nın altı olayının tümü tek
   bir tohumdadır (yürütme kesintileri tüm yöntemlerde sıfır olduğundan
@@ -1330,9 +1346,10 @@ iki ölçekte gerçek-zaman bütçesinin içinde.
 
 \subsection{İdeal-uygunluk neden Gazebo'ya doğrusal aktarılmıyor?}
 
-500-tohumlu tahsis-uygunluk simülatörü Nav2 maliyet varyansını (yerel
-planlayıcı duraklamaları, costmap yeniden inşaları, dar koridorlarda geçiş
-manevraları) kaldırır, böylece her kararın değeri tam olarak gerçekleşir.
+Hücre başına 100 tohumlu belirlenimci allocation-only simülatör, Nav2 sonuç
+varyansını (yerel planlayıcı duraklamaları, costmap yeniden inşaları, dar
+koridorlarda geçiş manevraları) kaldırır ve kabul edilen her rotayı ortak
+geodezik kâhine göre gerçekleştirir.
 Gazebo'da iki etki AHE'nin avantajını azaltır:
 
 \begin{enumerate}
@@ -1468,9 +1485,9 @@ bu da saha dağıtımı için gereken düşük-bant-genişliği özelliğini kor
 ---$n{=}5$ yapısal olarak yetersiz güçlüdür---; 3 robotta ($n{=}15$) ise 63
 karşılaştırmanın 14'ü geçer; 10 robotta hücre başına beş tohum benzer biçimde
 yetersiz güçlüdür ve hiçbir karşılaştırma düzeltmeden sağ çıkmaz.
-Birincil algoritmik test olarak 500-tohumlu allocation-only uygunluğu ve
-ayrı navigation-proxy dayanıklılığını, ardından
-örnekleme-dayanıklı ölçü olarak Cliff $\delta$'yı raporlayarak hafifletiyoruz;
+Yüksek güçlü çapraz-yöntem testi olarak 500-tohumlu stokastik navigasyon
+vekilini, yapılandırma testi olarak hücre başına 100 tohumlu belirlenimci
+kampanyayı ve Cliff $\delta$'yı raporlayarak hafifletiyoruz;
 daha büyük bir 10-robot tohum bütçesi ek çıkarımsal destek sağlar.
 (ii) \textbf{Toparlanma süresi varyansı:} \textit{mixed\_stress}
 toparlanma süresi yüksek varyans taşır (10r: $72\pm78$~s) çünkü bazı
@@ -1527,8 +1544,9 @@ tohumlarda karşılaştırmalıdır.
 
 AHE-MRTA'yı, sabit ve bağlam-güdümlü paradigma seçimi kullanan
 olay-tetiklemeli bir MRTA çerçevesi olarak sunduk. Geodezik ETA ve sınırlı
-yük onarımı ekleyen F58 konfigürasyonunu değerlendirdik. 500-tohumlu
-allocation-only kampanyada lider politikalar aynı tamamlama ve deadline
+yük onarımı ekleyen F58 konfigürasyonunu değerlendirdik. Hücre başına 100
+tohumlu allocation-only kampanyada karşılaştırılan F45 ve F58 yapılandırmaları
+aynı tamamlama ve deadline
 tavanına ulaşır. Bu kampanya onları sıralamaz. Stokastik navigasyon
 vekilinde AHE-MRTA ile Consensus-DBTA, karışık stresteki AHE-MRTA lehine
 küçük fark ($+0.007$, $p{=}0.042$) dışında istatistiksel olarak eşittir. Bu

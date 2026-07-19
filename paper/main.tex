@@ -54,8 +54,9 @@ selects the behaviour. The F58 configuration extends the F45 core with cached
 geodesic estimated time of arrival (ETA) and a terminal, bounded load-repair
 step.
 
-We evaluate allocation and execution in three separate settings: a 500-seed
-allocation-only campaign, a stochastic navigation proxy, and closed-loop
+We evaluate allocation and execution in three separate settings: a
+deterministic allocation-only campaign with 100 seeds per cell, a stochastic
+navigation proxy with 500 seeds in the primary cells, and closed-loop
 Gazebo Harmonic/ROS\,2 Nav2 experiments with 3, 5, and 10 TurtleBot3 robots.
 In the allocation-only campaign, F58 reaches the observed ceiling for
 completion and deadline violations in the tested cells. This setting therefore
@@ -206,8 +207,9 @@ robots cannot receive a new task; their unfinished tasks become eligible for
 redispatch.
 
 \textbf{Arrival prediction and admissibility.} For a candidate pair
-$(r,\tau)$, let $\hat a_{r\tau}^k$ be the predicted completion-arrival time
-obtained by traversing $q_r^k$ and then travelling to $p_\tau$. The predictor
+$(r,\tau)$, let $\hat a_{r\tau}^k$ be the predicted arrival time obtained
+from the current queue endpoint, a queue-length delay surrogate, and travel
+to $p_\tau$. The predictor
 uses the same route metric as the active configuration: F45 uses its core
 distance estimate, while F58 uses the cached geodesic ETA in
 Eq.~\eqref{eq:f58-eta}. A pair with no route is infeasible. For a finite
@@ -395,8 +397,9 @@ The update is
 \end{aligned}
 \label{eq:dominance}
 \end{equation}
-where $\operatorname{Proj}_{\Delta^4}$ normalizes the vector onto the
-five-element probability simplex. The rule combines interaction-inspired
+where $\operatorname{Proj}_{\Delta^4}$ denotes the implementation's
+non-negative $\ell_1$ normalization (with a uniform fallback when the sum is
+zero), rather than an iterative Euclidean projection. The rule combines interaction-inspired
 winner-reinforcement and competitor-suppression terms with short-horizon
 performance and context compatibility \cite{peng2023competition}. It is not
 an online learned model and does not provide an optimality guarantee; all
@@ -422,7 +425,7 @@ M=\begin{bmatrix}
 \end{equation}
 Accordingly,
 \begin{equation}
-  w^{\rm eco}_k=\operatorname{softmax}\!\left(\frac{MD_k}{T_w}\right),
+  w^{\rm eco}_k=\operatorname{softmax}\!\left(\frac{MD_{k+1}}{T_w}\right),
   \qquad w_k=0.3w_0+0.7w^{\rm eco}_k,
   \label{eq:weights}
 \end{equation}
@@ -454,20 +457,18 @@ F45 uses Euclidean travel distance. F58-P0 uses cached geodesic distance
 $d_G$ on the 0.55~m-inflated occupancy mask of the
 \texttt{obstacle\_map.pgm} shared with Gazebo, using an eight-connected
 free-cell graph. A pair is infeasible if no route exists. For robot $r$ with
-ordered queue $Q_r=(q_1,\ldots,q_j)$, the route-profile ETA for candidate
-$\tau$ is
+ordered queue $Q_r=(q_1,\ldots,q_j)$, let $e_r(Q_r)=p_r$ when $j=0$ and
+$e_r(Q_r)=p_{q_j}$ otherwise. The implemented ETA surrogate is
 \begin{equation}
 \hat a_{r\tau,k}=t_k+
-\frac{d_G(p_r,p_{q_1})+
-\sum_{\ell=1}^{j-1}d_G(p_{q_\ell},p_{q_{\ell+1}})+
-d_G(p_{q_j},p_\tau)}{v_r}
-+\sum_{\ell=1}^{j}(s_{q_\ell}+h),
+\frac{d_G(e_r(Q_r),p_\tau)}{v_r}+j\,(h+s_\tau),
 \label{eq:f58-eta}
 \end{equation}
-which reduces to $d_G(p_r,p_\tau)$ for an empty queue. Here,
-$s_{q_\ell}$ is service time and $h$ is the fixed allowance for queued
-navigation. The same route metric is used by the admission gate, paradigm
-costs, and repair.
+where $s_\tau$ is the candidate service time and $h=22$~s is the fixed
+per-queued-task navigation allowance. This deliberately inexpensive
+surrogate does not claim to reconstruct every intermediate route edge. The
+same endpoint distance oracle is used by the admission gate, paradigm costs,
+and repair burden calculations.
 
 After the primary plan $x^0$ is produced, F58-P1 considers local candidates
 that change the robot only for newly assigned tasks. It therefore never
@@ -508,7 +509,7 @@ choice $\tilde p_k$ follows the priority order
 \begin{cases}
 \mathrm{H\_RECOV}, & c_{4,k}>0.05,\\
 \mathrm{H\_TEMP}, & c_{4,k}\leq0.05\ \wedge\ c_{3,k}>0.50,\\
-\arg\max_i D_{i,k}, & \text{otherwise}.
+\arg\max_i D_{i,k+1}, & \text{otherwise}.
 \end{cases}
 \label{eq:dispatch}
 \end{equation}
@@ -542,7 +543,7 @@ they differ in task-processing order, cost shaping, and treatment of
 incumbent ownership. Given a feasibility-masked cost matrix $C^{(p)}_k$, the
 common assignment kernel is
 \begin{equation}
-  x^{(p)}_k\in\arg\min_{x\in\mathcal X_k}
+  x^{(p)}_k\in\arg\min_{x\in\mathcal X_k^\star}
   \sum_{r\in\mathcal R}\sum_{\tau\in\mathcal T(t_k)}
   C^{(p)}_{r\tau,k}\,x_{r\tau}.
   \label{eq:lsa}
@@ -577,8 +578,7 @@ one assignment pass, not a claim of global optimality for the entire run.
   \item \textbf{H\_STAB / \emph{commit\_once}:} Tasks with a previous owner
   that remains eligible are kept with that owner. Only new tasks receive a
   single-pass allocation. This lowers reassignment churn but limits
-  flexibility after a failure, making the stability trade-off explicit
-  \cite{rostam2024selfadaptive}.
+  flexibility after a failure, making the stability trade-off explicit.
 
   \item \textbf{H\_RECOV / \emph{orphan\_first}:} Tasks left by failed,
   stuck, or navigation-aborted robots are first redistributed among healthy
@@ -648,8 +648,8 @@ and optional route/repair layers rather than from the selector itself.
 
 \subsection{Hardware Platform}
 All experiments run on an Intel Core i7-11800H workstation with eight physical
-cores, 16 threads, a 2.30~GHz base clock, 16~GiB DDR4 RAM, Ubuntu,24.04~LTS,
-and Linux,6.17. The machine has an NVIDIA RTX,3050,Mobile GPU, but no
+cores, 16 threads, a 2.30~GHz base clock, 16~GiB DDR4 RAM, Ubuntu 24.04~LTS,
+and Linux 6.17. The machine has an NVIDIA RTX 3050 Mobile GPU, but no
 proprietary driver is installed. Gazebo and RViz therefore use Mesa llvmpipe
 software rasterization (\texttt{LIBGL\_ALWAYS\_SOFTWARE=1},
 \texttt{GALLIUM\_DRIVER=llvmpipe}). No experiment uses GPU acceleration. The
@@ -740,39 +740,43 @@ The three scenarios stress different allocation requirements:
 
 \subsection{Baseline Methods}
 \label{sec:baselines}
-We compare one representative from each online-MRTA solver family represented
-in the AHE-MRTA library. We re-implement all baselines in the same framework.
+We compare one operational adaptation from each online-MRTA family represented
+in the AHE-MRTA library. All adaptations run in the same framework.
 They share the event loop, ROS\,2 topic interface, cost inputs (arrival time,
 urgency, priority, and load), per-robot queue cap $Q$, and Nav2 client. Only
 the allocation policy differs. We use source-paper parameters where they are
-specified and keep them fixed across scenarios and scales.
+specified and otherwise report fixed benchmark choices. The names below thus
+identify our implementations, not independent reproductions of the complete
+source systems.
 
 \paragraph{BiG-MRTA~\cite{ghassemi2022bigmrta} (bipartite matching).}
-BiG-MRTA builds a bipartite robot--task graph with fixed multi-criteria edge
-cost and solves a maximum-weight matching at each event. It commits an
-assignment once and never revisits it. It is the deterministic,
+Our BiG-MRTA adaptation builds a bipartite robot--task graph with fixed
+multi-criteria edge utility and solves maximum-weight matching at each event.
+Once assigned, a task is not reallocated. It is the deterministic,
 lowest-latency, single-paradigm comparison. Its policy avoids replanning but
 does not recover a task when its assigned robot fails or time slack collapses.
 
 \paragraph{RoSTAM-EA~\cite{rostam2024selfadaptive} (evolutionary).}
-RoSTAM-EA evolves candidate assignment vectors with tournament selection,
+Our RoSTAM-inspired EA evolves candidate assignment vectors with tournament selection,
 crossover, and mutation at each allocation event. It dispatches the elite
 individual. It represents self-adaptive stochastic search. It searches a
 richer assignment space than one-shot matching, but its decision latency is
 two to three orders of magnitude higher. Its reoptimization does not encode
 the cause of a context change.
 
-\paragraph{Consensus-DBTA~\cite{mahato2023consensus} (consensus bundle).}
-Consensus-DBTA has robots iteratively bid on task bundles and resolve
-conflicts in a consensus phase. It produces highly stable assignments
+\paragraph{Consensus-DBTA~\cite{mahato2023consensus} (DBTA2-style consensus bidding).}
+Each robot shares its two highest-valued task bids; simulated network-wide
+maximum consensus identifies a winner for each task, and priority rounds
+prevent one robot from winning conflicting tasks. It produces highly stable assignments
 (allocation instability ${\approx}\,0$). It represents distributed
 auction/consensus and is the strongest completion-rate baseline in this
 study. Re-bidding rounds can delay response to a failure or rapid deadline
 escalation.
 
-We do not include a single-paradigm AHE ablation. Each paradigm is a classical
-primitive, and the corresponding baseline family approximates its
-single-paradigm behavior (Table~\ref{tab:hormones}).
+The external baselines are not substitutes for a selector ablation: they
+differ from AHE in allocation logic as well as paradigm choice. The separate
+fixed-paradigm proxy ablation in Section~\ref{sec:ablation} addresses only
+the selector question in the proxy setting.
 
 \paragraph{Comparison scope.} The baseline implementations share the event
 loop, interfaces, and cost inputs, but they are operational re-implementations
@@ -813,7 +817,7 @@ completes:
   \mathrm{DVR} =
   \frac{\bigl|\{\tau : d_\tau<\infty \;\wedge\; (t^{\mathrm{c}}_\tau>d_\tau \;\vee\;
         \tau\ \text{unfinished})\}\bigr|}
-       {\bigl|\{\tau : d_\tau<\infty\}\bigr|}.
+       {\max\!\left(1,\bigl|\{\tau : d_\tau<\infty\}\bigr|\right)}.
   \label{eq:fairdvr}
 \end{equation}
 We apply this convention to every method and scale. We also record
@@ -829,8 +833,8 @@ tests per scenario). At the primary 5-robot scale, each cell has $n{=}5$ runs
 $\delta$, an effect-size estimate suited to small cells. The four-method
 Gazebo cells with $n{=}5$ are descriptive. We make no cross-method
 superiority claim from an uncorrected or non-significant comparison. The
-500-seed allocation-only campaign and stochastic navigation proxy are
-separate controlled tests. The matched F45--F58 Gazebo study uses paired tests
+100-seed-per-cell allocation-only campaign and the 500-seed primary
+navigation-proxy cells are separate controlled tests. The matched F45--F58 Gazebo study uses paired tests
 with 10 common seeds per scenario and scale. Gazebo results describe behavior
 in the evaluated execution stack, not general deployment performance.
 
@@ -1074,8 +1078,8 @@ geodesic cache and repair search. The consistent additional cost is lower
 distance Jain under deadline pressure ($-0.020$, $p{=}0.006$). Thus, the
 repair trades distance balance for workload fairness and total efficiency.
 The replication wave reproduces every gain direction; its deadline-pressure
-makespan decrease is 18.4~s. The allocation-only 500-seed campaign remains
-the higher-powered evidence.
+makespan decrease is 18.4~s. The 100-seed-per-cell allocation-only campaign
+remains the higher-powered configuration-level evidence.
 
 To probe scale robustness we then repeated the same matched protocol at
 the two remaining physical scales---3 robots / 15 tasks and 10 robots /
@@ -1250,17 +1254,17 @@ scales.
   \caption{Failure-recovery behaviour under \textit{robot\_failure} at
   the primary 5-robot / 25-task scale ($n{=}5$ seeds): recovery time and
   completion rate (mean\,$\pm$\,std bars, whiskers clipped at zero) and
-  a seed$\times$method matrix of re-dispatch events, in which each cell
-  is one run, filled cells carry the event count, and $\Sigma$ gives the
-  row total. The matrix attributes every event to the seed that produced
-  it: 17 of the 20 runs have zero re-dispatches, RoSTAM-EA's two events
-  come from two different seeds, and all six Consensus-DBTA events fall
-  in a single seed (execution preemptions are zero for every method and
-  are omitted). Recovery times are statistically indistinguishable
-  across methods ($p{>}0.3$); AHE-MRTA converts its comparable recovery
-  time into the highest completion rate of the reactive methods by
-  escalating to the orphan-rescue paradigm within one ecosystem update
-  cycle (${\leq}2$~s).}
+  re-dispatch events as a unit bar in which every square is a single
+  event and squares from different seeds are separated by a gap. This
+  keeps the rare, discrete nature of the metric visible: 17 of the 20
+  runs have zero re-dispatches, RoSTAM-EA's two events come from two
+  different seeds, and all six Consensus-DBTA events fall in a single
+  seed (execution preemptions are zero for every method and are
+  omitted). Recovery times are statistically indistinguishable across
+  methods ($p{>}0.3$); AHE-MRTA converts its comparable recovery time
+  into the highest completion rate of the reactive methods by escalating
+  to the orphan-rescue paradigm within one ecosystem update cycle
+  (${\leq}2$~s).}
   \label{fig:recovery}
 \end{figure}
 
@@ -1305,9 +1309,10 @@ scales.
 
 \subsection{Why does ideal-fitness not transfer linearly to Gazebo?}
 
-The 500-seed allocation-fitness simulator removes Nav2 cost variance, such as
-local-planner stalls, costmap rebuilds, and passing maneuvers in narrow
-corridors. It therefore realizes each decision's value exactly. In Gazebo,
+The deterministic allocation-only simulator (100 seeds per cell) removes
+Nav2 outcome variance such as local-planner stalls, costmap rebuilds, and
+passing manoeuvres in narrow corridors. It therefore realizes each accepted
+route according to the shared geodesic oracle. In Gazebo,
 two execution effects can reduce an allocation advantage:
 
 \begin{enumerate}
@@ -1441,8 +1446,9 @@ primary scale ($n{=}5$ per cell) no comparison survives Bonferroni
 correction---$n{=}5$ is structurally underpowered---whereas at 3 robots
 ($n{=}15$) 14 of 63 do; at 10 robots the five seeds per cell are
 likewise underpowered and no comparison survives correction. We mitigate by
-reporting 500-seed Nav2-independent fitness as the primary hypothesis
-test and Cliff's $\delta$ as a sample-size-robust effect measure; a
+reporting the 500-seed stochastic navigation-proxy fitness as the primary
+high-power cross-method test and the 100-seed-per-cell deterministic campaign
+as the configuration test, together with Cliff's $\delta$; a
 larger 10-robot seed budget would add inferential support.
 (ii) \textbf{Recovery-time variance:} Recovery time under
 \textit{mixed\_stress} carries high variance (10r: $72\pm78$~s) because
@@ -1501,8 +1507,9 @@ no-recovery-boost variants, with a pre-specified primary metric, at least
 
 We presented AHE-MRTA, an event-triggered MRTA framework with fixed,
 context-driven paradigm selection. We evaluated its F58 configuration, which
-adds geodesic ETA and bounded load repair. In the 500-seed allocation-only
-campaign, leading policies reach the same completion and deadline ceiling.
+adds geodesic ETA and bounded load repair. In the 100-seed-per-cell
+allocation-only campaign, the compared F45 and F58 configurations reach the
+same completion and deadline ceiling.
 This campaign therefore does not rank them. In the stochastic navigation
 proxy, AHE-MRTA and Consensus-DBTA are statistically tied except for a small
 mixed-stress edge to AHE-MRTA ($+0.007$, $p{=}0.042$). The two settings
