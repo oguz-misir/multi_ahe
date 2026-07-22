@@ -45,30 +45,38 @@
 
 %==============================================================================
 \begin{abstract}
-We study online multi-robot task allocation under robot failures, mixed
-stress, and deadline pressure. AHE-MRTA uses Ecosystem-Driven Paradigm
-Selection (EDPS). EDPS is an event-triggered rule that maps five hormone
-states to five fixed allocation behaviours. Explicit overrides handle acute
-failure and deadline regimes. In all other regimes, a fixed dominance dynamic
-selects the behaviour. AHE-MRTA also uses a cached geodesic estimated time of
-arrival (ETA) cost oracle and a terminal, bounded load-repair step.
+Online multi-robot task allocation (MRTA) must preserve good decisions as
+tasks arrive, robots fail, deadlines approach, and execution exposes new
+constraints. No single fixed allocation policy is best across these regimes: a
+rule tuned for one exposes weaknesses in another. We present AHE-MRTA, which
+makes the choice of allocation behaviour an online decision through
+Ecosystem-Driven Paradigm Selection (EDPS). EDPS is an interpretable,
+event-triggered selector: four context signals---task density, robot
+availability, deadline pressure, and recent failure rate---drive five hormone
+states, each activating one fixed, well-understood behaviour (spatial-greedy,
+priority-first, deadline-temporal, commit-once, or orphan-first recovery), with
+explicit overrides for acute failure and deadline regimes and a fixed
+dominance dynamic otherwise. A cached geodesic-ETA cost oracle and a terminal,
+bounded load-repair step complete the method, which decides within a 50~ms
+budget.
 
-We evaluate allocation and execution in three separate settings: a
-deterministic allocation-only campaign with 100 seeds per cell, a stochastic
-navigation proxy with 500 seeds in the primary cells, and closed-loop
-Gazebo Harmonic/ROS\,2 Nav2 experiments with 3, 5, and 10 TurtleBot3 robots.
-In the allocation-only campaign, AHE-MRTA reaches the observed ceiling for
-completion and deadline violations in the tested cells. This setting therefore
-does not separate the leading policies. In the navigation proxy, AHE-MRTA and
-Consensus-DBTA are co-leaders; the only significant separation is a small
-mixed-stress edge for AHE-MRTA. AHE-MRTA also increases decision latency and
-reduces distance balance under deadline pressure relative to the commit-once
-baselines. The four-method Gazebo benchmark uses five seeds per
-cell. We therefore report it descriptively and do not use it to claim broad
-superiority. The current experiments also do not causally isolate EDPS from
-the other implementation differences in the execution stack. We state this
-limit, keep allocation-only and closed-loop evidence separate, and specify the
-matched selector ablation required for the remaining causal claim.
+We evaluate across three complementary layers. In a deterministic
+allocation-only campaign (100 seeds per cell), AHE-MRTA reaches the completion
+and deadline ceiling in every scale--scenario cell, so this setting does not
+separate the leading policies. In a stochastic navigation proxy (500 seeds),
+AHE-MRTA and Consensus-DBTA are statistical co-leaders, the only significant
+separation being a small mixed-stress edge for AHE-MRTA ($+0.007$,
+$p{=}0.042$). In closed-loop Gazebo Harmonic/ROS\,2 Nav2 experiments with 3,
+5, and 10 TurtleBot3 robots (300 runs), AHE-MRTA reaches full completion under
+robot failure and the highest effective on-time completion under deadline
+pressure (about $0.79$ at 5 robots and $0.76$ at 10, versus at most $0.66$ and
+$0.52$ for the baselines), at the cost of higher decision latency and lower
+distance balance than the sub-millisecond commit-once baselines. The
+four-method benchmark uses five seeds per cell and is reported descriptively:
+we make no broad-superiority claim, do not causally isolate EDPS from other
+execution-stack differences, keep the allocation-only and closed-loop evidence
+separate, and treat the 500-seed navigation-proxy study as the primary
+hypothesis test.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -222,7 +230,7 @@ redispatch.
 $(r,\tau)$, let $\hat a_{r\tau}^k$ be the predicted arrival time obtained
 from the current queue endpoint, a queue-length delay surrogate, and travel
 to $p_\tau$. The predictor
-uses the cached geodesic ETA of Eq.~\eqref{eq:f58-eta} as its route metric.
+uses the cached geodesic ETA of Eq.~\eqref{eq:eta} as its route metric.
 A pair with no route is infeasible. For a finite
 deadline, the admission rule is
 \begin{equation}
@@ -313,16 +321,18 @@ while making latency trade-offs visible.
 \noindent\textbf{Design principle and event-triggered architecture.}
 \label{sec:method-overview}
 
-AHE-MRTA is not a new global MRTA solver; it is an event-triggered
-\emph{selection hyper-heuristic} operating over a fixed library of
-low-level allocation behaviours \cite{burke2013hyper}. At an allocation
-event, the fleet state, open task pool, and previous queues are observed; the
-selector first updates its context and internal state, then activates one of
-five paradigms, and finally publishes robot-specific queues. Adaptation thus
-occurs in two distinct decision layers: (i) the allocation behaviour to run
-and (ii) the weights assigned to the channels of the common cost function.
-The selector does not run a new inter-robot negotiation protocol; the central
-manager publishes only each robot's own queue.
+Section~\ref{sec:intro} argued that no fixed allocation policy is best across
+changing regimes. AHE-MRTA answers this not with a new global solver but with
+an event-triggered \emph{selection hyper-heuristic} that chooses, online, among
+a fixed library of five well-understood low-level behaviours
+\cite{burke2013hyper}. At each allocation event it observes the fleet state,
+the open task pool, and the previous queues, updates its context and internal
+state, activates one paradigm, and publishes robot-specific queues. Adaptation
+therefore acts on two coupled layers---\emph{which} behaviour runs, and
+\emph{how} the shared cost function is weighted---both driven by the same
+context, so a single interpretable state governs the entire decision. The
+selector runs no new inter-robot negotiation protocol: the central manager
+publishes only each robot's own queue, keeping a low-bandwidth interface.
 
 The persistent selector state comprises a five-dimensional dominance vector
 $D_k\in\mathbb{R}_{\geq0}^{5}$, the last accepted paradigm, and the remaining
@@ -412,9 +422,14 @@ where $\operatorname{Proj}_{\Delta^4}$ denotes the implementation's
 non-negative $\ell_1$ normalization (with a uniform fallback when the sum is
 zero), rather than an iterative Euclidean projection. The rule combines interaction-inspired
 winner-reinforcement and competitor-suppression terms with short-horizon
-performance and context compatibility \cite{peng2023competition}. It is not
-an online learned model and does not provide an optimality guarantee; all
-matrices and coefficients are fixed.
+performance and context compatibility \cite{peng2023competition}.
+Functionally, it is a fixed, low-dimensional smoothing of paradigm preference:
+context and recent outcomes nudge the dominance vector, while the
+cooperation--suppression terms damp abrupt swings, giving learning-free
+hysteresis. It is not an online learned model and provides no optimality
+guarantee; all matrices and coefficients are fixed, and acute failure or
+deadline regimes do not depend on it---they are handled by the explicit
+overrides of Section~\ref{sec:dispatch}.
 
 \input{table/as_matrices.tex}
 
@@ -445,9 +460,10 @@ toward $w_{\rm rec}$ with
 $\theta_k=\min(0.80,0.50+0.60c_{4,k})$. If deadline pressure exceeds $0.5$
 and recovery mode is inactive, the urgency channel is multiplied by $1.5$.
 These weights are the context-dependent part of the common cost in
-Section~\ref{sec:problem}. The Gazebo execution stack has no battery model,
-so the battery cost component is zero; its channel nevertheless remains in
-the softmax vector.
+Section~\ref{sec:problem}. The evaluated execution stack has no battery model,
+so the battery channel carries zero weight in every reported run; it is kept in
+the cost vector so that the same weight map transfers unchanged to
+battery-aware deployments.
 
 \paragraph{Feasibility and stability.} Every paradigm applies the hard
 admission gate of Eq.~\eqref{eq:admission-gate} and the single-owner and
@@ -460,7 +476,7 @@ These safeguards prevent event-triggered replanning from becoming gratuitous
 task migration.
 
 \subsection{Geodesic ETA and bounded load repair}
-\label{sec:f58}
+\label{sec:geodesic-repair}
 
 AHE-MRTA uses a cached geodesic cost oracle and a terminal, bounded
 load-repair step. Neither component changes the EDPS selector or the paradigm
@@ -472,7 +488,7 @@ $e_r(Q_r)=p_{q_j}$ otherwise. The implemented ETA surrogate is
 \begin{equation}
 \hat a_{r\tau,k}=t_k+
 \frac{d_G(e_r(Q_r),p_\tau)}{v_r}+j\,(h+s_\tau),
-\label{eq:f58-eta}
+\label{eq:eta}
 \end{equation}
 where $s_\tau$ is the candidate service time and $h=22$~s is the fixed
 per-queued-task navigation allowance. This deliberately inexpensive
@@ -496,7 +512,7 @@ D_G(x)\leq(1+\epsilon)D_G(x^0),\\
 \max_rB_r(x)\leq\max_rB_r(x^0),\\
 &F(x)\leq F(x^0)\big\},\qquad \epsilon=0.10 .
 \end{aligned}
-\label{eq:f58-repair}
+\label{eq:repair}
 \end{equation}
 Within this set, candidates are ranked by first increasing $J(x)$ and then,
 in order, decreasing maximum load, load range, and total distance. Repair is
@@ -860,9 +876,9 @@ execution oracle both use geodesic distance on the same inflated occupancy
 map. The metrics therefore measure allocation, queue order, and recovery
 after failure, rather than local-planner noise.
 
-\input{table/f58_allocation.tex}
+\input{table/allocation_only.tex}
 
-Table~\ref{tab:f58-allocation} shows that AHE-MRTA has
+Table~\ref{tab:allocation} shows that AHE-MRTA has
 $\mathrm{fitness}{=}\mathrm{CR}{=}1$ and $\mathrm{DVR}{=}0$ in all nine
 scale--scenario cells (100 seeds per cell). The active-robot Jain index is
 0.988--0.992 at 3r, 0.984--0.986 at 5r, and 0.982--0.990 at 10r. Decision
@@ -966,7 +982,7 @@ We report the closed-loop Gazebo benchmark. Methods use identical Nav2
 parameters, world, and timing budgets; only the allocation policy
 differs.\footnote{Tables and figures denote AHE-MRTA as AHE-MRTA* where it is
 evaluated with its geodesic-ETA cost oracle and terminal load repair
-(Sec.~\ref{sec:f58}).}
+(Sec.~\ref{sec:geodesic-repair}).}
 At 3r, three density levels (9, 15, and 24 tasks) with five seeds per
 method--scenario combination give 180 runs. The 5r and 10r studies add 60
 runs each, for 300 runs in total. We use Bonferroni-corrected Mann--Whitney U
@@ -1293,7 +1309,7 @@ mechanisms explain why the strongest methods converge. First, the fitness
 ceiling is set by \emph{stochastic, position-dependent navigation
 failure}, not by assignment quality: AHE-MRTA reaches fitness 1.0 in all
 nine scale--scenario cells of the perfect-navigation allocation-only
-model (Table~\ref{tab:f58-allocation}), and the spread in the proxy opens
+model (Table~\ref{tab:allocation}), and the spread in the proxy opens
 only once goals can fail and must be re-attempted. The binding constraint is therefore
 resilience to navigation failure---a capability AHE-MRTA and
 Consensus-DBTA both implement by re-dispatching failed and orphaned

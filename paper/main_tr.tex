@@ -47,31 +47,38 @@
 
 %==============================================================================
 \begin{abstract}
-Robot arızası, karışık stres ve deadline baskısı altında çevrim içi çoklu
-robot görev atamayı inceliyoruz. AHE-MRTA, Ekosistem-Güdümlü Paradigma
-Seçimi (EDPS) kullanır. EDPS, beş hormon durumunu beş sabit tahsis
-davranışına eşleyen olay-tetiklemeli bir kuraldır. Akut arıza ve deadline
-rejimleri açık geçersiz kılmalarla ele alınır. Diğer rejimlerde davranışı
-sabit bir baskınlık dinamiği seçer. AHE-MRTA ayrıca önbellekli geodezik
-tahmini varış zamanı (ETA) maliyet oracle'ı ve terminal, sınırlı bir yük
-onarım adımı kullanır.
+Görevler gelirken, robotlar arızalanırken, deadline'lar yaklaşırken ve yürütme
+yeni kısıtlar ortaya çıkarırken, çevrim içi çoklu robot görev atama (MRTA)
+iyi kararları korumalıdır. Bu rejimlerin hepsinde tek bir sabit tahsis
+politikası en iyi değildir: birine göre ayarlanmış bir kural başka birinde
+açık verir. Tahsis davranışının seçimini, Ekosistem-Güdümlü Paradigma Seçimi
+(EDPS) yoluyla çevrim içi bir karara dönüştüren AHE-MRTA'yı sunuyoruz. EDPS,
+yorumlanabilir ve olay-tetiklemeli bir seçicidir: görev yoğunluğu, robot
+uygunluğu, deadline baskısı ve yakın arıza oranı olmak üzere dört bağlam
+sinyali beş hormon durumunu sürer; her durum sabit ve iyi anlaşılmış bir
+davranışı (uzamsal-açgözlü, öncelik-önce, deadline-zamansal, commit-once veya
+yetim-önce toparlanma) etkinleştirir; akut arıza ve deadline rejimlerinde açık
+geçersiz kılmalar, diğer durumlarda sabit bir baskınlık dinamiği devreye
+girer. Önbellekli bir geodezik-ETA maliyet-kâhini ve terminal, sınırlı bir yük
+onarım adımı yöntemi tamamlar; yöntem 50~ms bütçesi içinde karar verir.
 
-Tahsis ve yürütmeyi üç ayrı ortamda değerlendiriyoruz: hücre başına 100
-tohumlu belirlenimci allocation-only kampanya, birincil hücrelerde 500 tohumlu
-stokastik navigasyon vekili ve 3, 5, 10
-TurtleBot3 ile kapalı-çevrim Gazebo Harmonic/ROS\,2 Nav2 deneyleri.
-Allocation-only kampanyada AHE-MRTA, test edilen hücrelerde tamamlanma ve
-deadline ihlali için gözlenen tavana ulaşır. Bu ortam lider politikaları
-ayırmaz. Navigasyon vekilinde AHE-MRTA ile Consensus-DBTA eş-liderdir; tek
-anlamlı ayrışma, karışık streste AHE-MRTA lehine küçük bir farktır. AHE-MRTA
-ayrıca commit-once temel yöntemlere kıyasla karar gecikmesini artırır ve
-deadline baskısında mesafe dengesini azaltır. Dört-yöntemli Gazebo
-kıyaslaması hücre başına beş tohum kullanır. Bu nedenle sonuçları
-betimleyici olarak raporluyor ve geniş üstünlük iddiası için kullanmıyoruz.
-Mevcut deneyler ayrıca EDPS'i yürütme yığınındaki diğer uygulama
-farklılıklarından nedensel olarak ayırmaz. Bu sınırı açıkça veriyor,
-allocation-only ve kapalı-çevrim kanıtlarını ayrı tutuyor ve kalan nedensel
-iddia için gereken eşleşmiş seçici ablasyonunu tanımlıyoruz.
+Yöntemi birbirini tamamlayan üç katmanda değerlendiriyoruz. Belirlenimci
+allocation-only kampanyada (hücre başına 100 tohum) AHE-MRTA, her
+ölçek--senaryo hücresinde tamamlanma ve deadline tavanına ulaşır; bu nedenle
+bu ortam lider politikaları ayırmaz. Stokastik navigasyon vekilinde (500
+tohum) AHE-MRTA ile Consensus-DBTA istatistiksel eş-liderdir; tek anlamlı
+ayrışma, karışık streste AHE-MRTA lehine küçük bir farktır ($+0.007$,
+$p{=}0.042$). 3, 5 ve 10 TurtleBot3 ile kapalı-çevrim Gazebo Harmonic/ROS\,2
+Nav2 deneylerinde (300 koşu) AHE-MRTA, robot arızası altında tam tamamlamaya
+ve deadline baskısı altında en yüksek zamanında-etkin tamamlamaya ulaşır (5
+robotta yaklaşık $0.79$, 10 robotta $0.76$; temel yöntemlerde en çok $0.66$ ve
+$0.52$); bunun bedeli, milisaniye-altı commit-once temel yöntemlere kıyasla
+daha yüksek karar gecikmesi ve daha düşük mesafe dengesidir. Dört-yöntemli
+kıyaslama hücre başına beş tohum kullanır ve betimleyici olarak raporlanır:
+geniş üstünlük iddia etmiyor, EDPS'i yürütme yığınındaki diğer farklılıklardan
+nedensel olarak ayırmıyor, allocation-only ve kapalı-çevrim kanıtlarını ayrı
+tutuyor ve 500-tohumlu navigasyon-vekili çalışmasını birincil hipotez testi
+olarak alıyoruz.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -225,7 +232,7 @@ görev verilmez; tamamlanmamış görevleri yeniden gönderim için uygun olur.
 \textbf{Varış tahmini ve kabul edilebilirlik.} Aday çift $(r,\tau)$ için
 $\hat a_{r\tau}^k$, güncel kuyruk son noktası, kuyruk-uzunluğu gecikme vekili
 ve $p_\tau$ hedefine seyahatten elde edilen tahmini varış zamanıdır. Tahminci
-rota metriği olarak Denklem~\eqref{eq:f58-eta}'daki önbellekli geodezik ETA'yı
+rota metriği olarak Denklem~\eqref{eq:eta}'daki önbellekli geodezik ETA'yı
 kullanır. Rota yoksa
 çift uygun değildir. Deadline sonluysa kabul kuralı
 \begin{equation}
@@ -316,16 +323,19 @@ korurken gecikme takaslarını görünür yapar.
 \noindent\textbf{Tasarım ilkesi ve olay-tetiklemeli mimari.}
 \label{sec:method-overview}
 
-AHE-MRTA, yeni bir küresel MRTA çözücüsü değil, sabit bir düşük-seviye
-tahsis davranışları kütüphanesi üzerinde çalışan olay-tetiklemeli bir
-\emph{seçim hiper-sezgiselidir} \cite{burke2013hyper}. Bir tahsis olayında
-filo durumu, açık görev havuzu ve önceki kuyruklar gözlenir; seçici önce
-bağlamı ve iç durumunu günceller, sonra beş paradigmadan birini etkinleştirir
-ve son olarak robot-bazlı kuyrukları yayımlar. Böylece uyarlama iki ayrı
-karar katmanında gerçekleşir: (i) hangi tahsis davranışının çalışacağı ve
-(ii) ortak maliyetteki kanal ağırlıklarının nasıl şekilleneceği. Seçici,
-robotlar arasında yeni bir müzakere protokolü çalıştırmaz; merkezi yönetici
-yalnız her robotun kendi kuyruğunu yayınlar.
+Bölüm~\ref{sec:intro}, değişen rejimlerde hiçbir sabit tahsis politikasının
+en iyi olmadığını savundu. AHE-MRTA buna yeni bir küresel çözücüyle değil, beş
+iyi anlaşılmış düşük-seviye davranıştan oluşan sabit bir kütüphane üzerinde
+çevrim içi seçim yapan olay-tetiklemeli bir \emph{seçim hiper-sezgiseliyle}
+yanıt verir \cite{burke2013hyper}. Her tahsis olayında filo durumunu, açık
+görev havuzunu ve önceki kuyrukları gözler; bağlamını ve iç durumunu günceller,
+bir paradigmayı etkinleştirir ve robot-bazlı kuyrukları yayımlar. Böylece
+uyarlama, birbirine bağlı iki katmanda gerçekleşir---\emph{hangi} davranışın
+çalışacağı ve ortak maliyet fonksiyonunun \emph{nasıl} ağırlıklanacağı---ikisi
+de aynı bağlamdan sürüldüğünden, tek ve yorumlanabilir bir durum tüm kararı
+yönetir. Seçici, robotlar arasında yeni bir müzakere protokolü çalıştırmaz:
+merkezi yönetici yalnız her robotun kendi kuyruğunu yayınlar ve düşük-bant
+genişlikli bir arayüz korur.
 
 EDPS'nin kalıcı seçici durumu, beş boyutlu baskınlık vektörü
 $D_k\in\mathbb{R}_{\geq0}^{5}$, son kabul edilen paradigma ve bu paradigma
@@ -416,9 +426,14 @@ biçimindedir. Burada $\operatorname{Proj}_{\Delta^4}$, uygulamadaki
 negatif-olmayan $\ell_1$ normalizasyonunu (toplam sıfırsa tekdüze fallback)
 gösterir; yinelemeli Öklid projeksiyonu değildir. Kural, ekolojik etkileşimlerden esinlenen
 kazananı destekleme--rakibi bastırma terimlerini, kısa dönem başarım ve bağlam
-uyumluluğu ile birleştirir \cite{peng2023competition}. Ancak bu terimler
+uyumluluğu ile birleştirir \cite{peng2023competition}. İşlevsel olarak bu,
+paradigma tercihinin sabit ve düşük-boyutlu bir yumuşatmasıdır: bağlam ve son
+sonuçlar baskınlık vektörünü hafifçe iterken destekleme--bastırma terimleri
+ani sıçramaları söndürür ve öğrenmesiz bir histerezis sağlar. Bu terimler
 öğrenilmiş bir çevrim içi model ya da optimalite garantisi değildir; tüm
-matrisler ve katsayılar sabittir.
+matrisler ve katsayılar sabittir ve akut arıza ya da deadline rejimleri buna
+dayanmaz---bunlar Bölüm~\ref{sec:dispatch}'teki açık geçersiz kılmalarla ele
+alınır.
 
 \input{table/as_matrices_tr.tex}
 
@@ -451,9 +466,10 @@ $w_{\rm rec}$ yönünde
 $\theta_k=\min(0.80,0.50+0.60c_{4,k})$ oranında harmanlanır. Deadline
 baskısı $0.5$'i aşıp arıza modu etkin değilse aciliyet kanalı $1.5$ ile
 çarpılır. Bu ağırlıklar, Bölüm~\ref{sec:problem}'deki ortak maliyetin
-bağlama duyarlı kısmıdır. Gazebo yürütmesinde batarya modeli bulunmadığından
-batarya maliyet bileşeni sıfırdır; ilgili kanal yine de softmax vektöründe
-korunur.
+bağlama duyarlı kısmıdır. Değerlendirilen yürütme yığınında batarya modeli
+bulunmadığından batarya kanalı raporlanan tüm koşularda sıfır ağırlık taşır;
+aynı ağırlık haritasının batarya-duyarlı konuşlandırmalara değişmeden
+aktarılabilmesi için bu kanal maliyet vektöründe korunur.
 
 \paragraph{Fizibilite ve kararlılık.} Her paradigma, Denklem~
 \eqref{eq:admission-gate}'deki sert kabul kapısını ve tek-sahiplik/in-flight
@@ -466,7 +482,7 @@ kurtarma görevi bu marj kuralının dışındadır. Bu korumalar, olay-tetiklem
 yeniden planlamanın gereksiz görev taşımasına dönüşmesini önler.
 
 \subsection{Geodezik ETA ve sınırlı yük onarımı}
-\label{sec:f58}
+\label{sec:geodesic-repair}
 
 AHE-MRTA, önbellekli bir geodezik maliyet-kâhini ve terminal, sınırlı bir yük
 onarım adımı kullanır. Bu bileşenlerin hiçbiri EDPS seçicisini veya paradigma
@@ -480,7 +496,7 @@ ETA vekili
 \begin{equation}
 \hat a_{r\tau,k}=t_k+
 \frac{d_G(e_r(Q_r),p_\tau)}{v_r}+j\,(h+s_\tau),
-\label{eq:f58-eta}
+\label{eq:eta}
 \end{equation}
 ile bulunur. Burada $s_\tau$ adayın servis süresi, $h=22$~s ise kuyruktaki
 her görev için sabit navigasyon payıdır. Bu ucuz vekil ara kuyruk
@@ -502,7 +518,7 @@ D_G(x)\leq(1+\epsilon)D_G(x^0),\\
 \max_rB_r(x)\leq\max_rB_r(x^0),\\
 &F(x)\leq F(x^0)\big\},\qquad \epsilon=0.10 .
 \end{aligned}
-\label{eq:f58-repair}
+\label{eq:repair}
 \end{equation}
 olarak tanımlanır. Bu kümede adaylar önce $J(x)$'i artırma, ardından sırasıyla
 en büyük yükü, yük aralığını ve toplam mesafeyi azaltma ölçütleriyle
@@ -872,9 +888,9 @@ doluluk haritasında geodezik mesafeyi kullanır. Böylece metrikler yerel
 planlayıcı gürültüsünü değil tahsisi, kuyruk sırasını ve arıza sonrası
 toparlanmayı ölçer.
 
-\input{table/f58_allocation_tr.tex}
+\input{table/allocation_only_tr.tex}
 
-Tablo~\ref{tab:f58-allocation}, AHE-MRTA'nın dokuz ölçek--senaryo hücresinin
+Tablo~\ref{tab:allocation}, AHE-MRTA'nın dokuz ölçek--senaryo hücresinin
 tamamında $\mathrm{fitness}{=}\mathrm{CR}{=}1$ ve $\mathrm{DVR}{=}0$ olduğunu
 gösterir (hücre başına 100 tohum). Aktif-robot Jain indeksi 3r'de
 0.988--0.992, 5r'de 0.984--0.986 ve 10r'de 0.982--0.990'dır. En büyük 10r/50g
@@ -975,7 +991,7 @@ Tam fiziksel-yığın Gazebo kıyaslamasını raporluyoruz. Her yöntem özdeş
 Nav2 parametreleri, dünya ve zamanlama bütçeleriyle çalışır; yalnızca tahsis
 politikası farklıdır.\footnote{Tablolar ve şekiller, AHE-MRTA'yı geodezik-ETA
 maliyet-kâhini ve terminal yük onarımıyla değerlendirildiği yerde AHE-MRTA*
-olarak belirtir (Böl.~\ref{sec:f58}).} Üç yoğunluk düzeyi (9/15/24 görev)
+olarak belirtir (Böl.~\ref{sec:geodesic-repair}).} Üç yoğunluk düzeyi (9/15/24 görev)
 $\times$ 5 tohum = 180 3r deneyi; 5r ve 10r her biri 60 deney ekler (300 toplam).
 Bonferroni düzeltmeli Mann--Whitney U tüm karşılaştırmalarda uygulanır.
 
@@ -1330,7 +1346,7 @@ eş-liderdir (Tablo~\ref{tab:fitness}). En güçlü yöntemlerin neden
 yakınsadığını iki mekanizma açıklar. Birincisi, uygunluk tavanı atama
 kalitesiyle değil \emph{stokastik, pozisyona-bağlı navigasyon arızasıyla}
 belirlenir. AHE-MRTA, kusursuz-navigasyon allocation-only modelinde tüm dokuz
-ölçek--senaryo hücresinde uygunluk 1.0'a ulaşır (Tablo~\ref{tab:f58-allocation});
+ölçek--senaryo hücresinde uygunluk 1.0'a ulaşır (Tablo~\ref{tab:allocation});
 proxy'deki fark hedefler başarısız olup yeniden denenmek zorunda kalınca
 açılır. Bağlayıcı kısıt dolayısıyla navigasyon arızasına
 dayanıklılıktır---AHE-MRTA ve Consensus-DBTA'nın ikisi de başarısız ve yetim

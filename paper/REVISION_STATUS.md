@@ -9,8 +9,10 @@
 - Figure 4 is framed solely as a stochastic navigation-proxy result. Its
   AHE--Consensus difference is reported as statistically indistinguishable;
   it is not used as evidence of allocation superiority.
-- The matched F45--F58 experiment is framed as evidence for the map-aware ETA
-  and bounded-repair configuration, not as evidence for EDPS.
+- The geodesic-ETA cost oracle and bounded terminal load repair are presented
+  as intrinsic components of AHE-MRTA. The earlier core-versus-full
+  configuration comparison has been removed, and no internal version codenames
+  appear in the manuscript source or output.
 - Four-method physical cells with five seeds are labelled descriptive. The
   text no longer attributes closed-loop differences causally to EDPS.
 - The bibliography contains the SciTe-verified Introduction records, and the
@@ -34,7 +36,7 @@ at eight pages. This manuscript is consequently not ready for RA-L submission
 in its present form.
 
 To create an RA-L version, retain one method figure, one compact protocol
-table, one allocation/proxy result figure, one matched F45--F58 result table,
+table, one allocation/proxy result figure, one allocation-only result table,
 and one physical-result figure or table. Move exhaustive per-scale tables,
 ablation variants, implementation audits, and secondary metrics to a public
 data/code repository and cite the artifact. This is a structural condensation
