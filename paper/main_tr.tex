@@ -968,7 +968,7 @@ puanıdır. Bu farkları performans ayrışması olarak yorumlamıyoruz. Vekilde
 AHE'nin karar gecikmesi 10 robotta yaklaşık 0.55~ms'dir. Bu değer 5~s
 yeniden planlama periyodunun çok altındadır ve RoSTAM-EA'nın 6.8~ms değerinden
 yaklaşık 12 kat küçüktür. Kapalı-çevrim Nav2 yığınında geodezik onarımın
-gecikmesi ise 16--35~ms'dir (Bölüm~\ref{sec:results-gazebo}). 5 ve 10 robotlu
+gecikmesi ise 13--30~ms'dir (Bölüm~\ref{sec:results-gazebo}). 5 ve 10 robotlu
 Gazebo çalışmaları her biri 60 koşu içerir. Farklı gürültü modeli ve daha
 az tohum kullandıkları için vekilin doğrudan doğrulaması değildir.
 
@@ -1378,8 +1378,8 @@ Online paradigma-değişiminin katkısını yalıtmak için EDPS seçiciyi her b
 
 \input{table/ablation_tr.tex}
 
-Sekiz varyant yalnız $[0.519,0.528]$ mean-uygunluk aralığına yayılıyor
-(yayılım $0.009$, bir std sapmanın çok altında): \emph{hiçbir} konfigürasyon
+Sekiz varyant yalnız $[0.469,0.476]$ mean-uygunluk aralığına yayılıyor
+(yayılım $0.007$, bir std sapmanın çok altında): \emph{hiçbir} konfigürasyon
 tam EDPS'ten ayrışmıyor, override'ları veya recovery boost'u kaldırmak Plane-A
 uygunluğunu neredeyse değiştirmiyor. Bu proxy ablasyonu yalnız test edilen
 seçici varyantlarının bu navigation-proxy metriğinde ayrışmadığını gösterir.

@@ -955,7 +955,7 @@ $N=5$ and $+0.2$~pp at $N=10$. We do not interpret these small differences
 as a performance separation. Proxy decision latency remains about 0.55~ms at
 10 robots. This is nearly four orders of magnitude below the 5~s replanning
 period and about 12 times lower than RoSTAM-EA (6.8~ms at $N=10$). In the
-closed-loop Nav2 stack, geodesic repair instead gives the 16--35~ms latency
+closed-loop Nav2 stack, geodesic repair instead gives the 13--30~ms latency
 reported in Section~\ref{sec:results-gazebo}.
 
 The 5- and 10-robot Gazebo studies contain 60 runs each. Their per-scenario
@@ -1342,8 +1342,8 @@ boost (\emph{no-recovery-boost}: $\delta{=}0$), holding everything else fixed
 
 \input{table/ablation.tex}
 
-The eight variants span a mean-fitness range of only $[0.519,0.528]$
-(spread $0.009$, $\ll$ one standard deviation): \emph{no} configuration
+The eight variants span a mean-fitness range of only $[0.469,0.476]$
+(spread $0.007$, $\ll$ one standard deviation): \emph{no} configuration
 statistically separates from full EDPS, and removing the overrides or the
 recovery boost leaves Plane-A fitness essentially unchanged. This proxy
 ablation establishes only that the tested selector variants do not separate
