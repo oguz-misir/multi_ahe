@@ -236,9 +236,13 @@ path-cost cache.
 # 0. Build
 colcon build --symlink-install && source install/setup.bash
 
-# 1. Plane A — Nav2-independent fitness (fast, no Gazebo)
-python3 scripts/simulate_and_tune.py --seeds 100 --scenario all --robots 5 --tasks 25   # -> results/processed/sim_fitness.csv
-python3 scripts/simulate_and_tune.py --seeds 100 --scenario all --robot-counts 3,5,10    # -> results/processed/sim_scalability.csv
+# 1. Plane A — Nav2-independent fitness (fast, no Gazebo).
+#    The geodesic cost oracle and terminal load repair default OFF; export the
+#    method env block (primary flag AHE_SIM_GEODESIC_EXECUTION=1; full set in
+#    ana_method.md) BEFORE these runs, or the output is the Euclidean plane,
+#    not the geodesic numbers reported in the paper.
+python3 scripts/simulate_and_tune.py --seeds 500 --scenario all --robots 5 --tasks 25   # -> results/processed/sim_fitness.csv  (500-seed fitness campaign)
+python3 scripts/simulate_and_tune.py --seeds 100 --scenario all --robot-counts 3,5,10    # -> results/processed/sim_scalability.csv (100-seed scalability sweep)
 
 # 2. Plane B — Gazebo (crash-safe, ONE experiment at a time; load-guarded)
 nohup bash run_until_complete.sh > results/until_complete.log 2>&1 &   # resumes after crash/reboot
