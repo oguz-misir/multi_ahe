@@ -52,22 +52,20 @@ robot görev atamayı inceliyoruz. AHE-MRTA, Ekosistem-Güdümlü Paradigma
 Seçimi (EDPS) kullanır. EDPS, beş hormon durumunu beş sabit tahsis
 davranışına eşleyen olay-tetiklemeli bir kuraldır. Akut arıza ve deadline
 rejimleri açık geçersiz kılmalarla ele alınır. Diğer rejimlerde davranışı
-sabit bir baskınlık dinamiği seçer. F58 konfigürasyonu, F45 çekirdeğine
-önbellekli geodezik tahmini varış zamanı (ETA) ve terminal, sınırlı bir yük
-onarım adımı ekler.
+sabit bir baskınlık dinamiği seçer. AHE-MRTA ayrıca önbellekli geodezik
+tahmini varış zamanı (ETA) maliyet oracle'ı ve terminal, sınırlı bir yük
+onarım adımı kullanır.
 
 Tahsis ve yürütmeyi üç ayrı ortamda değerlendiriyoruz: hücre başına 100
 tohumlu belirlenimci allocation-only kampanya, birincil hücrelerde 500 tohumlu
 stokastik navigasyon vekili ve 3, 5, 10
 TurtleBot3 ile kapalı-çevrim Gazebo Harmonic/ROS\,2 Nav2 deneyleri.
-Allocation-only kampanyada F58, test edilen hücrelerde tamamlanma ve deadline
-ihlali için gözlenen tavana ulaşır. Bu ortam lider politikaları ayırmaz.
-Navigasyon vekilinde AHE-MRTA ile Consensus-DBTA eş-liderdir; tek anlamlı
-ayrışma, karışık streste AHE-MRTA lehine küçük bir farktır.
-Eşleşmiş F45--F58 Gazebo karşılaştırması, her senaryo--ölçek
-hücresinde 10 ortak tohum kullanır. Dokuz hücrenin yedisinde önceden
-belirlenmiş terfi kapısını karşılar. Bu yapılandırma karar gecikmesini artırır
-ve deadline baskısında mesafe dengesini azaltır. Dört-yöntemli Gazebo
+Allocation-only kampanyada AHE-MRTA, test edilen hücrelerde tamamlanma ve
+deadline ihlali için gözlenen tavana ulaşır. Bu ortam lider politikaları
+ayırmaz. Navigasyon vekilinde AHE-MRTA ile Consensus-DBTA eş-liderdir; tek
+anlamlı ayrışma, karışık streste AHE-MRTA lehine küçük bir farktır. AHE-MRTA
+ayrıca commit-once temel yöntemlere kıyasla karar gecikmesini artırır ve
+deadline baskısında mesafe dengesini azaltır. Dört-yöntemli Gazebo
 kıyaslaması hücre başına beş tohum kullanır. Bu nedenle sonuçları
 betimleyici olarak raporluyor ve geniş üstünlük iddiası için kullanmıyoruz.
 Mevcut deneyler ayrıca EDPS'i yürütme yığınındaki diğer uygulama
@@ -97,21 +95,34 @@ andaki düşük maliyetli atama yeterli değildir. Tahsisçi; görevler gelirken
 robotlar devre dışı kalırken, deadline'lar yaklaşırken ve yürütme yeni
 kısıtları ortaya çıkarırken yararlı kararları korumalıdır.
 
-Mevcut yaklaşımlar farklı takaslar yapar. Küresel durum bilgisi varsa merkezi
-formülasyonlar tahsis ve rotayı birlikte eniyileyebilir. Dağıtık
-formülasyonlar ise yerel kararlar ve açık iletişim varsayımları kullanır. Bai
-\emph{ve ark.}, zamanla gelen ve zaman penceresi olan teslimat istekleri için
-grup-tabanlı dağıtık açık artırmalar kullanır \cite{bai2023group}.
-Uzlaşma-tabanlı tahsis, yerel koordinasyon, hız ve enerji kullanımını ele alır
-\cite{mahato2023consensus}. Oyun-kuramı tabanlı kümeleme, görev gruplamayı
-tahsisle birleştirir \cite{garciamartin2023clustering}. Birlikte tahsis--yol
-planlama formülasyonları zamanlama, iş yükü, mesafe, enerji ve deadline
-amaçlarını içerir \cite{lei2023convex}. Başka çevrim içi yöntemler problem
-yapısındaki değişime uyum sağlar \cite{rostam2024selfadaptive} veya
-merkeziyetsiz enerji-duyarlı kararlar verir \cite{bagchi2024energyaware}.
-Bu yöntemler sistemi farklı biçimde gözler ve değiştirir. Bu nedenle bir
-karşılaştırma; gözlem modelini, yeniden tahsis olayını, iletişim varsayımlarını
-ve sonuç metriklerini açıkça vermelidir.
+Bu koşulların hepsinde tek bir strateji en iyi değildir; çünkü bir rejimde
+işe yarayan seçim başka bir rejimde zarar verir. Üç gerilim yinelenir.
+Birincisi çözüm kalitesine karşı tepki maliyeti: küresel durum bilgisi varsa
+merkezi formülasyonlar tahsis ve rotayı birlikte eniyiler ve zamanlama, iş
+yükü, mesafe, enerji ve deadline terimlerini tek bir programa katar
+\cite{lei2023convex}; ancak bu bağlaşık problemi her olayda yeniden çözmek
+maliyetlidir ve yürütmenin uygulamaya başladığı bir planı bozabilir. İkincisi
+küresel eniyiliğe karşı koordinasyon maliyeti: dağıtık ve piyasa-tabanlı
+yöntemler küresel çözümü yerel kararlar ve açık mesajlaşmayla değiştirir---
+grup-tabanlı açık artırmalar zaman penceresiyle zamanla gelen teslimat
+isteklerini karşılar \cite{bai2023group}, uzlaşma-tabanlı tahsis ise bir
+miktar eniyilikten vazgeçerek yerel koordinasyon, hız ve daha düşük enerji
+sağlar \cite{mahato2023consensus}---fakat iletişimi sınırlayan yerellik,
+küresel yapıdan ne kadar yararlanabileceklerini de sınırlar. Üçüncüsü
+tepkiselliğe karşı kararlılık: agresif biçimde yeniden eniyileyen bir politika,
+bir robot arızalandığında veya deadline kaçtığında hızla toparlanır ama yürüyen
+görevleri keser ve fizibil rotaları bozar; commit-once bir politika ise ucuz
+ve kararlıdır ancak arızalanan robotun görevlerini sahipsiz bırakır. Diğer
+çevrim içi yöntemler bu eksenlerde sabit konumlar alır---oyun-kuramı tabanlı
+kümeleme görev gruplamayı tahsisle birleştirir \cite{garciamartin2023clustering},
+öz-uyarlanır yöntemler problem yapısındaki değişimlere tepki verir
+\cite{rostam2024selfadaptive}, merkeziyetsiz enerji-duyarlı politikalar güç
+çekişini ağırlıklandırır \cite{bagchi2024energyaware}---fakat her biri konumunu
+önceden sabitler. Görev gelişi patlamaları, robot arızaları ve deadline
+baskısının her biri farklı bir konumu ödüllendirdiğinden, bir rejime göre
+ayarlanmış strateji başka bir rejimde açık verir. Bu, tahsis davranışının
+kendisini sabit bir tasarım tercihi değil, çevrim içi bir karar olarak ele
+almayı gerektirir.
 
 Bu makale, görev gelişi, robot arızası, karışık stres ve deadline baskısı
 altında çevrim içi tek-görev-robot tahsisini ele alır. Tahsisçi görev gelişi,
@@ -124,7 +135,9 @@ yüzden birincil sonuçlar tamamlanma ve deadline ihlalidir. Gecikme, iş yükü
 dengesi, toparlanma, yeniden gönderim, kesinti ve karar gecikmesini takas
 metrikleri olarak raporluyoruz. Navigasyondan bağımsız bir tahsisçideki güçlü
 bir skor, tek başına kapalı-çevrim navigasyon ya da toparlanma başarımını
-göstermez.
+göstermez. Yöntemler sistemi farklı biçimde gözlemleyip değiştirdiğinden, her
+karşılaştırma için gözlem modelini, yeniden tahsis olayını, iletişim
+varsayımlarını ve sonuç metriklerini açıkça veriyoruz.
 
 Yöntemimiz \emph{AHE-MRTA}, Ekosistem-Güdümlü Paradigma Seçimi (EDPS)
 kullanır. EDPS, her olayda yeni bir eniyileyici değil, yorumlanabilir ve
@@ -146,14 +159,15 @@ veya hormon benzetmesinin tek başına yeni bir çözücü ürettiği iddia edil
   gerekli karar/yürütme nicelikleri.
   \item Navigation-independent simülatör ve ROS~2/Gazebo yığınında çoklu
   filo ölçeğinde değerlendirme.
-  \item Harita-duyarlı ETA ve sınırlı onarım kanıtını EDPS'ten ayıran
-  eşleşmiş F45--F58 Gazebo karşılaştırması.
+  \item Allocation-only, stokastik navigasyon-vekili ve kapalı-çevrim Gazebo
+  kanıtını ayırıp, harita-duyarlı ETA ve toparlanma etkilerini EDPS
+  hakkındaki nedensel iddiadan ayrı tutan sınırın belirtilmesi.
 \end{enumerate}
 
 Değerlendirme üç katmandan oluşur: allocation-only simülasyon, stokastik bir
 navigasyon vekili ve kapalı-çevrim Gazebo/ROS\,2 yürütmesi. Bu ayrım,
 navigasyon veya toparlanma etkisinin tahsis kanıtı olarak yazılmasını önler.
-F45--F58 çalışması bir yapılandırma değişimini sınar. Yürütme yığınında
+Kapalı-çevrim kıyaslaması tam yöntemleri karşılaştırır; yürütme yığınında
 yalnız EDPS'in nedensel etkisini sınamaz. Bu iddia için eşleşmiş bir Gazebo
 seçici ablasyonu gerekir. Bu sınırı açıkça vermek, uyarlanabilir seçiciyi sabit
 MRTA temel yöntemleriyle tekrarlanabilir biçimde karşılaştırmayı sağlar.
@@ -210,9 +224,9 @@ görev verilmez; tamamlanmamış görevleri yeniden gönderim için uygun olur.
 
 \textbf{Varış tahmini ve kabul edilebilirlik.} Aday çift $(r,\tau)$ için
 $\hat a_{r\tau}^k$, güncel kuyruk son noktası, kuyruk-uzunluğu gecikme vekili
-ve $p_\tau$ hedefine seyahatten elde edilen tahmini varış zamanıdır. Tahminci, etkin yapılandırmayla aynı rota
-metriğini kullanır: F45 çekirdek mesafe tahminini, F58 ise
-Denklem~\eqref{eq:f58-eta}'daki önbellekli geodezik ETA'yı kullanır. Rota yoksa
+ve $p_\tau$ hedefine seyahatten elde edilen tahmini varış zamanıdır. Tahminci
+rota metriği olarak Denklem~\eqref{eq:f58-eta}'daki önbellekli geodezik ETA'yı
+kullanır. Rota yoksa
 çift uygun değildir. Deadline sonluysa kabul kuralı
 \begin{equation}
   \hat a_{r\tau}^k>d_\tau+s_{r\tau}^k
@@ -451,13 +465,13 @@ değişmesi için tahmini varışta en az $10\%$ iyileşme aranır; yetim veya
 kurtarma görevi bu marj kuralının dışındadır. Bu korumalar, olay-tetiklemeli
 yeniden planlamanın gereksiz görev taşımasına dönüşmesini önler.
 
-\subsection{F58 yapılandırması: geodezik ETA ve sınırlı yük onarımı}
+\subsection{Geodezik ETA ve sınırlı yük onarımı}
 \label{sec:f58}
 
-F58, EDPS seçicisini ya da paradigma kütüphanesini değiştirmeyen, F45
-çekirdeği üzerine kurulmuş isteğe bağlı bir maliyet-kâhini ve son-işlem
-yapılandırmasıdır. F45'te seyahat mesafesi Öklid uzaklığıdır. F58-P0 ise
-Gazebo ile paylaşılan \texttt{obstacle\_map.pgm} üzerindeki 0.55~m şişirilmiş
+AHE-MRTA, önbellekli bir geodezik maliyet-kâhini ve terminal, sınırlı bir yük
+onarım adımı kullanır. Bu bileşenlerin hiçbiri EDPS seçicisini veya paradigma
+kütüphanesini değiştirmez. Maliyet-kâhini,
+Gazebo ile paylaşılan harita üzerindeki 0.55~m şişirilmiş
 doluluk maskesinde, sekiz-komşulu serbest hücre grafiğinden önbellekli
 geodezik mesafe $d_G$ hesaplar. Erişilebilir bir yol yoksa çift uygun
 değildir. Robot $r$'nin sıralı kuyruğu $Q_r=(q_1,\ldots,q_j)$ için $j=0$
@@ -473,8 +487,9 @@ her görev için sabit navigasyon payıdır. Bu ucuz vekil ara kuyruk
 kenarlarının tamamını yeniden kurduğunu iddia etmez. Aynı son-nokta mesafe
 kâhini kabul kapısında, paradigma maliyetinde ve onarım yükü hesabında kullanılır.
 
-F58-P1, birincil plan $x^0$ üretildikten sonra yalnız yeni atanan görevlerin
-robotunu değiştiren yerel adayları inceler. Böylece yürütülmekte olan bir Nav2
+Sınırlı yük onarım adımı, birincil plan $x^0$ üretildikten sonra yalnız yeni
+atanan görevlerin robotunu değiştiren yerel adayları inceler. Böylece
+yürütülmekte olan bir Nav2
 hedefi iptal edilmez. $M(x)$ tahmin edilen deadline kaçırma sayısını,
 $D_G(x)$ toplam geodezik mesafeyi, $J(x)$ tahmin edilen etkin-robot Jain
 indeksini, $B_r(x)$ birikmiş ve taahhüt edilmiş üretken yükü, $F(x)$ ise
@@ -494,13 +509,13 @@ en büyük yükü, yük aralığını ve toplam mesafeyi azaltma ölçütleriyle
 sıralanır. Onarım terminal evrede, yani kalan aktif görev sayısı sağlıklı
 robot sayısının en çok üç katı olduğunda etkinleştirilir. Yürütülen ilk hedef
 için $F(x)$ hesabı, statik kafes sorgusu yerine Nav2'nin yayımladığı kalan
-yol uzunluğunu kullanabilir. Bu korumalar F58'i, sadece daha dengeli görünen
-ancak deadline, rota veya kalan makespan maliyeti üreten bir yeniden atama
-olarak davranmaktan alıkoyar.
+yol uzunluğunu kullanabilir. Bu korumalar onarımı, sadece daha dengeli görünen
+ancak deadline, rota veya kalan makespan maliyeti üreten bir yeniden atamayı
+kabul etmekten alıkoyar.
 
-F45--F58 karşılaştırması, bu yapılandırmanın harita-duyarlı ETA ve sınırlı
-onarım etkisini sınar; EDPS seçicisinin nedensel etkisini tek başına sınamaz.
-Bu ayrım sonuçların yorumunda korunur.
+Geodezik ETA ve sınırlı onarım yürütme maliyetini değiştirir ancak EDPS
+seçicisini değiştirmez; bu nedenle kapalı-çevrim kıyaslaması seçicinin nedensel
+etkisini tek başına sınamaz. Bu ayrım sonuçların yorumunda korunur.
 
 \subsection{Paradigma dağıtımı ve dwell histerezisi}
 \label{sec:dispatch}
@@ -623,7 +638,7 @@ $A$, $S$, $V$ ve tam maliyet matrisi yönetici düğümde kalır.
 \STATE $(p_k,h_{k+1})\gets\textsc{DwellUygula}(\tilde p_k,p_{k-1},h_k)$
 \STATE $x_k\gets\textsc{Paradigma}_{p_k}(\mathcal R,\mathcal T(t_k),w_k)$
        \hfill \COMMENT{Tablo~\ref{tab:hormones}}
-\IF{F58 onarımı etkinse}
+\IF{terminal onarım evresindeyse}
   \STATE $x_k\gets\textsc{EpsilonYükOnarımı}(x_k,d_G,\epsilon)$
 \ENDIF
 \STATE $x_k\gets\textsc{TekSahipVeInFlightKilidi}(x_k)$
@@ -646,7 +661,7 @@ senaryo başına yeniden öğrenilmez ya da ayarlanmaz.
 Bağlam, baskınlık, override ve dwell güncellemeleri sabit boyutlu olduğundan
 $O(1)$ maliyetlidir. Baskın maliyet, paradigma içindeki LSA çağrısıdır ve
 tek bir kare atama geçişi için en kötü durumda
-$O\!\left(\max(n,m_k)^3\right)$'tür. F58 etkinse geodezik sorguların
+$O\!\left(\max(n,m_k)^3\right)$'tür. Geodezik sorguların
 önbelleği tekrar eden hedef sorgularını azaltır; yük onarımı ise sabit sayıda
 yerel taşıma geçişiyle sınırlandırılır. Bu nedenle hesaplama yükü, seçicinin
 kendisi değil, seçilen paradigma ve isteğe bağlı rota/onarma katmanından
@@ -843,8 +858,7 @@ dört-yöntemli Gazebo hücreleri betimleyicidir. Düzeltilmemiş veya anlamlı
 olmayan karşılaştırmadan yöntem üstünlüğü sonucu çıkarmayız. Hücre başına
 100 tohumlu allocation-only kampanya ile 500-tohumlu birincil stokastik
 navigasyon vekili ayrı kontrollü
-testlerdir. Eşleşmiş F45--F58 Gazebo çalışması, senaryo ve ölçek başına 10
-ortak tohumla eşli test kullanır. Gazebo sonuçları genel konuşlandırma
+testlerdir. Gazebo sonuçları genel konuşlandırma
 başarımını değil, değerlendirilen yürütme yığınındaki davranışı gösterir.
 
 %==============================================================================
@@ -860,33 +874,17 @@ toparlanmayı ölçer.
 
 \input{table/f58_allocation_tr.tex}
 
-Tablo~\ref{tab:f58-allocation}, F58'in dokuz ölçek--senaryo hücresinin
+Tablo~\ref{tab:f58-allocation}, AHE-MRTA'nın dokuz ölçek--senaryo hücresinin
 tamamında $\mathrm{fitness}{=}\mathrm{CR}{=}1$ ve $\mathrm{DVR}{=}0$ olduğunu
-gösterir. Aktif-robot Jain indeksi 3r'de 0.988--0.992, 5r'de 0.984--0.986 ve
-10r'de 0.982--0.990'dır. En büyük 10r/50g hücresinde bile karar gecikmesi
-0.201~ms'yi aşmaz. Geliştirme sırasında altı 10r tohumunda bir görev iki
-robotta aynı anda yürütülebildi ve CR 1.02 oldu. Uçuş-sırası sahip kilidi
-eklendiğinde bu tohumları ve 10r kampanyasının tamamını yeniden çalıştırdık.
-Sonuçta tüm F58 hücrelerinde CR tam 1.000 oldu.
-
-F58'in katkısını F45'ten ayırmak için dört hücrede seed-eşlenik kampanya
-yürüttük: 3r/15g, 5r/25g ve 10r/50g (tohum 1--100) ile onarım eşiğinin
-seçiminde hiç kullanılmamış taze bir 5r/25g holdout aralığı (tohum 501--600).
-Her iki kol aynı geodezik yürütme oracle'ını paylaşır; istatistik,
-hücre$\times$senaryo başına 10 metrik ailesi üzerinde eşleştirilmiş
-Wilcoxon + Holm düzeltmesidir. 120 testin 51'i Holm sonrası anlamlıdır ve
-bunların 39'u F58 lehinedir: ortalama gecikme 0.97--2.25~s, toplam geodezik
-mesafe 10--28~m ve churn azalırken aktif-robot Jain'i $+0.005$--$0.029$,
-tüm-robot Jain'i $+0.006$--$0.027$ yükselir (en güçlü etki 10r/50g'de;
-Cliff's $\Delta$ 0.92'ye kadar). Kalan 12 anlamlı fark tamamen karar
-gecikmesindedir ($+0.02$--$0.12$~ms, 50~ms bütçesinin çok altında). Gecikme
-dışında hiçbir metrikte anlamlı gerileme yoktur; CR, uygunluk ve DVR dört
-hücrede de her iki kolda tavandadır ve bit-eşittir. 3r hücresi
-nötrdür---küçük filoda terminal onarım nadiren tetiklenir---ve holdout
-aralığı ana hücre kazanımlarını korur.
-Bu bulgu F58'in allocation-only kazanımının daha fazla görev tamamlamaktan
-değil, aynı tam tamamlamayı daha kısa geodezik rota ve gecikmeyle üretmekten
-geldiğini gösterir.
+gösterir (hücre başına 100 tohum). Aktif-robot Jain indeksi 3r'de
+0.988--0.992, 5r'de 0.984--0.986 ve 10r'de 0.982--0.990'dır. En büyük 10r/50g
+hücresinde bile karar gecikmesi 0.201~ms'yi aşmaz. Geliştirme sırasında altı
+10r tohumunda bir görev iki robotta aynı anda yürütülebildi ve CR 1.02 oldu.
+Uçuş-sırası sahip kilidi eklendiğinde bu tohumları ve 10r kampanyasının
+tamamını yeniden çalıştırdık. Sonuçta tüm hücrelerde CR tam 1.000 oldu.
+Tamamlanma ve deadline metrikleri zaten tavanda olduğundan bu ortam lider
+politikaları ayırmaz; AHE-MRTA'nın kısa geodezik rotalarla tam,
+deadline-temiz kapsama ulaştığını gösterir.
 
 \subsection{Ayrı dayanıklılık deneyi: navigation-proxy}
 Sonraki deney, navigasyon \emph{maliyetini} robot--görev grafiğinde sabit
@@ -934,7 +932,7 @@ sonuçlarını özetler.
   \label{fig:fitness}
 \end{figure}
 
-\subsection{Navigation-proxy ölçeklenebilirliği (F45)}
+\subsection{Navigation-proxy ölçeklenebilirliği}
 \label{sec:scalability}
 
 Ölçeklenebilirliği iki ortamda inceliyoruz. Navigasyon vekilinde
@@ -975,7 +973,9 @@ az tohum kullandıkları için vekilin doğrudan doğrulaması değildir.
 
 Tam fiziksel-yığın Gazebo kıyaslamasını raporluyoruz. Her yöntem özdeş
 Nav2 parametreleri, dünya ve zamanlama bütçeleriyle çalışır; yalnızca tahsis
-politikası farklıdır. Üç yoğunluk düzeyi (9/15/24 görev)
+politikası farklıdır.\footnote{Tablolar ve şekiller, AHE-MRTA'yı geodezik-ETA
+maliyet-kâhini ve terminal yük onarımıyla değerlendirildiği yerde AHE-MRTA*
+olarak belirtir (Böl.~\ref{sec:f58}).} Üç yoğunluk düzeyi (9/15/24 görev)
 $\times$ 5 tohum = 180 3r deneyi; 5r ve 10r her biri 60 deney ekler (300 toplam).
 Bonferroni düzeltmeli Mann--Whitney U tüm karşılaştırmalarda uygulanır.
 
@@ -1054,105 +1054,19 @@ böyle meşgul tutar.
 
 \input{table/latex_deadline_table.tex}
 
-\subsection{F58'in eşleşmiş fiziksel doğrulaması}
-\label{sec:f58-gazebo}
-\input{table/f58_gazebo_tr.tex}
-\input{table/f58_gazebo_scales_tr.tex}
-
-AHE-MRTA*, dört-yöntem kıyaslaması boyunca kullanılan tam yapılandırmayı
-(P0+P1R) belirtir; geodezik-ETA adalet onarımının F45 çekirdeği üzerine
-katkısını yalıtmak için, her iki yapılandırmayı eşleşmiş bir çekirdek-vs-tam
-ablasyonu olarak aynı kaynak sürümünden, ortak tohumlarda ve üç
-senaryoda çalıştırdık: önce beş-tohumluk ilk dalga, ardından bağımsız
-beş-tohumluk replikasyon dalgası (tohum 6--10); havuz, senaryo başına 10
-eşlenik tohuma ulaşır (30 F45 + 30 F58 koşusu). Her koşu 25/25 görevi
-tamamladı; kalite kapısı hiçbir koşuda TF zaman-sıçraması saptamadı ve
-olay-bütünlüğü denetimi hiçbir koşuda tamamlanma-sonrası atama veya
-tamamlanmış-görev dirilmesi görmedi. Ön-kayıtlı terfi kapısı, CR/DVR için
-0.01 non-inferiority, aktif-robot Jain'de gerilememe, ortalama karar
-gecikmesinde 50~ms bütçesi ve mesafe/yeniden-gönderim/gecikme/makespan
-ölçütlerinin en az ikisinde iyileşme ister.
-
-Tablo~\ref{tab:f58-gazebo}, bu kapının $n{=}10$'da üç senaryoda da
-geçildiğini gösterir; havuzlanmış örneklem artık $n{=}5$'teki
-yön-tutarlılığı kanıtının ötesinde eşleştirilmiş Wilcoxon anlamlılığını da
-destekler. \textit{Deadline\_pressure}'da F58, CR'yi 1.000'de tutarken
-DVR'ı 10.8 yüzde puan (0.340$\to$0.232, $p{=}0.008$), ortalama gecikmeyi
-9.0~s ($p{=}0.004$), toplam mesafeyi 20.9~m ($p{=}0.004$) ve koordinasyon
-mesajlarını koşu başına 3.5 ($p{=}0.008$) düşürür; aktif-robot Jain'i
-$+0.017$ yükselir ($p{=}0.031$) ve makespan 11.0~s iyileşir (GA
-$[0.4, 20.3]$, $p{=}0.061$). \textit{Mixed\_stress}'te mesafe 10.2~m
-azalır ($p{=}0.004$), aktif-robot Jain'i $+0.024$ yükselir ($p{=}0.008$)
-ve ortalama gecikme 3.2~s düşer ($p{=}0.049$); DVR, makespan ve
-koordinasyon mesajları istatistiksel olarak yansızdır.
-\textit{Robot\_failure}'da arıza-toparlanma süresi ortalamada 34.0~s
-kısalır (GA $[8.2, 58.2]$, $p{=}0.037$) ve DVR 0.020$\to$0.004'e iner;
-gecikme, mesafe ve Jain indeksleri istatistiksel olarak yansızdır. Üç
-senaryoda da CR her koşuda 1.000'dir ve karar gecikmesi 17--23~ms ile
-bütçenin içinde kalır (F45'in milisaniye-altı gecikmesine karşılık
-geodezik önbellek + onarım araması). Gecikme dışındaki tutarlı tek bedel
-mesafe-Jain'idir (deadline'da $-0.020$, $p{=}0.006$): onarım,
-işyükü-adaletini ve toplam verimi mesafe-dengesi aleyhine iyileştirir.
-Replikasyon dalgası tek başına tüm kazanım yönlerini yeniden üretti
-(deadline-pressure makespan'i daha da güçlüydü, $-18.4$~s) ve havuzlanmış
-örneklemde istatistiksel destekli başka gerileme yoktur;
-konfigürasyon düzeyindeki en yüksek güçlü kanıt yine hücre başına 100 tohumlu
-Nav2-bağımsız kampanyadır (Bölüm~\ref{sec:results-sim}).
-
-Ölçek sağlamlığını sınamak için aynı eşleşmiş protokolü kalan iki
-fiziksel ölçekte de yineledik---3 robot / 15 görev ve 10 robot / 50
-görev, yine her iki kolda tohum 1--10 (120 ek koşu;
-Tablo~\ref{tab:f58-gazebo-scales}). Bir koşu, ancak tüm Nav2 yığınları
-hazır bildirdikten sonra örnekleme girer; hazırlık kapısını kaçıran
-denemeler veri yazmaz ve yeniden koşulur (10 robotta, eşzamanlı
-on-yığın açılışının ara sıra düşürdüğü yaşam-döngüsü geçişlerini
-yeniden süren bir açılış öz-iyileştirmesi devrededir). Kapı, dokuz
-ölçek--senaryo hücresinin yedisinde geçilir. 3 robotta deadline baskısı
-geçer (DVR 0.420$\to$0.307; mesaj koşu başına $-3.3$, $p{=}0.047$) ve
-robot arızası geçer (gecikme $-7.1$~s, $p{=}0.049$; toparlanma
-$-33.3$~s, GA $[8.5, 61.3]$); karışık stres ise kapıyı yalnızca GA'sı
-sıfırı içeren $+0.040$'lık bir DVR kaymasıyla kaçırır---bu, en küçük
-ölçeğin onarıma düzeltilecek pek bir şey bırakmadığı yönündeki
-Nav2-bağımsız bulguyla tutarlıdır. 10 robotta karışık stres geçer
-(mesafe $-17.2$~m, GA $[1.6, 32.9]$; aktif-robot Jain'i $+0.037$) ve
-robot arızası geçer (toparlanma $-14.2$~s, makespan $-24.3$~s);
-deadline baskısı ise tüm hücrelerin en güçlü çekirdek kazanımlarını
-taşırken (DVR 0.256$\to$0.210, $p{=}0.016$; mesafe $-16.9$~m,
-$p{=}0.027$) kapıyı yalnızca $-0.005$'lik bir aktif-Jain ölçütüyle
-kaçırır ($p{=}0.85$, GA $[-0.049, 0.036]$). Geçemeyen iki hücre böylece
-ölçekler arasında simetrik, gürültü-düzeyi kaymalardır (3r'de karışık
-stres, 10r'de deadline baskısı). Dokuz hücrenin tamamında istatistiksel
-destekli gerileme yalnızca iki bilinen bedeldir: filo büyüklüğüyle
-artan ama 50~ms bütçesinin içinde kalan karar gecikmesi (3r'de
-8--11~ms, 5r'de 17--23~ms, 10r'de 31--35~ms) ve yine filo büyüklüğüyle
-ölçeklenen deadline-baskısı mesafe-Jain düşüşü (3r'de $-0.009$,
-$p{=}0.037$; 5r'de $-0.020$; 10r'de $-0.052$, GA $[-0.103, -0.004]$).
-CR her hücrede 0.01'lik non-inferiority bandının içinde kalır
-(0.988--1.000).
-
-Test edilen harita, ortak-tohum protokolü ve Nav2 yığını içinde bu sonuçlar,
-F45 çekirdeğine karşı F58'in harita-duyarlı ETA ve sınırlı onarım
-konfigürasyonu için eşleşmiş kanıt sağlar. Dört-yöntem kıyaslaması bu tam
-konfigürasyonu AHE-MRTA* olarak raporlar. Karşılaştırma yalnız onarım
-bileşenlerinin çekirdek-karşı-tam ablasyonudur; dört-yöntem kıyaslamasındaki
-deadline-baskısı örüntüsünü EDPS'in tek başına ürettiğini göstermez.
-
 \paragraph{Betimleyici fiziksel örüntüler.}
 5-robot birincil ölçekte AHE-MRTA raporlanan koşularda tam tamamlamaya ulaşır
 (CR\,=\,1.000); BiG-MRTA'nın deadline baskısı ve karışık stres nokta
-tahminleri daha düşüktür (sırasıyla 0.728 ve 0.752). Tam AHE-MRTA*
-konfigürasyonunun deadline-baskısındaki zamanında-etkin tamamlama nokta
+tahminleri daha düşüktür (sırasıyla 0.728 ve 0.752). AHE-MRTA*'nın
+deadline-baskısındaki zamanında-etkin tamamlama nokta
 tahminleri de 5 robotta 0.79, 10 robotta 0.76 ile en yüksektir. Bu gözlemler
 betimleyicidir: dört-yöntem hücreleri $n{=}5$'tir ve Bonferroni-düzeltilmiş
 bir çapraz-yöntem karşılaştırması genel performans sıralamasını desteklemez.
 
-Eşleşmiş F45--F58 kampanyası, ortak tohumlarda harita-duyarlı ETA ve sınırlı
-onarım konfigürasyonu hakkında daha güçlü kanıt verir; her iki kol da aynı
-seçiciyi koruduğundan EDPS'i yalıtmaz. Dört-yöntem kıyaslaması da
-politikalar arasında birden çok bileşen değiştiği için fiziksel farkı EDPS'e
-atfedemez. Bu nedenle tam konfigürasyon deadline baskısında umut verici
-görünmektedir; paradigma değişimine nedensel atıf için sabit-paradigma ve
-no-override fiziksel ablasyonu gereklidir.
+Dört-yöntem kıyaslaması, politikalar arasında birden çok bileşen değiştiği
+için fiziksel farkı EDPS'e atfedemez. Bu nedenle değerlendirilen yöntem
+deadline baskısında umut verici görünmektedir; paradigma değişimine nedensel
+atıf için sabit-paradigma ve no-override fiziksel ablasyonu gereklidir.
 
 \paragraph{AHE nerede maliyet getirir.}
 Aynı agresiflik, Nav2 hareketiyle karışan fiziksel maliyet metriklerini
@@ -1383,10 +1297,10 @@ değildir:
     AHE'nin tamamlamasına ancak deadline ihlal oranının
     $1.6$--$2.3\times$ katıyla erişir (5r: AHE DVR\,=\,0.208 vs
     Cons-DBTA 0.336 ve RoSTAM-EA 0.416; 10r: AHE 0.220 vs 0.428 ve
-    0.504); tam konfigürasyonun zamanında-etkin tamamlama nokta tahminleri
+    0.504); AHE-MRTA'nın zamanında-etkin tamamlama nokta tahminleri
     iki ölçekte de en yüksektir (5r'de ${\approx}0.79$, 10r'de
-    ${\approx}0.76$). Eşleşmiş F45--F58 çalışması bu konfigürasyon
-    karşılaştırmasını destekler, ancak seçiciye özgü açıklamayı desteklemez.
+    ${\approx}0.76$). Dört-yöntem kıyaslaması bu işletim örüntüsünü
+    destekler, ancak seçiciye özgü açıklamayı desteklemez.
   \item \textbf{Arıza-toparlanma örüntüsü.}
     \textit{robot\_failure} altında AHE, 5 robotta tam tamamlamayı
     (CR\,=\,1.000, DVR\,=\,0.016, zamanında-etkin ${\approx}0.98$ vs
@@ -1398,7 +1312,7 @@ değildir:
   \item \textbf{Tek bir rejim tüm koşuya baskınken ve amaç makespan iken
     değil.} 3 robotta tekdüze deadline baskısı altında EDF-tarzı
     uzmanlar zaten tam tamamlamaya ulaşır (RoSTAM, Cons-DBTA ve AHE
-    hepsi CR\,=\,1.000); dolayısıyla tam AHE konfigürasyonu onlara
+    hepsi CR\,=\,1.000); dolayısıyla AHE-MRTA onlara
     karşı anlamlı bir tamamlama üstünlüğü sağlamaz, yalnız gecikme
     ekler; katı zamanında-uygunlukta AHE bu ölçekte BiG-MRTA ile gürültü
     sınırında aynıdır (0.420 vs 0.417). AHE'nin ham-CR avantajı yalnızca
@@ -1415,7 +1329,7 @@ ve Consensus-DBTA, biri diğerini domine etmek yerine istatistiksel
 eş-liderdir (Tablo~\ref{tab:fitness}). En güçlü yöntemlerin neden
 yakınsadığını iki mekanizma açıklar. Birincisi, uygunluk tavanı atama
 kalitesiyle değil \emph{stokastik, pozisyona-bağlı navigasyon arızasıyla}
-belirlenir. F58 AHE, kusursuz-navigasyon allocation-only modelinde tüm dokuz
+belirlenir. AHE-MRTA, kusursuz-navigasyon allocation-only modelinde tüm dokuz
 ölçek--senaryo hücresinde uygunluk 1.0'a ulaşır (Tablo~\ref{tab:f58-allocation});
 proxy'deki fark hedefler başarısız olup yeniden denenmek zorunda kalınca
 açılır. Bağlayıcı kısıt dolayısıyla navigasyon arızasına
@@ -1444,7 +1358,7 @@ Online paradigma-değişiminin katkısını yalıtmak için EDPS seçiciyi her b
 \emph{sabit} paradigma ile değiştiriyoruz; ayrıca bağlam override'larını
 (\emph{no-override}: saf $\arg\max_i D_i$) ve recovery boost'u
 (\emph{no-recovery-boost}: $\delta{=}0$) gerisini sabit tutarak kapatıyoruz
-(5r/25g, 100 seed, \texttt{scripts/ablation\_edps.py}).
+(5r/25g, 100 seed).
 
 \input{table/ablation_tr.tex}
 
@@ -1532,8 +1446,7 @@ başarısızlık oranı, gerçek Gazebo yığınından (Nav2 hedeflere neredeyse
 ulaşır) kasıtlı olarak yüksektir. Bu nedenle proxy mutlak başarı oranını değil,
 göreli tahsis dayanıklılığını ölçer ve fiziksel Plane-B sonuçlarının yerine değil,
 yanında raporlanır.
-(x) \textbf{Eksik fiziksel EDPS ablasyonu:} Eşleşmiş F45--F58 çalışması
-harita-duyarlı ETA ve sınırlı onarımı yalıtır, seçiciyi değil. Dört-yöntem
+(x) \textbf{Eksik fiziksel EDPS ablasyonu:} Dört-yöntem
 fiziksel kıyaslaması hücre başına $n{=}5$'tir ve seçici dışındaki bileşenleri
 sabit tutmaz. Belirleyici takip deneyi; EDPS, her sabit paradigma,
 no-override ve no-recovery-boost varyantlarını, önceden belirlenmiş birincil
@@ -1542,32 +1455,29 @@ tohumlarda karşılaştırmalıdır.
 \section{Sonuç}
 \label{sec:conclusion}
 
-AHE-MRTA'yı, sabit ve bağlam-güdümlü paradigma seçimi kullanan
-olay-tetiklemeli bir MRTA çerçevesi olarak sunduk. Geodezik ETA ve sınırlı
-yük onarımı ekleyen F58 konfigürasyonunu değerlendirdik. Hücre başına 100
-tohumlu allocation-only kampanyada karşılaştırılan F45 ve F58 yapılandırmaları
-aynı tamamlama ve deadline
-tavanına ulaşır. Bu kampanya onları sıralamaz. Stokastik navigasyon
-vekilinde AHE-MRTA ile Consensus-DBTA, karışık stresteki AHE-MRTA lehine
-küçük fark ($+0.007$, $p{=}0.042$) dışında istatistiksel olarak eşittir. Bu
-iki ortam tek bir küresel sıralama değil, birbirini tamamlayan kanıtlar
-sunar.
+AHE-MRTA'yı, sabit ve bağlam-güdümlü paradigma seçimi, geodezik-ETA
+maliyet-kâhini ve terminal, sınırlı bir yük onarım adımı kullanan
+olay-tetiklemeli bir MRTA çerçevesi olarak sunduk. Hücre başına 100
+tohumlu allocation-only kampanyada AHE-MRTA, test edilen hücrelerde tamamlanma
+ve deadline tavanına ulaşır; bu nedenle bu ortam lider politikaları ayırmaz.
+Stokastik navigasyon vekilinde AHE-MRTA ile Consensus-DBTA, karışık stresteki
+AHE-MRTA lehine küçük fark ($+0.007$, $p{=}0.042$) dışında istatistiksel
+olarak eşittir. Bu iki ortam tek bir küresel sıralama değil, birbirini
+tamamlayan kanıtlar sunar.
 
-Eşleşmiş F45--F58 Gazebo çalışması, her senaryo--ölçek hücresinde 10 ortak
-tohum kullanır. Dokuz hücrenin yedisinde önceden belirlenmiş terfi kapısını
-karşılar. Test edilen harita ve Nav2 yığınında, harita-duyarlı ETA ve sınırlı
-onarımı içeren tam yapılandırma için kontrollü kanıt sağlar. Ayrıca gecikme ve
-mesafe dengesi takaslarını gösterir. Dört-yöntemli Gazebo kıyaslamasında hücre
-başına beş tohum vardır. Bu nedenle nokta tahminlerini evrensel üstünlük
-olarak değil, betimleyici çalışma örüntüleri olarak raporluyoruz.
+Dört-yöntemli Gazebo kıyaslamasında hücre başına beş tohum vardır. Bu nedenle
+nokta tahminlerini evrensel üstünlük olarak değil, betimleyici çalışma
+örüntüleri olarak raporluyoruz. Test edilen harita ve Nav2 yığınında AHE-MRTA,
+robot arızası altında tam tamamlamaya ve deadline baskısı altında en yüksek
+zamanında-etkin tamamlamaya ulaşır; bunun bedeli daha yüksek karar gecikmesi ve
+daha düşük mesafe dengesidir.
 
-Mevcut deneyler EDPS'i kapalı-çevrim yürütmede nedensel olarak ayırmaz.
-F45--F58 karşılaştırmasında seçici sabittir; dış temel yöntemler ise seçicinin
-ötesinde bileşenlerde farklıdır. Gerekli sonraki deney; EDPS'i sabit
-paradigmalar, no-override ve no-recovery-boost varyantlarıyla eşleşmiş,
-çok-haritalı Gazebo ablasyonunda karşılaştırmaktır. Deneyde önceden belirlenmiş
-birincil uç nokta ve daha büyük ortak-tohum bütçesi kullanılmalıdır.
-Allocation-only, yapılandırma düzeyi ve kapalı-çevrim kanıtlarını ayırmak,
+Mevcut deneyler EDPS'i kapalı-çevrim yürütmede nedensel olarak ayırmaz; dış
+temel yöntemler seçicinin ötesinde bileşenlerde farklıdır. Gerekli sonraki
+deney; EDPS'i sabit paradigmalar, no-override ve no-recovery-boost
+varyantlarıyla eşleşmiş, çok-haritalı Gazebo ablasyonunda karşılaştırmaktır.
+Deneyde önceden belirlenmiş birincil uç nokta ve daha büyük ortak-tohum
+bütçesi kullanılmalıdır. Allocation-only ve kapalı-çevrim kanıtlarını ayırmak,
 mevcut sonuçların doğru yorumlanması için gereklidir.
 
 \FloatBarrier
