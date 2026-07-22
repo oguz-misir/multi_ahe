@@ -72,8 +72,9 @@ $p{=}0.042$). 3, 5 ve 10 TurtleBot3 ile kapalı-çevrim Gazebo Harmonic/ROS\,2
 Nav2 deneylerinde (300 koşu) AHE-MRTA, robot arızası altında tam tamamlamaya
 ve deadline baskısı altında en yüksek zamanında-etkin tamamlamaya ulaşır (5
 robotta yaklaşık $0.79$, 10 robotta $0.76$; temel yöntemlerde en çok $0.66$ ve
-$0.52$); bunun bedeli, milisaniye-altı commit-once temel yöntemlere kıyasla
-daha yüksek karar gecikmesi ve daha düşük mesafe dengesidir. Dört-yöntemli
+$0.52$---en güçlü temel yönteme göre yaklaşık \%$19$ ve \%$46$ daha yüksek);
+bunun bedeli, milisaniye-altı commit-once temel yöntemlere kıyasla daha yüksek
+karar gecikmesi ve daha düşük mesafe dengesidir. Dört-yöntemli
 kıyaslama hücre başına beş tohum kullanır ve betimleyici olarak raporlanır:
 geniş üstünlük iddia etmiyor, EDPS'i yürütme yığınındaki diğer farklılıklardan
 nedensel olarak ayırmıyor, allocation-only ve kapalı-çevrim kanıtlarını ayrı
@@ -140,9 +141,10 @@ bozabilir veya gecikmeyi başka robota aktarabilir. Mevcut sahibi korumak da
 arıza veya zaman payının keskin azalması sonrasında zararlı olabilir. Bu
 yüzden birincil sonuçlar tamamlanma ve deadline ihlalidir. Gecikme, iş yükü
 dengesi, toparlanma, yeniden gönderim, kesinti ve karar gecikmesini takas
-metrikleri olarak raporluyoruz. Navigasyondan bağımsız bir tahsisçideki güçlü
-bir skor, tek başına kapalı-çevrim navigasyon ya da toparlanma başarımını
-göstermez. Yöntemler sistemi farklı biçimde gözlemleyip değiştirdiğinden, her
+metrikleri olarak raporluyoruz. Navigasyondan bağımsız bir tahsisçideki---her
+gönderilen hedefin ulaşıldığı, dolayısıyla navigasyonun başarısız olamayacağı
+ortamda ölçülen---güçlü bir skor, tek başına kapalı-çevrim navigasyon ya da
+toparlanma başarımını göstermez. Yöntemler sistemi farklı biçimde gözlemleyip değiştirdiğinden, her
 karşılaştırma için gözlem modelini, yeniden tahsis olayını, iletişim
 varsayımlarını ve sonuç metriklerini açıkça veriyoruz.
 
@@ -171,9 +173,14 @@ veya hormon benzetmesinin tek başına yeni bir çözücü ürettiği iddia edil
   hakkındaki nedensel iddiadan ayrı tutan sınırın belirtilmesi.
 \end{enumerate}
 
-Değerlendirme üç katmandan oluşur: allocation-only simülasyon, stokastik bir
-navigasyon vekili ve kapalı-çevrim Gazebo/ROS\,2 yürütmesi. Bu ayrım,
-navigasyon veya toparlanma etkisinin tahsis kanıtı olarak yazılmasını önler.
+Değerlendirme, navigasyonun nasıl modellendiğine göre farklılaşan üç katmandan
+oluşur. \emph{Navigasyondan bağımsız} allocation-only simülasyonda her
+gönderilen hedef belirlenimci olarak başarılıdır; böylece skorları tahsis ve
+kuyruk-sırası kalitesini yerel-planlayıcı gürültüsünden yalıtır. Stokastik
+navigasyon vekili navigasyon maliyetini sabit tutar ama pozisyona-bağlı hedef
+arızasına izin verir ve ölçüme dayanıklılığı ekler. Kapalı-çevrim
+Gazebo/ROS\,2 yığını tam fizik ve Nav2 hattını çalıştırır. Bu ayrım, navigasyon
+veya toparlanma etkisinin tahsis kanıtı olarak yazılmasını önler.
 Kapalı-çevrim kıyaslaması tam yöntemleri karşılaştırır; yürütme yığınında
 yalnız EDPS'in nedensel etkisini sınamaz. Bu iddia için eşleşmiş bir Gazebo
 seçici ablasyonu gerekir. Bu sınırı açıkça vermek, uyarlanabilir seçiciyi sabit
@@ -281,8 +288,8 @@ $R_r^k$. Uygun bir çiftin ortak maliyeti
   +w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k .
   \label{eq:cost}
 \end{equation}
-Burada $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$; diğer taban
-özellikler de boyutsuzdur. $\Psi_{r\tau}^k$ düzeltmesi deadline ve kritik
+Burada $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$ ($A_{\max}=220$~s);
+diğer taban özellikler de boyutsuzdur. $\Psi_{r\tau}^k$ düzeltmesi deadline ve kritik
 batarya cezalarını, deadline-yetenek ve teklif bonuslarını, mevcut-sahip
 yapışkanlığını, yeniden atama cezasını ve kapasite cezasını toplar. Böylece
 saniye cinsinden değerlerle normalize özellikler doğrudan toplanmaz. EDPS
@@ -825,6 +832,23 @@ okunmamalıdır. Kapalı-çevrim farkını seçicinin kendisine atfetmek için s
 paradigmalarla eşleşmiş Gazebo EDPS ablasyonu gerekir
 (Bölüm~\ref{sec:limitations}).
 
+\subsection{Değerlendirme ortamları}
+\label{sec:planes}
+Tahsis kalitesinin navigasyon veya toparlanma davranışıyla karıştırılmaması
+için, yalnızca navigasyonun nasıl modellendiğine göre farklılaşan üç
+değerlendirme ortamı kullanıyoruz. \textbf{(i)~Navigasyondan bağımsız}
+(allocation-only): her gönderilen hedef, paylaşılan geodezik harita üzerinde
+belirlenimci olarak ulaşılır---yerel-planlayıcı takılması, costmap
+yeniden-inşası veya hedef arızası yok---ve robot pozu her tamamlanan hedefe
+ilerletilirken enjekte edilen robot arızaları yine gerçekleşir. Bu ortam,
+tahsis ve kuyruk-sırası kalitesini navigasyon gürültüsünden yalıtır.
+\textbf{(ii)~Stokastik navigasyon vekili}: navigasyon maliyeti sabit bir
+kenardır, ama bir hedef pozisyona-bağlı olarak başarısız olup yeniden
+denenebilir; böylece metrik navigasyon arızasına dayanıklılığı da ödüllendirir.
+\textbf{(iii)~Kapalı-çevrim Gazebo/ROS\,2}: yukarıdaki tam fizik ve Nav2 hattı
+uçtan uca çalışır. Üç ortamın sonuçları ayrı tablolarda verilir ve asla
+harmanlanmaz.
+
 \subsection{Metrikler}
 \label{sec:metrics}
 Tamamlama oranı (CR), deadline ihlal oranı (DVR), makespan, tüm-görev
@@ -881,12 +905,10 @@ başarımını değil, değerlendirilen yürütme yığınındaki davranışı g
 \section{Tahsis-Uygunluk Sonuçları (Nav2-Bağımsız)}
 \label{sec:results-sim}
 
-Nav2-bağımsız ortamda her navigasyon denemesi belirlenimci olarak başarılıdır.
-Enjekte edilen robot arızaları senaryoda korunur. Her tamamlanan görevden sonra
-robot pozu hedefe ilerletilir. Tahsisçi ve yürütme kâhini, aynı şişirilmiş
-doluluk haritasında geodezik mesafeyi kullanır. Böylece metrikler yerel
-planlayıcı gürültüsünü değil tahsisi, kuyruk sırasını ve arıza sonrası
-toparlanmayı ölçer.
+Navigasyondan bağımsız ortamda (Böl.~\ref{sec:planes}) tahsisçi ve yürütme
+kâhini aynı şişirilmiş doluluk haritasında geodezik mesafeyi kullanır; böylece
+metrikler yerel planlayıcı gürültüsünü değil tahsisi, kuyruk sırasını ve arıza
+sonrası toparlanmayı ölçer.
 
 \input{table/allocation_only_tr.tex}
 
@@ -1485,8 +1507,10 @@ Dört-yöntemli Gazebo kıyaslamasında hücre başına beş tohum vardır. Bu n
 nokta tahminlerini evrensel üstünlük olarak değil, betimleyici çalışma
 örüntüleri olarak raporluyoruz. Test edilen harita ve Nav2 yığınında AHE-MRTA,
 robot arızası altında tam tamamlamaya ve deadline baskısı altında en yüksek
-zamanında-etkin tamamlamaya ulaşır; bunun bedeli daha yüksek karar gecikmesi ve
-daha düşük mesafe dengesidir.
+zamanında-etkin tamamlamaya ulaşır---en güçlü temel yöntemin yaklaşık \%$19$ (5
+robot) ve \%$46$ (10 robot) üzerinde, ve o yöntemin deadline-ihlal oranını da
+\%$38$ ve \%$49$ düşürerek---bunun bedeli daha yüksek karar gecikmesi ve daha
+düşük mesafe dengesidir.
 
 Mevcut deneyler EDPS'i kapalı-çevrim yürütmede nedensel olarak ayırmaz; dış
 temel yöntemler seçicinin ötesinde bileşenlerde farklıdır. Gerekli sonraki

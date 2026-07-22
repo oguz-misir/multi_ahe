@@ -70,8 +70,9 @@ $p{=}0.042$). In closed-loop Gazebo Harmonic/ROS\,2 Nav2 experiments with 3,
 5, and 10 TurtleBot3 robots (300 runs), AHE-MRTA reaches full completion under
 robot failure and the highest effective on-time completion under deadline
 pressure (about $0.79$ at 5 robots and $0.76$ at 10, versus at most $0.66$ and
-$0.52$ for the baselines), at the cost of higher decision latency and lower
-distance balance than the sub-millisecond commit-once baselines. The
+$0.52$ for the baselines---roughly $19\%$ and $46\%$ higher than the strongest
+baseline), at the cost of higher decision latency and lower distance balance
+than the sub-millisecond commit-once baselines. The
 four-method benchmark uses five seeds per cell and is reported descriptively:
 we make no broad-superiority claim, do not causally isolate EDPS from other
 execution-stack differences, keep the allocation-only and closed-loop evidence
@@ -135,7 +136,8 @@ delay to another robot. Keeping an incumbent task can also be harmful after a
 failure or a sharp reduction in time slack. We therefore use completion and
 deadline violations as primary outcomes. We report delay, workload balance,
 recovery, redispatches, preemptions, and decision latency as trade-offs. A
-strong score in a navigation-independent allocator does not by itself
+strong score in a navigation-independent allocator---one measured where every
+dispatched goal is reached, so navigation cannot fail---does not by itself
 demonstrate closed-loop navigation or recovery performance. Because methods
 observe and change the system in different ways, we state the observation
 model, reallocation event, communication assumptions, and outcome metrics for
@@ -167,10 +169,14 @@ The paper makes four bounded contributions:
   ETA and recovery effects distinct from a causal claim about EDPS.
 \end{enumerate}
 
-The evaluation has three layers: allocation-only simulation, a stochastic
-navigation proxy, and closed-loop Gazebo/ROS\,2 execution. The separation
-prevents a navigation or recovery effect from being reported as allocation
-evidence. The closed-loop benchmark compares full methods; it does not test
+The evaluation has three layers that differ in how navigation is modelled. The
+\emph{navigation-independent} allocation-only simulation lets every dispatched
+goal succeed deterministically, so its scores isolate allocation and
+queue-ordering quality from local-planner noise. The stochastic navigation
+proxy keeps navigation cost fixed but allows position-dependent goal failure,
+adding resilience to the measurement. The closed-loop Gazebo/ROS\,2 stack runs
+the full physics and Nav2 pipeline. The separation prevents a navigation or
+recovery effect from being reported as allocation evidence. The closed-loop benchmark compares full methods; it does not test
 the causal effect of EDPS alone in the execution stack. That claim requires a
 matched Gazebo selector ablation. Stating this boundary makes the comparison
 between the adaptive selector and fixed MRTA baselines reproducible.
@@ -279,8 +285,8 @@ risk $R_r^k$. For a feasible pair, the common cost is
   +w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k .
   \label{eq:cost}
 \end{equation}
-Here $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$ and the other base
-features are dimensionless. The correction $\Psi_{r\tau}^k$ collects the
+Here $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$ with $A_{\max}=220$~s,
+and the other base features are dimensionless. The correction $\Psi_{r\tau}^k$ collects the
 deadline and critical-battery penalties, deadline-capability and bid bonuses,
 incumbent sticky bonus, reassignment penalty, and capacity penalty. This form
 avoids adding seconds directly to normalized features. EDPS supplies $w$;
@@ -814,6 +820,22 @@ not a universal ranking of the cited algorithms. A controlled Gazebo EDPS
 ablation against fixed paradigms is required before any closed-loop difference
 can be attributed to the selector itself (Section~\ref{sec:limitations}).
 
+\subsection{Evaluation settings}
+\label{sec:planes}
+We use three evaluation settings that differ only in how navigation is
+modelled, so that allocation quality is never conflated with navigation or
+recovery behaviour. \textbf{(i)~Navigation-independent} (allocation-only):
+every dispatched goal is reached deterministically along the shared geodesic
+map---no local-planner stall, costmap rebuild, or goal failure---and the robot
+pose advances to each completed goal, while injected robot failures still
+occur. This setting isolates assignment and queue-ordering quality from
+navigation noise. \textbf{(ii)~Stochastic navigation proxy}: navigation cost is
+a fixed edge, but a goal can fail position-dependently and must be
+re-attempted, so the metric also rewards resilience to navigation failure.
+\textbf{(iii)~Closed-loop Gazebo/ROS\,2}: the full physics and Nav2 pipeline
+above runs end to end. Results from the three settings are tabulated
+separately and never pooled.
+
 \subsection{Metrics}
 \label{sec:metrics}
 We report completion rate (CR), deadline violation rate (DVR), makespan,
@@ -869,12 +891,10 @@ behavior in the evaluated execution stack, not general deployment performance.
 \section{Allocation-Fitness Results (Nav2-Independent)}
 \label{sec:results-sim}
 
-In the Nav2-independent setting, every navigation attempt succeeds
-deterministically. Injected robot failures remain part of the scenario. After
-each completed task, the robot pose advances to the goal. The allocator and
-execution oracle both use geodesic distance on the same inflated occupancy
-map. The metrics therefore measure allocation, queue order, and recovery
-after failure, rather than local-planner noise.
+In the navigation-independent setting (Sec.~\ref{sec:planes}), the allocator
+and execution oracle both use geodesic distance on the same inflated occupancy
+map, so the metrics measure allocation, queue order, and recovery after
+failure rather than local-planner noise.
 
 \input{table/allocation_only.tex}
 
@@ -1451,8 +1471,9 @@ The four-method Gazebo benchmark has five seeds per cell. We therefore report
 its point estimates as descriptive operating patterns, not as universal
 superiority. Within the evaluated map and Nav2 stack, AHE-MRTA reaches full
 completion under robot failure and the largest effective on-time completion
-under deadline pressure, at the cost of higher decision latency and lower
-distance balance.
+under deadline pressure---about $19\%$ (5 robots) and $46\%$ (10 robots) above
+the strongest baseline, whose deadline-violation rate it also cuts by $38\%$
+and $49\%$---at the cost of higher decision latency and lower distance balance.
 
 The current experiments do not causally isolate EDPS in closed-loop execution;
 the external baselines differ in more than the selector. The required next
