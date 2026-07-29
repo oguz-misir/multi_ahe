@@ -146,11 +146,14 @@
     <mxCell id="sel_o2" value="&lt;i&gt;c&lt;/i&gt;&lt;sub&gt;3&lt;/sub&gt; &amp;gt; 0.50 &amp;nbsp;&amp;#8594;&amp;nbsp; force &lt;b&gt;H_TEMP&lt;/b&gt;" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#fbe1de;strokeColor=#c0392b;fontSize=11;fontColor=#8a2b22;verticalAlign=middle;" vertex="1" parent="1">
       <mxGeometry x="912" y="320" width="216" height="28" as="geometry"/>
     </mxCell>
-    <mxCell id="sel_fb" value="else: &lt;i&gt;p&lt;/i&gt;*=argmax&lt;sub&gt;i&lt;/sub&gt; &lt;i&gt;D&lt;/i&gt;&lt;sub&gt;i&lt;/sub&gt; &amp;#183; &lt;b&gt;H_TEMP&lt;/b&gt; fallback if entropy(&lt;i&gt;D&lt;/i&gt;) maximal" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=9;fontColor=#4c7a40;" vertex="1" parent="1">
-      <mxGeometry x="910" y="352" width="220" height="34" as="geometry"/>
+    <mxCell id="sel_fb" value="else: &lt;i&gt;p&lt;/i&gt;*=argmax&lt;sub&gt;i&lt;/sub&gt; &lt;i&gt;D&lt;/i&gt;&lt;sub&gt;i&lt;/sub&gt; &amp;#183; &lt;b&gt;H_TEMP&lt;/b&gt; if &lt;i&gt;D&lt;/i&gt; absent or range(&lt;i&gt;D&lt;/i&gt;) &amp;lt; 10&lt;sup&gt;&amp;#8722;4&lt;/sup&gt;" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=9;fontColor=#4c7a40;" vertex="1" parent="1">
+      <mxGeometry x="908" y="350" width="224" height="26" as="geometry"/>
     </mxCell>
     <mxCell id="lsa" value="" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#ffe6cc;gradientColor=#ffce9c;strokeColor=#d6772a;shadow=1;verticalAlign=top;" vertex="1" parent="1">
       <mxGeometry x="1190" y="196" width="180" height="214" as="geometry"/>
+    </mxCell>
+    <mxCell id="sel_dwell" value="&lt;b&gt;dwell hold&lt;/b&gt; &amp;#961; = 4 events &amp;#183; H_RECOV exempt" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#e8f2e4;strokeColor=#4c7a40;fontSize=10;fontColor=#234a1b;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="912" y="380" width="216" height="24" as="geometry"/>
     </mxCell>
     <mxCell id="lsa_b" value="4" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6772a;fontSize=12;fontStyle=1;fontColor=#a8501a;" vertex="1" parent="1">
       <mxGeometry x="1200" y="205" width="22" height="22" as="geometry"/>
@@ -164,11 +167,14 @@
     <mxCell id="lsa_rule" value="&lt;i&gt;x&lt;/i&gt;* = argmin &amp;#8721; &lt;i&gt;C&lt;/i&gt;&lt;sup&gt;(&lt;i&gt;p&lt;/i&gt;)&lt;/sup&gt;&lt;sub&gt;r,&amp;#964;&lt;/sub&gt; &lt;i&gt;x&lt;/i&gt;&lt;sub&gt;r,&amp;#964;&lt;/sub&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#7a3b12;" vertex="1" parent="1">
       <mxGeometry x="1196" y="246" width="168" height="40" as="geometry"/>
     </mxCell>
-    <mxCell id="lsa_note" value="feasibility-masked cost &lt;i&gt;C&lt;/i&gt;&lt;sup&gt;(&lt;i&gt;p&lt;/i&gt;)&lt;/sup&gt;&lt;br&gt;deadline gate + urgency escalation" style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#9b5a2a;" vertex="1" parent="1">
-      <mxGeometry x="1196" y="288" width="168" height="28" as="geometry"/>
+    <mxCell id="lsa_note" value="feasibility-masked cost &lt;i&gt;C&lt;/i&gt;&lt;sup&gt;(&lt;i&gt;p&lt;/i&gt;)&lt;/sup&gt;&lt;br&gt;deadline gate + urgency escalation&lt;br&gt;cached geodesic-ETA oracle &lt;i&gt;d&lt;/i&gt;&lt;sub&gt;G&lt;/sub&gt;" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=9;fontColor=#9b5a2a;" vertex="1" parent="1">
+      <mxGeometry x="1194" y="282" width="172" height="36" as="geometry"/>
+    </mxCell>
+    <mxCell id="lsa_repair" value="&lt;b&gt;terminal &amp;#949;-load repair&lt;/b&gt; &amp;#949; = 0.10&lt;br&gt;Jain &amp;#8593; &amp;#183; misses / route / makespan guarded" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#fff0e0;strokeColor=#d6772a;fontSize=9;fontColor=#9b5a2a;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="1196" y="322" width="168" height="34" as="geometry"/>
     </mxCell>
     <mxCell id="lsa_out" value="&lt;b&gt;per-robot task queues&lt;/b&gt;" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#ffd1a3;strokeColor=#d6772a;fontSize=11;fontColor=#7a3b12;verticalAlign=middle;" vertex="1" parent="1">
-      <mxGeometry x="1208" y="326" width="144" height="34" as="geometry"/>
+      <mxGeometry x="1208" y="364" width="144" height="32" as="geometry"/>
     </mxCell>
     <mxCell id="lib" value="" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#fbfbfd;strokeColor=#9aa3ad;verticalAlign=top;" vertex="1" parent="1">
       <mxGeometry x="860" y="470" width="510" height="200" as="geometry"/>
