@@ -572,7 +572,11 @@ regimes.
   \caption{Ecosystem-Driven Paradigm Selection. Context $c_k$ updates the
   dominance state; failure/deadline overrides and dwell hysteresis select the
   active paradigm. The selected paradigm and cost weights produce
-  robot-specific queues through feasibility-masked assignment.}
+  robot-specific queues through feasibility-masked assignment over the cached
+  geodesic-ETA cost oracle, followed by the terminal bounded load repair. The
+  cooperation and suppression matrices $A$ and $S$ are given in
+  Table~\ref{tab:as-matrices} and the fixed coefficients in
+  Section~\ref{sec:method-config}.}
   \label{fig:mechanism}
 \end{figure}
 
