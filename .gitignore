@@ -42,7 +42,10 @@ venv/
 .claude/
 
 # Tüm results/ outputs + arşiv (raw zaten yukarıda; outputs regenerable, _depo_archive büyük)
-results/
+# (dizinin kendisi değil içeriği yoksayılır; aksi hâlde alttaki istisna işlemez)
+results/*
+# ...ama veri haritası izlenir: hangi dizin kanonik, zincir nasıl yeniden üretilir.
+!results/README.md
 # LaTeX build artefaktları (tex/pdf/cls/bst commit edilir)
 *.aux
 *.bbl
