@@ -996,7 +996,7 @@ sonuçlarını özetler.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{fitness_comparison.png}
+  \includegraphics[width=0.80\textwidth]{fitness_comparison.png}
   \caption{Birincil 5-robot/25-görev ölçeğinde stokastik navigasyon vekili
   uygunluğu (hücre başına 500 tohum). Kutular çeyrekler arası aralığı, orta
   çizgiler medyanı (değeri her kutunun üzerinde yazılıdır), eşkenar dörtgenler
@@ -1034,7 +1034,7 @@ az tohum kullandıkları için vekilin doğrudan doğrulaması değildir.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.78\textwidth]{scalability_panel.png}
+  \includegraphics[width=0.92\textwidth]{scalability_panel.png}
   \caption{Stokastik navigasyon vekilinde robot sayısına göre
   ölçeklenebilirlik. Değerler üç senaryoda hücre başına 100 tohumun
   ortalamasıdır: (a) uygunluk, (b) tamamlama oranı, (c) toparlanma süresi ve
@@ -1263,12 +1263,14 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.78\textwidth]{baseline_comparison_10r.png}
+  \includegraphics[width=\textwidth]{baseline_comparison_10r.png}
   \caption{10-robot ölçeğinde çok-metrikli karşılaştırma (60 deney:
   4 yöntem $\times$ 3 senaryo $\times$ 5 tohum; üç senaryo havuzlandığı için
   her çubuk $n{=}15$; ortalama $\pm$ standart sapma; karar gecikmesi log
-  ölçek). Senaryolar üzerinden havuzlandığında AHE-MRTA tamamlamada öndedir
-  (0.799--0.952'ye karşı 0.981) ve deadline ihlalinde en düşüktür
+  ölçek). Senaryolar üzerinden havuzlandığında AHE-MRTA tamamlamada
+  (0.799--0.952'ye karşı 0.981) ve zamanında-etkin tamamlamada
+  $\mathrm{CR}{\times}(1{-}\mathrm{DVR})$ (0.587--0.690'a karşı 0.773) öndedir,
+  deadline ihlalinde en düşüktür
   (0.224--0.367'ye karşı 0.212); ortalama karar gecikmesi ise commit-once
   temel yöntemlerin 0.6--1.8~ms'sine ve RoSTAM-EA'nın 69.1~ms'sine karşı
   27.9~ms'dir. Havuzlama, deadline marjının nereden geldiğini gizler: marj
@@ -1280,45 +1282,47 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.85\textwidth]{baseline_comparison_multi_metric.png}
+  \includegraphics[width=\textwidth]{baseline_comparison_multi_metric.png}
   \caption{Birincil 5-robot / 25-görev ölçeğinde çok-metrikli karşılaştırma
   (Gazebo, robot\_failure + mixed\_stress senaryoları havuzlanmış,
-  hücre başına $n{=}5$ tohum, ortalama $\pm$ std): tamamlama oranı, tamamlanan görev, ortalama
+  hücre başına $n{=}5$ tohum, ortalama $\pm$ std): tamamlama oranı,
+  zamanında-etkin tamamlama $\mathrm{CR}{\times}(1{-}\mathrm{DVR})$, ortalama
   gecikme, iş yükü dengesi (Jain), deadline ihlal oranı ve karar
-  gecikmesi (log ölçek). AHE-MRTA en düşük deadline ihlal oranında tam
-  tamamlamaya (CR\,=\,1.000) ulaşır; uzlaşma temel yöntemi kimi hücrede
-  tek seferde commit ederek onun tamamlamasına marjinal olarak daha
-  düşük gecikmeyle, ama daha yüksek DVR'la erişir; BiG-MRTA'nın düşük
-  DVR'ı terk edilen görevleri yansıtır (en düşük CR). AHE-MRTA karar
-  gecikmesini ve bir miktar gecikmeyi reaktif yeniden tahsisle takas
-  eder; bu, büyük ölçeklerde deadline liderliğini genişletir
-  (Şekil~\ref{fig:gazebo-10r}).}
+  gecikmesi (log ölçek). AHE-MRTA tam tamamlamaya (CR\,=\,1.000) ve en
+  yüksek zamanında-etkin tamamlamaya ($0.852$; diğerleri $0.727$--$0.804$)
+  ulaşır; BiG-MRTA'nın düşük DVR'ı terk edilen görevleri yansıtır (en düşük
+  CR). AHE-MRTA karar gecikmesini ve bir miktar gecikmeyi reaktif yeniden
+  tahsisle takas eder. Bu havuzlanmış nokta tahminleri ödünleşimi gösterir,
+  Bonferroni-düzeltilmiş bir yöntem sıralaması sağlamaz.}
   \label{fig:gazebo-multi}
 \end{figure}
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{failure_recovery.png}
+  \includegraphics[width=\textwidth]{failure_recovery.png}
   \caption{Birincil 5-robot / 25-görev ölçeğinde \textit{robot\_failure} altında
   arıza-toparlanma davranışı ($n{=}5$ tohum): toparlanma süresi ile
-  tamamlama oranı (ortalama $\pm$ std çubukları; bıyıklar sıfırda
-  kırpılmıştır) ve her karenin tek bir olay olduğu birim çubuk olarak
+  zamanında-etkin tamamlama, $\mathrm{CR}{\times}(1{-}\mathrm{DVR})$
+  (ortalama $\pm$ std çubukları; iki büyüklük de negatif olamayacağından
+  bıyıklar sıfırda kırpılmıştır) ve her karenin tek bir olay olduğu birim
+  çubuk olarak
   yeniden-gönderim olayları --- farklı tohumların kareleri boşlukla
   ayrılır. Bu, metriğin nadir ve kesikli doğasını görünür tutar: 20
   koşunun 17'sinde yeniden-gönderim sıfırdır, RoSTAM-EA'nın iki olayı
   iki ayrı tohumdan gelir ve Consensus-DBTA'nın altı olayının tümü tek
   bir tohumdadır (yürütme kesintileri tüm yöntemlerde sıfır olduğundan
   gösterilmedi). Toparlanma süreleri yöntemler arasında istatistiksel
-  olarak ayırt edilemez ($p{>}0.3$); AHE-MRTA, karşılaştırılabilir
-  toparlanma süresini bir ekosistem güncelleme çevrimi içinde
-  (${\leq}2$~s) yetim-kurtarma paradigmasına geçerek reaktif yöntemlerin
-  en yüksek tamamlama oranına çevirir.}
+  olarak ayırt edilemez ($p{>}0.3$). Ham tamamlama oranı gösterilmiyor,
+  çünkü burada ayırt edici değildir: AHE-MRTA ile RoSTAM-EA $1.000$'de
+  berabere, Consensus-DBTA $0.992$'dedir. Zamanında-etkin tamamlamada ise
+  AHE-MRTA $0.904$--$0.916$'ya karşı $0.984$ ile öndedir; yani
+  karşılaştırılabilir toparlanma süresini daha az geç tamamlamaya çevirir.}
   \label{fig:recovery}
 \end{figure}
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{dominance_recovery_panel.png}
+  \includegraphics[width=\textwidth]{dominance_recovery_panel.png}
   \caption{\textit{robot\_failure} altında yorumlanabilir uyum (3r/15g).
   Zaman, her koşunun ilk görev etkinleşmesinden ölçülür; böylece (a) ve
   (b)'deki enjeksiyon işaretleri senaryonun $45\pm5$~s'lik ofsetine oturur.
@@ -1346,7 +1350,7 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{task_completion_timeline.png}
+  \includegraphics[width=0.85\textwidth]{task_completion_timeline.png}
   \caption{3-robot ölçeğinde zaman içinde kümülatif görev tamamlama,
   üç görev yoğunluğu üzerinden tohum-ortalamalı:
   \textbf{(a)}~\textit{robot\_failure}, \textbf{(b)}~\textit{mixed\_stress}.
@@ -1497,13 +1501,17 @@ varyantlarıyla ortak tohumlarda, en az bir ek haritada eşleşmiş Gazebo
 \subsection{Haberleşme ayak izi}
 AHE-MRTA yalnızca robot başına optimize görev kuyrukları yayınlar; baskınlık
 vektörü, işbirliği/baskılama matrisleri ve global maliyet matrisi ekosistem
-yöneticisini asla terk etmez. Şekil~\ref{fig:comm} sonuç mesaj ayak izinin
-kompakt kaldığını ve paradigma değiştirme sıklığıyla büyümediğini gösterir;
-bu da saha dağıtımı için gereken düşük-bant-genişliği özelliğini korur.
+yöneticisini asla terk etmez. Şekil~\ref{fig:comm} olay başına düşen
+yükü gösterir: AHE-MRTA için 84~bayt, commit-once temel yöntemler için 134 ve
+239~bayt, popülasyon alışverişi baskın olan RoSTAM-EA için $1{,}7{\times}10^{4}$
+bayt. Arayüz dolayısıyla boyutu paradigma değişim sıklığıyla değil filo
+büyüklüğüyle belirlenen bir kuyruk yayınıdır; burada yalnız yükü raporluyoruz
+ve bu deney değiştirme sıklığını değiştirmediği için o sıklığa bağlı davranış
+hakkında bir iddiada bulunmuyoruz.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{communication_footprint.png}
+  \includegraphics[width=0.80\textwidth]{communication_footprint.png}
   \caption{Tahsis olayı başına haberleşme ayak izi. Yalnızca robot başına
   kuyruklar yayınlanır; ekosistem içsel durumları yerel kalır, bant genişliğini
   sınırlı tutar.}

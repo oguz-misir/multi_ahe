@@ -980,7 +980,7 @@ proxy results.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{fitness_comparison.png}
+  \includegraphics[width=0.80\textwidth]{fitness_comparison.png}
   \caption{Navigation-proxy fitness at the primary 5-robot/25-task scale
   (500 seeds per cell). Boxes show the interquartile range, centre lines the
   median (value annotated above each box), diamonds the mean, and whiskers
@@ -1021,7 +1021,7 @@ noise model and fewer seeds.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.78\textwidth]{scalability_panel.png}
+  \includegraphics[width=0.92\textwidth]{scalability_panel.png}
   \caption{Scalability by robot count in the stochastic navigation proxy.
   Values are means over three scenarios with 100 seeds per cell:
   (a) fitness, (b) completion rate, (c) recovery time, and (d) decision
@@ -1239,12 +1239,13 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.85\textwidth]{baseline_comparison_multi_metric.png}
+  \includegraphics[width=\textwidth]{baseline_comparison_multi_metric.png}
   \caption{Multi-metric results at the primary 5-robot/25-task scale
   (Gazebo Harmonic; \textit{robot\_failure} and \textit{mixed\_stress}
   pooled; $n{=}5$ seeds per cell; mean $\pm$ standard deviation). Panels show
-  completion rate, tasks completed, average delay, workload balance, deadline
-  violation rate, and log decision latency. These pooled point estimates
+  completion rate, effective on-time completion
+  $\mathrm{CR}{\times}(1{-}\mathrm{DVR})$, average delay, workload balance,
+  deadline violation rate, and log decision latency. These pooled point estimates
   illustrate trade-offs but do not provide a Bonferroni-corrected method
   ranking.}
   \label{fig:gazebo-multi}
@@ -1252,12 +1253,14 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.85\textwidth]{baseline_comparison_10r.png}
+  \includegraphics[width=\textwidth]{baseline_comparison_10r.png}
   \caption{Multi-metric results at the 10-robot scale (60 runs: four methods,
   three scenarios, and five seeds; the three scenarios are pooled, so each bar
   is $n{=}15$; mean $\pm$ standard deviation; decision latency on a log
   scale). Pooled over scenarios, AHE-MRTA leads on completion
-  (0.981 versus 0.799--0.952) and is lowest on deadline violation
+  (0.981 versus 0.799--0.952), on effective on-time completion
+  $\mathrm{CR}{\times}(1{-}\mathrm{DVR})$ (0.773 versus 0.587--0.690), and is
+  lowest on deadline violation
   (0.212 versus 0.224--0.367), at 27.9~ms mean decision latency against
   0.6--1.8~ms for the commit-once baselines and 69.1~ms for RoSTAM-EA.
   Pooling hides where the deadline margin actually comes from: it is
@@ -1269,10 +1272,12 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{failure_recovery.png}
+  \includegraphics[width=\textwidth]{failure_recovery.png}
   \caption{Failure-recovery behaviour under \textit{robot\_failure} at
   the primary 5-robot / 25-task scale ($n{=}5$ seeds): recovery time and
-  completion rate (mean\,$\pm$\,std bars, whiskers clipped at zero) and
+  effective on-time completion, $\mathrm{CR}{\times}(1{-}\mathrm{DVR})$
+  (mean\,$\pm$\,std bars, whiskers clipped at zero, since neither quantity
+  can be negative), and
   re-dispatch events as a unit bar in which every square is a single
   event and squares from different seeds are separated by a gap. This
   keeps the rare, discrete nature of the metric visible: 17 of the 20
@@ -1280,16 +1285,17 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
   different seeds, and all six Consensus-DBTA events fall in a single
   seed (execution preemptions are zero for every method and are
   omitted). Recovery times are statistically indistinguishable across
-  methods ($p{>}0.3$); AHE-MRTA converts its comparable recovery time
-  into the highest completion rate of the reactive methods by escalating
-  to the orphan-rescue paradigm within one ecosystem update cycle
-  (${\leq}2$~s).}
+  methods ($p{>}0.3$). Raw completion rate is omitted because it does not
+  discriminate here---AHE-MRTA and RoSTAM-EA are tied at $1.000$, with
+  Consensus-DBTA at $0.992$---whereas on effective on-time completion
+  AHE-MRTA leads at $0.984$ against $0.904$--$0.916$, i.e.\ it converts a
+  comparable recovery time into fewer late completions.}
   \label{fig:recovery}
 \end{figure}
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{dominance_recovery_panel.png}
+  \includegraphics[width=\textwidth]{dominance_recovery_panel.png}
   \caption{Interpretable adaptation under \textit{robot\_failure}
   (3r/15t). Time is measured from each run's first task activation, so
   the injection markers in (a) and (b) sit at the scenario's $45\pm5$~s
@@ -1318,7 +1324,7 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{task_completion_timeline.png}
+  \includegraphics[width=0.85\textwidth]{task_completion_timeline.png}
   \caption{Cumulative task completion over time at the 3-robot scale,
   seed-averaged over the three task densities:
   \textbf{(a)}~\textit{robot\_failure}, \textbf{(b)}~\textit{mixed\_stress}.
@@ -1468,14 +1474,17 @@ no-recovery-boost variants on common seeds and at least one additional map.
 \subsection{Communication footprint}
 AHE-MRTA publishes only per-robot optimized task queues; the
 dominance vector, cooperation/suppression matrices, and global cost
-matrix never leave the ecosystem manager. Figure~\ref{fig:comm} shows
-the resulting message footprint stays compact and does not grow with
-paradigm switching frequency, preserving the low-bandwidth property
-needed for field deployment.
+matrix never leave the ecosystem manager. Figure~\ref{fig:comm} shows the resulting
+per-event payload: 84~bytes for AHE-MRTA against 134 and 239~bytes for the
+commit-once baselines and $1.7{\times}10^{4}$~bytes for RoSTAM-EA, whose
+population exchange dominates. The interface is therefore a queue broadcast
+whose size is set by the fleet, not by how often the paradigm switches; we
+report the payload only and make no claim about its behaviour as a function of
+switching frequency, which this experiment does not vary.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.66\textwidth]{communication_footprint.png}
+  \includegraphics[width=0.80\textwidth]{communication_footprint.png}
   \caption{Communication footprint per allocation event. Only
   per-robot queues are broadcast; ecosystem internals stay local,
   keeping bandwidth bounded.}

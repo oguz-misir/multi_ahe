@@ -58,6 +58,51 @@ plt.rcParams.update({
 SINGLE_COL_W = 3.5   # inches
 DOUBLE_COL_W = 7.0   # inches
 
+# ── Print-scale contract ───────────────────────────────────────────────────────
+# A figure drawn 7.0 in wide but included at 0.66\textwidth is rendered at 0.66
+# scale, which turns a 9 pt tick label into 6 pt (and the dominance panel's 7 pt
+# annotations into 3.5 pt). Fonts are only true-size if the figure is DRAWN at
+# the width it is PRINTED at. IEEEtran 10pt/letterpaper/onecolumn gives
+# \textwidth = 516 pt = 7.14 in; each figure below declares the fraction of
+# \textwidth its \includegraphics uses, and is drawn at exactly that width.
+# Changing a width here REQUIRES changing the matching \includegraphics in
+# paper/main.tex and main_tr.tex — keep the two in step.
+TEXTWIDTH_IN = 516.0 / 72.27
+
+FIG_WIDTH_FRAC = {
+    "baseline_comparison_multi_metric.png": 1.00,
+    "baseline_comparison_10r.png":          1.00,
+    "dominance_recovery_panel.png":         1.00,
+    "scalability_panel.png":                0.92,
+    "task_completion_timeline.png":         0.85,
+    "failure_recovery.png":                 1.00,
+    "fitness_comparison.png":               0.80,
+    "communication_footprint.png":          0.80,
+}
+
+
+def fig_width(name: str) -> float:
+    """Drawing width in inches for `name`, matching its printed width."""
+    return FIG_WIDTH_FRAC[name] * TEXTWIDTH_IN
+
+
+def _fmt_val(v: float) -> str:
+    """Bar label with precision matched to magnitude.
+
+    "%.3g" rendered 1.000 as "1" next to "0.996", and 25.0 as "25" next to
+    "24.9", which reads as inconsistent measurement precision.
+    """
+    if not np.isfinite(v):
+        return ""
+    a = abs(v)
+    if a >= 100:
+        return f"{v:.0f}"
+    if a >= 10:
+        return f"{v:.1f}"
+    if a >= 1:
+        return f"{v:.2f}"
+    return f"{v:.3f}"
+
 # ── Fixed method order (proposed method last) and colour-blind-safe palette ────
 # Okabe–Ito palette: distinguishable under deuteranopia/protanopia and in
 # greyscale print. The proposed method is always vermillion and drawn last.
@@ -125,12 +170,16 @@ def _ordered_methods(df: pd.DataFrame, subset=None) -> list:
 
 
 def _bar_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
-               log_y: bool = False, clip_zero: bool = False):
+               log_y: bool = False, clip_zero: bool = True,
+               short_labels: bool = False):
     """Grouped bar with std error bars for one metric; proposed emphasised.
 
     clip_zero truncates the lower whisker at the axis origin for metrics
     that cannot be negative (times, rates), where a full ±std whisker
-    would extend into a physically impossible range.
+    would extend into a physically impossible range. Every metric plotted
+    here is non-negative, so it defaults to True: leaving it off drew a
+    deadline-violation whisker reaching -0.02 and a bytes/event whisker
+    reaching -370.
     """
     valid_methods = [m for m in methods if m in df["strategy"].unique()]
     means, stds = [], []
@@ -151,13 +200,21 @@ def _bar_panel(ax, df, methods, metric, ylabel, higher_better: bool = True,
         b.set_linewidth(w)
     # numeric value label above each bar (above the error-bar cap)
     for b, mn, sd in zip(bars, means, stds):
-        ax.annotate(f"{mn:.3g}", xy=(b.get_x() + b.get_width() / 2.0, mn + sd),
+        ax.annotate(_fmt_val(mn), xy=(b.get_x() + b.get_width() / 2.0, mn + sd),
                     xytext=(0, 2), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=6.5, fontweight="bold")
+                    ha="center", va="bottom", fontsize=7.5, fontweight="bold")
     ax.margins(y=0.18)  # headroom so the top label is not clipped
     ax.set_xticks(x)
-    ax.set_xticklabels([METHOD_LABELS.get(m, m) for m in valid_methods],
-                       rotation=45, ha="right")
+    # Six panels x four rotated full names is a wall of repeated text; the
+    # short forms fit horizontally and stay legible at print size.
+    if short_labels:
+        # rotation=0 ran "RoSTAM" into "Cons" in the 3-column grid; 30 deg keeps
+        # them separated while staying far more compact than the full names.
+        ax.set_xticklabels([METHOD_LABELS_SHORT.get(m, m) for m in valid_methods],
+                           rotation=30, ha="right")
+    else:
+        ax.set_xticklabels([METHOD_LABELS.get(m, m) for m in valid_methods],
+                           rotation=45, ha="right")
     if log_y:
         ax.set_yscale("log")
         ylabel += " (log)"
@@ -315,16 +372,21 @@ def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path,
     Used twice: 3-robot primary scale (robot_failure + mixed_stress pooled)
     and the 10-robot scale (all scenarios pooled).
     """
+    # "Tasks Completed" was CR x target_count — the same quantity as the first
+    # panel, so it spent a sixth of the figure on no new information. It is
+    # replaced by effective on-time completion, CR x (1-DVR), which is the
+    # headline outcome the text reports and was previously plotted nowhere.
     metrics = [
         ("task_completion_rate",    "Task Completion Rate",   True,  False),
-        ("tasks_completed",         "Tasks Completed",         True,  False),
+        ("effective_on_time",       "Effective On-Time",       True,  False),
         ("average_task_delay",      "Avg Task Delay (s)",      False, False),
         ("workload_balance",        "Workload Balance",        True,  False),
         ("deadline_violation_rate", "Deadline Violation Rate", False, False),
         ("mean_decision_latency_ms","Decision Latency (ms)",   False, True),
     ]
 
-    fig, axes = plt.subplots(2, 3, figsize=(DOUBLE_COL_W + 0.6, 5.2))
+    w = fig_width(out_name)
+    fig, axes = plt.subplots(2, 3, figsize=(w, w * 0.68))
     axes = axes.flatten()
 
     if df_summary is None or df_summary.empty:
@@ -335,6 +397,10 @@ def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path,
         sub = df_summary
         if scenarios and "scenario" in sub.columns:
             sub = sub[sub["scenario"].isin(scenarios)]
+        sub = sub.copy()
+        if {"task_completion_rate", "deadline_violation_rate"}.issubset(sub.columns):
+            sub["effective_on_time"] = (sub["task_completion_rate"]
+                                        * (1.0 - sub["deadline_violation_rate"]))
         methods = _ordered_methods(sub)
         for ax, (metric, ylabel, higher_better, log_y) in zip(axes, metrics):
             if metric not in sub.columns:
@@ -342,7 +408,7 @@ def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path,
                         ha="center", va="center", transform=ax.transAxes)
                 continue
             _bar_panel(ax, sub, methods, metric, ylabel, higher_better,
-                       log_y=log_y)
+                       log_y=log_y, short_labels=True)
 
     fig.tight_layout(w_pad=1.6, h_pad=2.0)
     out_path = out_dir / out_name
@@ -353,8 +419,9 @@ def plot_baseline_comparison(df_summary: Optional[pd.DataFrame], out_dir: Path,
 
 def plot_failure_recovery(df_summary: Optional[pd.DataFrame],
                           out_dir: Path, dpi: int) -> None:
-    """Recovery time / CR / replanning under robot_failure (3-panel)."""
-    fig, axes = plt.subplots(1, 3, figsize=(DOUBLE_COL_W, 2.9))
+    """Recovery time / effective on-time / re-dispatch under robot_failure."""
+    w = fig_width("failure_recovery.png")
+    fig, axes = plt.subplots(1, 3, figsize=(w, w * 0.42))
 
     if df_summary is None or df_summary.empty:
         for ax in axes:
@@ -367,10 +434,18 @@ def plot_failure_recovery(df_summary: Optional[pd.DataFrame],
             rf = df_summary
         methods = _ordered_methods(rf)
         _bar_panel(axes[0], rf, methods, "failure_recovery_time",
-                   "Recovery Time (s)", False, clip_zero=True)
-        if "task_completion_rate" in rf.columns:
-            _bar_panel(axes[1], rf, methods, "task_completion_rate",
-                       "Completion Rate", True)
+                   "Recovery Time (s)", False)
+        # Raw completion rate spans 0.960-1.000 here, so on a 0-1 axis the four
+        # bars are visually identical and the panel carries no information (and
+        # AHE only *ties* RoSTAM-EA at 1.000). Effective on-time completion,
+        # CR x (1-DVR), separates the methods on the outcome the text actually
+        # claims and keeps the axis honest.
+        if {"task_completion_rate", "deadline_violation_rate"}.issubset(rf.columns):
+            rf = rf.copy()
+            rf["effective_on_time"] = (rf["task_completion_rate"]
+                                       * (1.0 - rf["deadline_violation_rate"]))
+            _bar_panel(axes[1], rf, methods, "effective_on_time",
+                       "Effective On-Time", True)
         # Execution preemptions are 0 for every method at this scale (no method
         # interrupts an in-flight task), so that panel cannot discriminate;
         # show the corrected re-dispatch rate instead (Sec. discussion).
@@ -399,8 +474,9 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
     Panel (b): cumulative task completion under robot_failure, all methods.
     Panels (c-e): recovery-time / replanning / instability bars.
     """
-    fig = plt.figure(figsize=(DOUBLE_COL_W + 2.5, 7.0))
-    gs = fig.add_gridspec(3, 2, hspace=0.85, wspace=0.30,
+    w = fig_width("dominance_recovery_panel.png")
+    fig = plt.figure(figsize=(w, w * 0.80))
+    gs = fig.add_gridspec(3, 2, hspace=0.62, wspace=0.30,
                           width_ratios=[1.25, 1.0],
                           left=0.07, right=0.98, top=0.96, bottom=0.06)
 
@@ -462,6 +538,7 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
             if col in subset.columns:
                 ax_dom.plot(t, subset[col], label=lbl, color=c, linewidth=1.2)
         ax_dom.set_ylabel("Dominance $D(t)$")
+        ax_dom.set_xlabel("Time (s)")
         ax_dom.set_title("(a) Dominance evolution (robot failure, AHE-MRTA*)",
                          fontsize=9)
 
@@ -591,7 +668,8 @@ def plot_communication_footprint(df_comm: Optional[pd.DataFrame],
     col = next((c for c in ["footprint_bytes", "bytes_transmitted", "communication_bytes"]
                 if df_comm is not None and c in df_comm.columns), None)
 
-    fig, axes = plt.subplots(1, 2, figsize=(DOUBLE_COL_W, 3.0))
+    w = fig_width("communication_footprint.png")
+    fig, axes = plt.subplots(1, 2, figsize=(w, w * 0.52))
 
     if df_comm is None or df_comm.empty or col is None:
         for ax in axes:
@@ -611,7 +689,9 @@ def plot_communication_footprint(df_comm: Optional[pd.DataFrame],
 
     # Panel (a): log scale — all methods, shows RoSTAM-EA dominance
     ax = axes[0]
-    bars = ax.bar(labels, means, color=colors, yerr=errs, capsize=3,
+    # Bytes/event is non-negative; a full -std whisker reached -370 bytes.
+    yerr = np.vstack([np.minimum(np.nan_to_num(errs), np.nan_to_num(means)), errs])
+    bars = ax.bar(labels, means, color=colors, yerr=yerr, capsize=3,
                   edgecolor="black", linewidth=0.6,
                   error_kw={"linewidth": 0.8})
     ax.set_yscale("log")
@@ -619,11 +699,15 @@ def plot_communication_footprint(df_comm: Optional[pd.DataFrame],
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=45, ha="right")
     ax.set_title("(a) All methods, log scale", fontsize=9)
-    for bar, m, mean in zip(bars, methods, means):
-        if m == "rostam_ea" and not np.isnan(mean):
-            ax.text(bar.get_x() + bar.get_width() / 2, mean * 1.15,
-                    f"{mean:.0f}", ha="center", va="bottom", fontsize=7.5,
-                    fontweight="bold")
+    # Label every bar: labelling only RoSTAM-EA here while panel (b) labelled
+    # all three read as an omission rather than a choice.
+    for bar, m, mean, err in zip(bars, methods, means, errs):
+        if np.isnan(mean):
+            continue
+        top = mean + (0.0 if np.isnan(err) else err)
+        ax.text(bar.get_x() + bar.get_width() / 2, top * 1.15,
+                _fmt_val(mean), ha="center", va="bottom", fontsize=7.5,
+                fontweight="bold")
 
     # Panel (b): linear scale — exclude RoSTAM-EA to show detail among others
     ax = axes[1]
@@ -632,7 +716,8 @@ def plot_communication_footprint(df_comm: Optional[pd.DataFrame],
     colors2  = [METHOD_PALETTE.get(m, "#999999") for m in methods2]
     means2   = [df_comm[df_comm["strategy"] == m][col].mean() for m in methods2]
     errs2    = [df_comm[df_comm["strategy"] == m][col].std(ddof=1) for m in methods2]
-    ax.bar(labels2, means2, color=colors2, yerr=errs2, capsize=3,
+    yerr2 = np.vstack([np.minimum(np.nan_to_num(errs2), np.nan_to_num(means2)), errs2])
+    ax.bar(labels2, means2, color=colors2, yerr=yerr2, capsize=3,
            edgecolor="black", linewidth=0.6, error_kw={"linewidth": 0.8})
     ax.set_ylabel("Bytes / event")
     ax.set_xticks(range(len(labels2)))
@@ -641,7 +726,7 @@ def plot_communication_footprint(df_comm: Optional[pd.DataFrame],
     for i, (mean, err) in enumerate(zip(means2, errs2)):
         if not np.isnan(mean):
             ax.text(i, mean + (err if not np.isnan(err) else 0) + max(means2) * 0.02,
-                    f"{mean:.0f}", ha="center", va="bottom", fontsize=7.5)
+                    _fmt_val(mean), ha="center", va="bottom", fontsize=7.5)
 
     fig.tight_layout()
     out_path = out_dir / "communication_footprint.png"
@@ -671,7 +756,8 @@ def plot_fitness_comparison(processed_dir: Path, out_dir: Path, dpi: int) -> Non
                    "mixed_stress": "Mixed Stress",
                    "deadline_pressure": "Deadline Pressure"}
 
-    fig, ax = plt.subplots(figsize=(DOUBLE_COL_W, 3.55))
+    w = fig_width("fitness_comparison.png")
+    fig, ax = plt.subplots(figsize=(w, w * 0.62))
     n_m = len(METHOD_ORDER)
     x_pos = np.arange(len(scen_order))
 
@@ -771,7 +857,8 @@ def plot_scalability_panel(processed_dir: Path, out_dir: Path, dpi: int) -> None
               ("latency", "Decision Latency (ms) $\\downarrow$")]
     robots = sorted(df["robot_count"].unique())
 
-    fig, axes = plt.subplots(2, 2, figsize=(DOUBLE_COL_W, 5.2))
+    w = fig_width("scalability_panel.png")
+    fig, axes = plt.subplots(2, 2, figsize=(w, w * 0.80))
     axes = axes.flatten()
     for k, (ax, (col, ylabel)) in enumerate(zip(axes, panels)):
         for m in METHOD_ORDER:
@@ -804,8 +891,10 @@ def plot_scalability_panel(processed_dir: Path, out_dir: Path, dpi: int) -> None
 
 
 def plot_task_completion_timeline(df_task: Optional[pd.DataFrame],
+                                  df_alloc: Optional[pd.DataFrame],
                                   out_dir: Path, dpi: int) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(DOUBLE_COL_W, 3.0))
+    w = fig_width("task_completion_timeline.png")
+    fig, axes = plt.subplots(1, 2, figsize=(w, w * 0.44), sharex=True)
 
     if df_task is not None and "robot_count" in df_task.columns:
         df_task = df_task[df_task["robot_count"] == 3]
@@ -838,7 +927,12 @@ def plot_task_completion_timeline(df_task: Optional[pd.DataFrame],
         scen_df["time_rel"] = scen_df.apply(lambda r: r[time_col] - t0_map.get(r["experiment_id"], 0.0), axis=1)
 
         methods = _ordered_methods(scen_df)
-        max_t = scen_df["time_rel"].max()
+        # Extend flat tails only to the last COMPLETION, not to the run
+        # horizon. Using the horizon stretched panel (a) to 900 s although all
+        # completions finish by ~400 s, so more than half the panel was four
+        # flat lines and the two panels no longer shared a comparable x-range.
+        done = scen_df[scen_df[event_col] == "completed"]["time_rel"].dropna()
+        max_t = float(done.max()) * 1.02 if len(done) else scen_df["time_rel"].max()
         for method in methods:
             mdf = scen_df[(scen_df["strategy"] == method) & (scen_df[event_col] == "completed")]
             if mdf.empty:
@@ -858,9 +952,34 @@ def plot_task_completion_timeline(df_task: Optional[pd.DataFrame],
                     label=METHOD_LABELS.get(method, method),
                     color=METHOD_PALETTE.get(method, "#999999"),
                     linewidth=2.0 if method == PROPOSED else 1.3)
+        ax.set_xlim(0, max_t)
 
-    axes[1].legend(fontsize=8, ncol=2, loc="lower right")
-    fig.tight_layout()
+        # Both panels inject a robot failure; mark it, as the dominance panel
+        # does, so the reader can see which part of the curve is post-failure.
+        if df_alloc is not None and not df_alloc.empty:
+            fb = df_alloc[df_alloc["event_type"].astype(str)
+                          .str.contains("robot_failure", na=False)]
+            if "scenario" in fb.columns:
+                fb = fb[fb["scenario"] == scenario]
+            if "robot_count" in fb.columns:
+                fb = fb[fb["robot_count"] == 3]
+            if not fb.empty:
+                inj = fb.groupby("experiment_id")["timestamp_s"].min()
+                rel = (inj - t0_map.reindex(inj.index)).dropna()
+                if len(rel):
+                    ax.axvline(float(rel.median()), color="black", linestyle=":",
+                               alpha=0.8, linewidth=1.2)
+                    ax.annotate("failure", xy=(float(rel.median()), 0.02),
+                                xycoords=("data", "axes fraction"),
+                                xytext=(3, 0), textcoords="offset points",
+                                fontsize=7.5, va="bottom")
+
+    handles, labels_ = axes[0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels_, fontsize=9, ncol=4,
+                   loc="lower center", bbox_to_anchor=(0.5, -0.02),
+                   frameon=False)
+    fig.tight_layout(rect=(0, 0.07, 1, 1))
     out_path = out_dir / "task_completion_timeline.png"
     fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
@@ -922,7 +1041,7 @@ def main() -> None:
     plot_failure_recovery(df_primary, out_dir, dpi)
     plot_dominance_recovery_panel(df_eco, df_alloc, df_summary, df_task, out_dir, dpi)
     plot_communication_footprint(df_comm, out_dir, dpi)
-    plot_task_completion_timeline(df_task, out_dir, dpi)
+    plot_task_completion_timeline(df_task, df_alloc, out_dir, dpi)
 
     print(f"\n[DONE] All figures written to {out_dir}")
 
