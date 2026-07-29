@@ -168,8 +168,10 @@ ve derlendi (0 çözümsüz ref).** Önemli: kod K=7 ama c3/c6/c7=0 → Gazebo v
 
 ### YENİ DÜZEN (uygulandı) — root = 5r BİRİNCİL
 - `results/processed/` + `results/stats/` = **5r havuzlanmış (low+mid, n=10/hücre, 120 satır)** ← BİRİNCİL
-- `results/processed/gazebo_3r/` + `stats/gazebo_3r/` = 3r (180 satır, scalability alt-uç)
-- `results/processed/gazebo_10r/` + `stats/gazebo_10r/` = 10r (60 satır, scalability üst-uç)
+- ~~`processed/gazebo_{3r,5r,10r}/` + `stats/gazebo_{3r,5r,10r}/`~~ — 2026-07-29'da SİLİNDİ
+  (kilitli-v45 öncesi kampanya snapshot'ları; F58 ile çelişiyorlardı). Kanonik kaynak artık
+  tüm ölçekler için tek `results/processed/all_*.csv`. Gerekirse `results/raw/gazebo/`'dan
+  yeniden üretilebilir (299 koşu duruyor).
 - 5r-havuz raw symlink dizini: `results/raw/_gazebo_5r_pooled/` (120 symlink; silinebilir, yeniden kurulur)
 - YEDEK (geri dönüş): `results/_processed_bak_091141/`, `results/_stats_bak_091141/`
 
@@ -183,8 +185,7 @@ ve derlendi (0 çözümsüz ref).** Önemli: kod K=7 ama c3/c6/c7=0 → Gazebo v
    → processed/sim_fitness.csv (5r birincil). sim_scalability: `--robot-counts 3,5,10` (arg satır 911;
    üretim biçimini doğrula). ENV: AHE_RECOVERY_LOADBAL_W boş bırak (F45=0 zaten).
 4. **figür+tablo:** `python3 scripts/plot_results.py --processed-dir results/processed --output-dir results/figures`
-   (10r figürü için ayrıca --processed-dir gazebo_10r gerekebilir; plot_results 10r'yi gazebo_10r/'dan okur,
-   kontrol et). `python3 scripts/make_extra_tables.py` (PROC/STATS hardcoded=root=5r → birincil 5r).
+   (plot_results 10r'yi artık all_summary.csv'nin 10r/50t dilimden okur; ayrı --processed-dir GEREKMEZ). `python3 scripts/make_extra_tables.py` (PROC/STATS hardcoded=root=5r → birincil 5r).
 5. **Makale (main.tex + main_tr.tex):** Method matematiği ZATEN güçlendirildi (4-vec formülleri,
    paradigma-LSA, atıflar). Kalan METİN: (a) "7 hormon→7 paradigma" → **4-sinyal/5-paradigma**
    anlatısı + c3/c6/c7 ablasyon tablosu (Δfit=0, sim); (b) birincil ölçek **3r→5r** (tablolar/caption/
@@ -196,6 +197,6 @@ ve derlendi (0 çözümsüz ref).** Önemli: kod K=7 ama c3/c6/c7=0 → Gazebo v
 
 ### SAYI KAYNAKLARI (doğrulama için)
 - 5r birincil: `results/stats/descriptive_stats.csv` + `stat_tests.csv` + `processed/all_summary.csv`
-- 10r: `results/stats/gazebo_10r/` ; 3r: `results/stats/gazebo_3r/`
+- 10r ve 3r: `results/processed/all_summary.csv` (robot_count'a göre filtrele) — ayrı stats dizinleri silindi
 - 10r 4-vec makespan medyan: mixed **165**(1.), deadline **152**(1.), rf 224 (CDBTA 171 ama AHE comp
   49.8 vs 48.4, CR 0.996 vs 0.968, CDBTA seed01/04'te 48/44 çöker). Kaynak: gazebo_10r_clean raw.

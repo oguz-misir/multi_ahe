@@ -723,7 +723,7 @@ yalnızca bunları üretir; main.tex referanslarıyla birebir):**
 | `processed/sim_fitness.csv` | `fitness_comparison.png` | gruplu bar (3 senaryo × 4 yöntem) |
 | `processed/sim_scalability.csv` | `scalability_panel.png` | 2×2 line (fitness/CR/recovery/latency vs N) |
 | `all_summary.csv` (3r) | `baseline_comparison_multi_metric.png` | 6-panel bar+err |
-| `gazebo_10r/all_summary.csv` | `baseline_comparison_10r.png` | 6-panel bar+err |
+| `all_summary.csv` (10r/50t dilimi) | `baseline_comparison_10r.png` | 6-panel bar+err |
 | `all_summary.csv` | `failure_recovery.png` | 3-panel bar (robot_failure) |
 | `all_ecosystem_metrics.csv` + `all_task_events.csv` + `all_summary.csv` | `dominance_recovery_panel.png` | dominance + kümülatif CR + 3 bar |
 | `all_communication.csv` | `communication_footprint.png` | 2-panel bar (log+linear) |

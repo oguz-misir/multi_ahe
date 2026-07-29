@@ -6,8 +6,8 @@ Produces exactly the figures referenced by paper/main.tex / main_tr.tex:
 
   fitness_comparison.png               (sim_fitness_seedwise.csv; fallback: sim_fitness.csv)
   scalability_panel.png                (sim_scalability.csv)
-  baseline_comparison_multi_metric.png (all_summary.csv, 3r)
-  baseline_comparison_10r.png          (gazebo_10r/all_summary.csv)
+  baseline_comparison_multi_metric.png (all_summary.csv, 5r/25t slice)
+  baseline_comparison_10r.png          (all_summary.csv, 10r/50t slice)
   failure_recovery.png                 (all_summary.csv, robot_failure)
   dominance_recovery_panel.png         (all_ecosystem_metrics.csv + summary)
   task_completion_timeline.png         (all_task_events.csv)
