@@ -416,6 +416,29 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
 
     fail_t = None  # failure injection time, reused as marker in (a) and (b)
 
+    # Both panels use "time since the run's first task activation" as the x
+    # origin, so the injection markers land at the scenario's documented
+    # 45+/-5 s offset. Marking a raw timestamp_s on the rebased axis of (b)
+    # previously shifted the line by the Gazebo start-up delay.
+    def _t0_map(df: Optional[pd.DataFrame]) -> pd.Series:
+        if df is None or df.empty:
+            return pd.Series(dtype=float)
+        col = next((c for c in ["timestamp_s", "completed_rel", "time_s"]
+                    if c in df.columns), None)
+        if col is None or "experiment_id" not in df.columns:
+            return pd.Series(dtype=float)
+        ev = "event" if "event" in df.columns else "status"
+        act = df[df[ev] == "activated"].groupby("experiment_id")[col].min()
+        return act.combine_first(df.groupby("experiment_id")[col].min())
+
+    rf3 = df_task
+    if rf3 is not None and not rf3.empty:
+        if "scenario" in rf3.columns:
+            rf3 = rf3[rf3["scenario"] == "robot_failure"]
+        if "target_count" in rf3.columns and (rf3["target_count"] == 15).any():
+            rf3 = rf3[rf3["target_count"] == 15]
+    t0_by_exp = _t0_map(rf3)
+
     # (a) dominance of one representative run (single experiment, single seed)
     if df_eco is not None and not df_eco.empty:
         subset = df_eco[df_eco["strategy"] == PROPOSED]
@@ -431,7 +454,10 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
             subset = subset[subset["seed"] == subset["seed"].min()]
         subset = subset.sort_values("timestamp_s") if "timestamp_s" in subset.columns else subset
         t_col2 = next((c for c in ["timestamp_s", "time", "t"] if c in subset.columns), None)
-        t = subset[t_col2].values if t_col2 else np.arange(len(subset))
+        rep_t0 = 0.0
+        if "experiment_id" in subset.columns and not subset.empty:
+            rep_t0 = float(t0_by_exp.get(subset["experiment_id"].iloc[0], 0.0))
+        t = (subset[t_col2].values - rep_t0) if t_col2 else np.arange(len(subset))
         for col, lbl, c in zip(HEURISTIC_COLS, HEURISTIC_LABELS, SERIES7):
             if col in subset.columns:
                 ax_dom.plot(t, subset[col], label=lbl, color=c, linewidth=1.2)
@@ -449,7 +475,7 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
                                  df_alloc["event_type"].astype(str)
                                  .str.contains("robot_failure", na=False)]
             if not rf_events.empty:
-                fail_t = float(rf_events["timestamp_s"].iloc[0])
+                fail_t = float(rf_events["timestamp_s"].iloc[0]) - rep_t0
         if fail_t is not None:
             ax_dom.axvline(fail_t, color="black", linestyle=":", alpha=0.8,
                            linewidth=1.2, label="Failure injection")
@@ -508,8 +534,10 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
             if "target_count" in rf_b.columns and (rf_b["target_count"] == 15).any():
                 rf_b = rf_b[rf_b["target_count"] == 15]
             if not rf_b.empty:
-                fail_t_b = float(rf_b.groupby("experiment_id")["timestamp_s"]
-                                 .min().median())
+                inj = rf_b.groupby("experiment_id")["timestamp_s"].min()
+                # Rebase onto the same origin as the plotted curves.
+                fail_t_b = float((inj - t0_by_exp.reindex(inj.index))
+                                 .dropna().median())
         if fail_t_b is not None:
             ax_cum.axvline(fail_t_b, color="black", linestyle=":", alpha=0.8,
                            linewidth=1.2)
@@ -862,7 +890,14 @@ def main() -> None:
     df_alloc    = _load(processed_dir, "all_allocation_events.csv")
     df_comm     = _load(processed_dir, "all_communication.csv")
     df_eco      = _load(processed_dir, "all_ecosystem_metrics.csv")
-    df_10r      = _load(processed_dir / "gazebo_10r", "all_summary.csv")
+    # 10-robot cells come from the same consolidated campaign as every other
+    # scale. The legacy processed/gazebo_10r/ snapshot is an earlier campaign
+    # and must not be used here: it disagrees with the reported numbers.
+    df_10r = None
+    if (df_summary is not None and
+            {"robot_count", "target_count"}.issubset(df_summary.columns)):
+        df_10r = df_summary[(df_summary["robot_count"] == 10) &
+                            (df_summary["target_count"] == 50)]
 
     # Figures 1 and 2 (fig1.drawio / fig2.drawio) are hand-authored draw.io
     # assets under paper/figure/, edited directly rather than generated here.

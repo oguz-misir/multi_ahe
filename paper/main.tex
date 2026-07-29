@@ -1254,12 +1254,16 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
   \centering
   \includegraphics[width=0.85\textwidth]{baseline_comparison_10r.png}
   \caption{Multi-metric results at the 10-robot scale (60 runs: four methods,
-  three scenarios, and five seeds; decision latency on a log scale). The
-  descriptive deadline-pressure point estimate for AHE-MRTA is effective
-  on-time completion of about 0.76, compared with baseline point estimates no
-  larger than 0.52. AHE decision latency is 26--30~ms, above commit-once
-  baselines and below RoSTAM-EA's 48--107~ms. The $n{=}5$ cross-method cells
-  are descriptive and do not establish a corrected ranking.}
+  three scenarios, and five seeds; the three scenarios are pooled, so each bar
+  is $n{=}15$; mean $\pm$ standard deviation; decision latency on a log
+  scale). Pooled over scenarios, AHE-MRTA leads on completion
+  (0.981 versus 0.799--0.952) and is lowest on deadline violation
+  (0.212 versus 0.224--0.367), at 27.9~ms mean decision latency against
+  0.6--1.8~ms for the commit-once baselines and 69.1~ms for RoSTAM-EA.
+  Pooling hides where the deadline margin actually comes from: it is
+  concentrated in \textit{deadline\_pressure} (DVR 0.220 versus 0.296--0.504),
+  which the text reports per scenario. The $n{=}5$ per-scenario cross-method
+  cells are descriptive and do not establish a corrected ranking.}
   \label{fig:gazebo-10r}
 \end{figure}
 
@@ -1287,19 +1291,28 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
   \centering
   \includegraphics[width=0.66\textwidth]{dominance_recovery_panel.png}
   \caption{Interpretable adaptation under \textit{robot\_failure}
-  (3r/15t). \textbf{(a)}~Hormone dominance of a representative
-  AHE-MRTA run; at the failure injection (dotted line, $t{\approx}75$~s)
-  the recovery hormone shows a transient rise, while the spatial
-  paradigm stays dominant throughout this representative run.
+  (3r/15t). Time is measured from each run's first task activation, so
+  the injection markers in (a) and (b) sit at the scenario's $45\pm5$~s
+  offset. \textbf{(a)}~Hormone dominance of a representative
+  AHE-MRTA run; the spatial hormone leads the pre-failure phase
+  ($D{\approx}0.31$), and at the injection (dotted line, $t{\approx}49$~s)
+  it collapses while the recovery and stability hormones rise
+  ($0.12{\to}0.20$ and $0.15{\to}0.20$). No single hormone then regains
+  the pre-failure margin: the criticality and temporal channels lead the
+  remainder of the run and the dispatched paradigm alternates between
+  temporal, spatial, and recovery passes.
   \textbf{(b)}~Cumulative task
   completion (seed-averaged; dotted line: median injection
-  $t{\approx}164$~s): AHE-MRTA continues completing tasks
-  after the failure and reaches the full task set.
+  $t{\approx}44$~s): AHE-MRTA continues completing tasks
+  after the failure and reaches the full task set, though it is the last
+  of the three reactive methods to do so.
   \textbf{(c--e)}~Recovery time, average task delay, and task
   re-dispatch rate as box plots (box: IQR; line: median; whiskers:
   $1.5{\times}$IQR; points: individual runs, $n{=}15$ per method):
-  AHE's reactivity costs higher task delay and re-dispatch relative to the
-  commit-once baselines.}
+  AHE's reactivity shows up as the highest recovery-time median (101~s
+  versus 49--77~s); its delay median (98~s) sits between the consensus
+  baselines (72--84~s) and the task-abandoning BiG-MRTA (138~s), and the
+  re-dispatch median is zero for all four methods.}
   \label{fig:dom-recovery}
 \end{figure}
 

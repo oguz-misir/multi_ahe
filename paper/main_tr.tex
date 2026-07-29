@@ -1265,16 +1265,16 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
   \centering
   \includegraphics[width=0.78\textwidth]{baseline_comparison_10r.png}
   \caption{10-robot ölçeğinde çok-metrikli karşılaştırma (60 deney:
-  4 yöntem $\times$ 3 senaryo $\times$ 5 tohum, senaryolar havuzlanmış;
-  karar gecikmesi log ölçek). AHE-MRTA her senaryoda en yüksek (ya da
-  berabere-en-yüksek) tamamlama oranına ulaşır (CR\,=\,0.976--0.988) ve
-  deadline baskısında zamanında-etkin tamamlamada öndedir ($\approx$0.76
-  vs $\leq$0.52); EDF temel yöntemleri benzer CR'ye ancak çok daha
-  yüksek deadline ihlal oranlarıyla erişir (DVR\,=\,0.43--0.50 vs.\
-  AHE'nin deadline baskısındaki 0.22'si).
-  AHE'nin karar gecikmesi 26--30~ms'dir --- geodezik-onarım bedeli,
-  milisaniye-altı commit-once temel yöntemlerin üzerinde ama 10 robotta
-  RoSTAM-EA'nın 48--107~ms'sinin çok altında.}
+  4 yöntem $\times$ 3 senaryo $\times$ 5 tohum; üç senaryo havuzlandığı için
+  her çubuk $n{=}15$; ortalama $\pm$ standart sapma; karar gecikmesi log
+  ölçek). Senaryolar üzerinden havuzlandığında AHE-MRTA tamamlamada öndedir
+  (0.799--0.952'ye karşı 0.981) ve deadline ihlalinde en düşüktür
+  (0.224--0.367'ye karşı 0.212); ortalama karar gecikmesi ise commit-once
+  temel yöntemlerin 0.6--1.8~ms'sine ve RoSTAM-EA'nın 69.1~ms'sine karşı
+  27.9~ms'dir. Havuzlama, deadline marjının nereden geldiğini gizler: marj
+  \textit{deadline\_pressure}'da yoğunlaşır (0.296--0.504'e karşı DVR 0.220)
+  ve metin bunu senaryo bazında raporlar. Senaryo başına $n{=}5$'lik
+  çapraz-yöntem hücreleri betimleyicidir, düzeltilmiş bir sıralama kurmaz.}
   \label{fig:gazebo-10r}
 \end{figure}
 
@@ -1320,18 +1320,27 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
   \centering
   \includegraphics[width=0.66\textwidth]{dominance_recovery_panel.png}
   \caption{\textit{robot\_failure} altında yorumlanabilir uyum (3r/15g).
-  \textbf{(a)}~Temsili bir AHE-MRTA koşusunun hormon baskınlığı; arıza
-  enjeksiyonunda (noktalı çizgi, $t{\approx}75$~s) toparlanma hormonu
-  geçici bir yükseliş gösterir, ancak bu temsili koşu boyunca uzamsal
-  paradigma baskın kalır.
+  Zaman, her koşunun ilk görev etkinleşmesinden ölçülür; böylece (a) ve
+  (b)'deki enjeksiyon işaretleri senaryonun $45\pm5$~s'lik ofsetine oturur.
+  \textbf{(a)}~Temsilî bir AHE-MRTA koşusunun hormon baskınlığı; arıza
+  öncesi evreye uzamsal hormon liderlik eder ($D{\approx}0.31$) ve
+  enjeksiyonda (noktalı çizgi, $t{\approx}49$~s) çöker, buna karşılık
+  toparlanma ve kararlılık hormonları yükselir ($0.12{\to}0.20$ ve
+  $0.15{\to}0.20$). Sonrasında hiçbir hormon arıza öncesi farkı geri
+  kazanmaz: koşunun kalanına kritiklik ve zamansal kanallar liderlik eder,
+  gönderilen paradigma zamansal, uzamsal ve toparlanma geçişleri arasında
+  dönüşümlü çalışır.
   \textbf{(b)}~Kümülatif görev tamamlama (tohum-ortalamalı; noktalı çizgi:
-  medyan enjeksiyon $t{\approx}164$~s): AHE-MRTA
-  arızadan sonra tamamlamaya devam eder ve tam görev kümesine ulaşır.
+  medyan enjeksiyon $t{\approx}44$~s): AHE-MRTA
+  arızadan sonra tamamlamaya devam eder ve tam görev kümesine ulaşır;
+  ancak üç reaktif yöntem içinde buna en son ulaşan odur.
   \textbf{(c--e)}~Toparlanma süresi, ortalama görev gecikmesi ve görev
   yeniden-gönderim oranı kutu grafikleri (kutu: IQR; çizgi: medyan; bıyıklar:
   $1{,}5{\times}$IQR; noktalar: tekil koşular, yöntem başına $n{=}15$):
-  AHE'nin reaktifliği, commit-once temel yöntemlerine kıyasla daha yüksek
-  görev gecikmesi ve yeniden-gönderim maliyeti taşır.}
+  AHE'nin reaktifliği en yüksek toparlanma-süresi medyanı olarak görünür
+  (49--77~s'ye karşı 101~s); gecikme medyanı (98~s) uzlaşma temel
+  yöntemleri (72--84~s) ile görev-terk-eden BiG-MRTA (138~s) arasındadır ve
+  yeniden-gönderim medyanı dört yöntemde de sıfırdır.}
   \label{fig:dom-recovery}
 \end{figure}
 
