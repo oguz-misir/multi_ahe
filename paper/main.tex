@@ -45,34 +45,30 @@
 
 %==============================================================================
 \begin{abstract}
-Online multi-robot task allocation must keep producing sound assignments while
-tasks arrive, deadlines tighten, and robots fail in mid-execution. No single
-allocation rule serves all of these regimes: a policy tuned for spatial
-efficiency loses deadlines under load, while a commit-once policy that is
-stable in nominal operation cannot recover work stranded by a failed robot.
-We present AHE-MRTA, which treats the choice of allocation behaviour as an
-online decision rather than a design-time one. Its selector,
-Ecosystem-Driven Paradigm Selection (EDPS), maps four observable context
-signals---task density, robot availability, deadline pressure, and recent
-failure rate---onto a small repertoire of fixed, interpretable allocation
-behaviours, combining deterministic overrides for acute failure and deadline
-regimes with a dominance dynamic elsewhere; a geodesic-ETA cost oracle and a
-bounded terminal load-repair step complete the method. We evaluate on three
-layers of increasing physical realism: a deterministic allocation-only
-campaign, a stochastic navigation proxy (500 seeds), and closed-loop Gazebo
-Harmonic/ROS\,2 Nav2 experiments with 3, 5, and 10 TurtleBot3 robots
-(300 runs). The first two layers do not separate the leading policies:
-AHE-MRTA and Consensus-DBTA co-lead the proxy, with a small mixed-stress edge
-for AHE-MRTA ($+0.007$, $p{=}0.042$). Physical execution does separate them.
-AHE-MRTA completes every task under robot failure at 3 and 5 robots and
-attains the highest effective on-time completion under deadline pressure
-($0.79$ at 5 robots and $0.76$ at 10, against at most $0.66$ and $0.52$),
-cutting the strongest baseline's deadline-violation rate by $38\%$ and $49\%$
-while deciding in $0.5$--$3.4$~ms; it pays for this with longer routes and
-lower workload balance. With five seeds per physical cell
-these are descriptive operating patterns rather than corrected rankings, and
-the design does not isolate the selector from other execution-stack
-differences.
+A mobile robot team is rarely handed all of its work up front: work appears,
+expires, and changes hands while the fleet is moving. Online
+multi-robot task allocation must therefore stay sound as tasks arrive,
+deadlines tighten, and robots fail mid-execution; no fixed rule serves
+every regime. We present AHE-MRTA, which chooses allocation behaviour
+online rather than at design time. Its selector, Ecosystem-Driven Paradigm
+Selection (EDPS), maps four observable signals---task density, robot
+availability, deadline pressure, and recent failure rate---onto a small
+repertoire of fixed, interpretable behaviours, with deterministic overrides
+for failure and deadline regimes, a dominance dynamic elsewhere; a
+geodesic-ETA oracle and bounded terminal load repair complete it. We evaluate
+on three layers of realism: an allocation-only campaign, a
+stochastic navigation proxy (500 seeds), and closed-loop Gazebo/ROS\,2 Nav2
+experiments with 3, 5, and 10 TurtleBot3 robots (300 runs). The first two do
+not separate the leaders---AHE-MRTA and Consensus-DBTA co-lead the
+proxy ($+0.007$ under mixed stress, $p{=}0.042$)---but physical execution does.
+AHE-MRTA completes every task under robot failure at 3 and 5 robots and leads
+effective on-time completion under deadline pressure ($0.79$ at 5 robots,
+$0.76$ at 10, against at most $0.66$ and $0.52$), cutting the strongest
+baseline's deadline-violation rate by $38\%$ and $49\%$ while deciding in
+$0.5$--$3.4$~ms, paying with longer routes and lower workload balance. With
+five seeds per physical cell these are descriptive patterns, not corrected
+rankings, and the selector is not isolated from other
+execution-stack differences.
 \end{abstract}
 
 \begin{IEEEkeywords}

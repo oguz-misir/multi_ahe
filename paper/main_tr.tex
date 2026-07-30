@@ -47,33 +47,30 @@
 
 %==============================================================================
 \begin{abstract}
-Çevrim içi çoklu robot görev atama, görevler gelirken, deadline'lar sıkışırken
-ve robotlar yürütmenin ortasında arızalanırken sağlam atamalar üretmeyi
-sürdürmelidir. Tek bir tahsis kuralı bu rejimlerin hepsine hizmet edemez:
-uzamsal verime göre ayarlanmış bir politika yük altında deadline kaçırır;
-nominal işletimde kararlı olan commit-once bir politika ise arızalanan bir
-robotta mahsur kalan işi kurtaramaz. Tahsis davranışının seçimini tasarım
-zamanına değil çevrim içine taşıyan AHE-MRTA'yı sunuyoruz. Yöntemin seçicisi
-Ekosistem-Güdümlü Paradigma Seçimi (EDPS), gözlenebilir dört bağlam
-sinyalini---görev yoğunluğu, robot uygunluğu, deadline baskısı ve yakın arıza
-oranı---sabit ve yorumlanabilir tahsis davranışlarından oluşan küçük bir
-repertuvara eşler; akut arıza ve deadline rejimlerinde belirlenimci geçersiz
-kılmaları, diğer durumlarda bir baskınlık dinamiğiyle birleştirir. Geodezik-ETA
-maliyet kâhini ve sınırlı bir terminal yük-onarım adımı yöntemi tamamlar.
-Değerlendirmeyi fiziksel gerçekçiliği artan üç katmanda yapıyoruz:
-belirlenimci allocation-only kampanya, stokastik navigasyon vekili (500 tohum)
-ve 3, 5, 10 TurtleBot3 ile kapalı-çevrim Gazebo Harmonic/ROS\,2 Nav2 deneyleri
-(300 koşu). İlk iki katman lider politikaları ayırmaz: vekilde AHE-MRTA ile
-Consensus-DBTA eş-liderdir, karışık streste AHE-MRTA lehine küçük bir farkla
-($+0.007$, $p{=}0.042$). Fiziksel yürütme ise onları ayırır. AHE-MRTA 3 ve 5
-robotta robot arızası altında her görevi tamamlar ve deadline baskısı altında
-en yüksek zamanında-etkin tamamlamaya ulaşır (5 robotta $0.79$, 10 robotta
-$0.76$; temel yöntemlerde en çok $0.66$ ve $0.52$); en güçlü temel yöntemin
-deadline ihlal oranını \%$38$ ve \%$49$ düşürür ve $0.5$--$3.4$~ms'de karar
-verir. Bunun bedeli daha uzun rotalar ve daha düşük iş yükü dengesidir.
-Fiziksel hücre başına beş tohumla bunlar düzeltilmiş sıralamalar değil
-betimleyici işletim örüntüleridir ve tasarım, seçiciyi yürütme yığınındaki
-diğer farklılıklardan yalıtmaz.
+Bir mobil robot ekibine işinin tamamı nadiren baştan verilir: filo hareket
+hâlindeyken yeni işler doğar, dolan deadline'larla kaybolur ve robotlar
+arasında el değiştirir. Bu nedenle çevrim içi çoklu robot görev atama, görevler
+gelirken, deadline'lar sıkışırken ve robotlar yürütmenin ortasında
+arızalanırken sağlam kalmalıdır; tek bir sabit kural her rejime hizmet edemez.
+Tahsis davranışını tasarım zamanında değil çevrim içinde seçen AHE-MRTA'yı
+sunuyoruz. Yöntemin seçicisi Ekosistem-Güdümlü Paradigma Seçimi (EDPS),
+gözlenebilir dört sinyali---görev yoğunluğu, robot uygunluğu, deadline baskısı
+ve yakın arıza oranı---sabit ve yorumlanabilir davranışlardan oluşan küçük bir
+repertuvara eşler; arıza ve deadline rejimlerinde belirlenimci geçersiz
+kılmalar, diğer durumlarda bir baskınlık dinamiği çalışır. Geodezik-ETA kâhini
+ve sınırlı terminal yük onarımı yöntemi tamamlar. Değerlendirmeyi gerçekçiliği
+artan üç katmanda yapıyoruz: allocation-only kampanya, stokastik navigasyon
+vekili (500 tohum) ve 3, 5, 10 TurtleBot3 ile kapalı-çevrim Gazebo/ROS\,2 Nav2
+deneyleri (300 koşu). İlk ikisi liderleri ayırmaz---vekilde AHE-MRTA ile
+Consensus-DBTA eş-liderdir (karışık streste $+0.007$, $p{=}0.042$)---fiziksel
+yürütme ise ayırır. AHE-MRTA 3 ve 5 robotta robot arızası altında her görevi
+tamamlar ve deadline baskısı altında zamanında-etkin tamamlamada öndedir
+(5 robotta $0.79$, 10 robotta $0.76$; temel yöntemlerde en çok $0.66$ ve
+$0.52$); en güçlü temel yöntemin deadline ihlal oranını \%$38$ ve \%$49$
+düşürüp $0.5$--$3.4$~ms'de karar verir, bedeli daha uzun rotalar ve daha düşük
+iş yükü dengesidir. Fiziksel hücre başına beş tohumla bunlar düzeltilmiş
+sıralamalar değil betimleyici örüntülerdir ve seçici, yürütme yığınındaki diğer
+farklılıklardan yalıtılmış değildir.
 \end{abstract}
 
 \begin{IEEEkeywords}
