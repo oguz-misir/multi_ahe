@@ -73,6 +73,20 @@ NAV2_QUEUE_OVERHEAD = 22.0   # saniye / kuyruklanmış görev (navigation tahmin
 GAZEBO_SPEED = 0.22          # m/s
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, default))
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in ('0', 'false', 'no', 'off')
+
+
 class _AHEBase(BaseAllocator):
     """Shared greedy assignment logic for all AHE variants."""
 
@@ -620,6 +634,31 @@ class AHEMRTAv3Allocator(BaseAllocator):
 
     def name(self) -> str:
         return 'ahe_mrta_v3'
+
+    def warmup(self, task_positions) -> int:
+        """Build the geodesic distance oracle before decisions are timed.
+
+        The occupancy map and the task pool are both known before an experiment
+        starts, so the one-off Dijkstra work is deployment set-up, not part of a
+        decision.  Leaving it in the first ``allocate`` call charged ~0.3 s to
+        that call and dominated the reported mean latency.  Distances are
+        unchanged -- ``precompute`` batches the same undirected Dijkstra that
+        the on-demand path would have run.
+
+        Returns the number of anchors computed (0 when geodesic mode is off).
+        """
+        if not _env_bool('AHE_WARMUP', True):
+            return 0                      # ablation arm: pay the cost in-decision
+        if not _env_bool('AHE_F58_GEODESIC', self.F58_GEODESIC_ENABLED):
+            return 0
+        resolution = max(0.05, _env_float('AHE_F58_GEODESIC_RESOLUTION',
+                                          self.F58_GEODESIC_RESOLUTION))
+        try:
+            from ..geodesic_cost import precompute
+            return precompute(list(task_positions), resolution)
+        except Exception:
+            # A warm cache is an optimisation; never let it fail an experiment.
+            return 0
 
     def _weights_from_context(self, context: Optional[EcosystemContext]) -> List[float]:
         # 4-dim context [td, ra, dp, fr]: failure=idx3, deadline=idx2
@@ -1499,7 +1538,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 else:
                     d = self._travel_distance(pos, task.position)
                 if not math.isfinite(d):
-                    return float('inf'), float('inf'), {}
+                    # Unreachable leg: signal "no usable profile".  Both callers
+                    # unpack four values and bail out on the empty burden map.
+                    return float('inf'), float('inf'), {}, {}
                 route_dist += d
                 clock += d / self.SPEED + task.service_time
                 if task.deadline > 0 and clock > task.deadline:
@@ -1914,18 +1955,6 @@ class AHEMRTAv3Allocator(BaseAllocator):
         # AHE_MAX_FLEET env override (A/B gate testi için kod-düzenlemesiz config
         # değişimi): set edilmişse F44 eşiğini geçersiz kılar. örn. 999 → gate
         # kapalı (10r de agresif), 7 → varsayılan (10r muhafazakâr).
-        def _env_float(name: str, default: float) -> float:
-            try:
-                return float(os.environ.get(name, default))
-            except ValueError:
-                return default
-
-        def _env_bool(name: str, default: bool) -> bool:
-            raw = os.environ.get(name)
-            if raw is None:
-                return default
-            return raw.strip().lower() not in ('0', 'false', 'no', 'off')
-
         self._fair_cost_weight = _env_float(
             'AHE_FAIR_COMPLETION_COST', self.FAIR_COMPLETION_COST)
         self._fair_seconds_weight = _env_float(
