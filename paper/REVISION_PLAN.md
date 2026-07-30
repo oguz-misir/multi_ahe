@@ -14,6 +14,14 @@ Hakemin yazacağı cümle hazır: *"EDPS öneriyorsunuz, kendi ablasyonunuz fark
 yaratmadığını gösteriyor, eşleşmiş Gazebo ablasyonunu hiç koşmamışsınız."*
 Bu, Limitasyon (x)'te zaten yazılı.
 
+## Kararlar (kullanıcı, 2026-07-30) — üçü de kapandı
+
+| | Karar | Sonucu |
+|---|---|---|
+| **D1** | **Tam uzunluk: T-ASE / RAS / JFR.** RA-L bırakıldı. | 24 sayfa korunur, dürüstlük katmanı (12 maddelik limitasyon, negatif ablasyon) budanmaz. A = yeniden çerçeveleme, kısaltma değil. `\thanks` içindeki "submitted to IEEE RA-L" güncellenecek. |
+| **A1** | **İddia indirilecek, "Ecosystem" başlıktan çıkacak.** `ahe_mrta_v3` kod/veri/dosya adı KORUNUR. | Satılan iddia: bağlam-override kaskadı + geodezik ETA + sınırlı terminal onarım. Paradigma seçimi alt-mekanizma olarak kalır, katkı olarak sunulmaz. A2–A5 açıldı. |
+| **D2** | **5r'yi n=20'ye çıkar, B ile birlikte.** | Birincil çıkarımsal ölçek 5r kalır. B4'ün `full` kolu AHE kolonunu verir; marjinal maliyet 3 baseline = 180 koşu. Toplam **420 koşu ≈ 34–69 sa**. |
+
 ## Karar (kullanıcı, 2026-07-30): **A ve B paralel**, C ertelendi
 
 - **A — çerçeveyi gerçeğe indirme:** AKTİF. Sıfır hesaplama; B'nin 20–39 saatlik
@@ -52,22 +60,30 @@ Eşli Wilcoxon + Cliff δ, senaryo ailesi içinde Bonferroni.
 
 ### Adımlar
 
-1. **B1 — bayrakları yaz.** Zorlanmış-paradigma bayrağı **mevcut değil**
-   (`F50_LIGHTWEIGHT_SELECTOR` başka bir şey: statik bağlam-anahtarlı seçici).
-   Eklenecek: `AHE_FORCE_PARADIGM=0..4`, `AHE_NO_OVERRIDE=1`,
-   `AHE_NO_RECOVERY_BOOST=1`. Varsayılanlar kapalı.
-   **Kabul ölçütü:** hepsi kapalıyken vekil düzlemde 500 tohumda kanonik
-   `sim_fitness.csv` 9 ondalık birebir üremeli. (F59 bayrağında bu kontrol
-   kullanıldı ve tuttu; aynı deseni tekrarla.)
-2. **B2 — ön-kayıt.** `paper/PREREGISTRATION.md`, kampanyadan ÖNCE commit.
-   n=5 hücrelerin eleştirisi post-hoc seçim şüphesiydi; ön-kayıt onu kapatır.
-3. **B3 — ucuz ön-kontrol.** Aynı 4 kol önce vekil düzlemde (dakikalar).
-   Kollar birbirinin aynısı çıkarsa bayrak hatalıdır — 240 koşu harcanmadan
-   anlaşılır. Sim env'i şart: `AHE_SIM_GEODESIC_EXECUTION=1` + F58 seti.
-   Kanonik CSV'yi ezme: `--fitness-summary-name` ile ayrı ad.
-4. **B4 — kampanya.** `results/raw/gazebo_ablation/<kol>/`. Çökme-güvenli
-   sürücü, tek seferde tek deney, `load<5`. Kolları ayırt etmek artık mümkün:
-   `metadata.yaml: allocator_env` çözülmüş bayrakları kaydediyor.
+1. **B1 — bayrakları yaz. ✅ BİTTİ (2026-07-30).**
+   `AHE_FORCE_PARADIGM=0..4`, `AHE_NO_OVERRIDE=1`, `AHE_NO_RECOVERY_BOOST=1`
+   eklendi (`ahe_variants.py`); üçü de varsayılan kapalı, çözülmüş değerler
+   `metadata.yaml: allocator_env`'e yazılıyor.
+   **Kabul ölçütü tuttu:** bayraklar kapalıyken B1-öncesi kodla vekil düzlemde
+   5r/25g × 3 senaryo × 20 tohumda AHE **60/60 hücrede tam ondalık özdeş**.
+   (Kabul ölçütü kanonik `sim_fitness.csv` yerine eşli pre/post koşuma
+   çevrildi: kanonik dosya `de797bd` öncesinden, dolayısıyla mutlak referans
+   değil — bkz. aşağıdaki iki yan bulgu.)
+   *Yan bulgu 1:* `simulate_and_tune.py` allokatörü tohumlamıyordu, Gazebo
+   runner'ı (`experiment_runner_node.py:173`) tohumluyor → RoSTAM vekil
+   düzlemde koşudan koşuya yeniden üretilemiyordu (aynı kod, iki koşu: 56/60
+   hücre farklı). Düzeltildi.
+   *Yan bulgu 2:* `--fitness-summary-name` yalnız özeti koruyordu; seedwise
+   dosya adı sabit kodluydu ve gitignore'da → kısa bir keşif koşusu 500
+   tohumluk veriyi sessizce eziyordu. Düzeltildi (seedwise adı özet adını izler).
+2. **B2 — ön-kayıt. ✅ BİTTİ.** `paper/PREREGISTRATION.md` yazıldı; kampanyadan
+   ÖNCE commit edilecek. n=5 hücrelerin eleştirisi post-hoc seçim şüphesiydi.
+3. **B3 — ucuz ön-kontrol.** `scripts/run_ablation_precheck.sh` — aynı 4 kol
+   önce vekil düzlemde (dakikalar). Kollar birbirinin aynısı çıkarsa bayrak
+   bağlanmamıştır ve script exit 1 verir; 240 koşu harcanmaz.
+4. **B4 — kampanya.** `run_ablation_campaign.sh` →
+   `results/raw/gazebo_ablation/<kol>/`. Çökme-güvenli (SKIP_DONE=1), tek
+   seferde tek deney, `load<5`. 420 koşu (240 ablasyon + 180 D2 baseline).
 5. **B5 — analiz ve metin.** Limitasyon (x) kaldırılıp yerine sonuç yazılır.
 
 ### Üç olası sonuç — üçü de yazılabilir
