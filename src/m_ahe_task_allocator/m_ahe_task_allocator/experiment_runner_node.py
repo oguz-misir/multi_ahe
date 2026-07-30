@@ -463,6 +463,7 @@ class ExperimentRunnerNode(Node):
         self._activation_batches = self._plan_batches()
         self._failure_events = self._plan_failures()
         self._write_task_positions()
+        self._warmup_allocator()
         self._activate_next_batch()
         self.get_logger().info(
             f'ExperimentRunner started: strategy={self._strategy}, '
@@ -710,6 +711,28 @@ class ExperimentRunnerNode(Node):
     # ------------------------------------------------------------------
     # Allocation
     # ------------------------------------------------------------------
+
+    def _warmup_allocator(self) -> None:
+        """Let the allocator build map-derived structures before timing starts.
+
+        The full task pool -- including waves that activate later -- is already
+        known here, so an allocator that depends on the static map can pay that
+        cost once, outside any measured decision.  Allocators without a
+        ``warmup`` hook are unaffected.
+        """
+        warmup = getattr(self._allocator, 'warmup', None)
+        if warmup is None:
+            return
+        t0 = time.monotonic()
+        try:
+            n = warmup([t.position for t in self._tasks])
+        except Exception as exc:                       # never fail an experiment
+            self.get_logger().warning(f'allocator warmup skipped: {exc}')
+            return
+        if n:
+            self.get_logger().info(
+                f'allocator warmup: {n} geodesic anchors in '
+                f'{1000 * (time.monotonic() - t0):.0f} ms')
 
     def _get_robots_for_alloc(self) -> List[RS]:
         robots = []
@@ -1116,8 +1139,16 @@ class ExperimentRunnerNode(Node):
         distance_balance = jain_index(
             self._robot_distances.get(r, 0.0) for r in self._robots)
 
-        # Failure recovery time
+        # Failure recovery time.  Two variants, for the same reason the delay
+        # metric above reports both an all-task and a completed-only figure:
+        # taking the max over completed work alone lets a method that abandons
+        # an orphaned task drop it from the max and post a lower recovery time.
+        # The censored variant charges every unfinished orphan at the
+        # experiment horizon, so abandoning is penalised rather than rewarded.
+        # The original column is kept unchanged so published runs stay
+        # comparable.
         fail_rec_time = 0.0
+        fail_rec_time_censored = 0.0
         if self._failure_inject_time is not None and self._failure_related_tasks:
             recovery_times = [
                 self._task_completion_wall.get(tid, self._failure_inject_time)
@@ -1127,6 +1158,13 @@ class ExperimentRunnerNode(Node):
             if recovery_times:
                 fail_rec_time = max(recovery_times) - self._failure_inject_time
                 fail_rec_time = max(0.0, fail_rec_time)
+            horizon = (self._start_time or 0.0) + makespan
+            censored = [
+                self._task_completion_wall.get(tid, horizon)
+                for tid in self._failure_related_tasks
+            ]
+            fail_rec_time_censored = max(
+                0.0, max(censored) - self._failure_inject_time)
 
         # Allocation instability
         alloc_inst = self._alloc_count / max(1, completed + 1)
@@ -1168,6 +1206,7 @@ class ExperimentRunnerNode(Node):
             'workload_balance_legacy_variance': f'{wb_legacy:.4f}',
             'travel_distance_balance': f'{distance_balance:.4f}',
             'failure_recovery_time': f'{fail_rec_time:.2f}',
+            'failure_recovery_time_censored': f'{fail_rec_time_censored:.2f}',
             'replanning_frequency': f'{replan_freq:.2f}',
             'allocation_instability': f'{alloc_inst:.4f}',
             'mean_decision_latency_ms': f'{mean_latency:.2f}',

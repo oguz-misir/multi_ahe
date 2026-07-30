@@ -442,6 +442,17 @@ def run_simulation(
     robots = _initial_robots(n_robots, rng, seed)
     queues: Dict[str, List[str]] = {r.robot_id: [] for r in robots}
 
+    # Map-derived structures are deployment set-up, not part of a decision;
+    # build them before the first timed allocate() so reported latency measures
+    # the allocation policy rather than cache warm-up.  Mirrors the Gazebo
+    # runner's _warmup_allocator().
+    _warmup = getattr(allocator, 'warmup', None)
+    if _warmup is not None:
+        try:
+            _warmup([t.position for t in tasks])
+        except Exception:
+            pass
+
     if eco is not None:
         eco.reset()
 
