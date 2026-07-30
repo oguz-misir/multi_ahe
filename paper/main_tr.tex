@@ -82,17 +82,17 @@ optimizasyon, ROS\,2, Gazebo.
 \section{Giriş}
 \label{sec:intro}
 
-Çoklu robot görev atama (MRTA), her görevi hangi robotun yapacağını ve hangi
-sırayla yapacağını belirler. Karar, robot yeteneklerini, görev
-gereksinimlerini ve operasyonel kısıtları dikkate almalıdır. Çalışan bir
-sistemde karar yürütme durumuna da bağlıdır. Bir robot gecikebilir, devre dışı
-kalabilir veya değeri ya da fizibilitesi değişen bir göreve bağlı olabilir.
+Sahadaki robot ekiplerine çizelge değil hedef verilir. Bir denetim ya da
+teslimat görevi neyin, ne zamana kadar ziyaret edileceğini söyler; hangi
+robotun nereye ve hangi sırayla gideceği ise görev çoktan koşarken belirlenir.
+Bu karar çoklu robot görev atamadır (MRTA). Karar; robot yeteneklerini, görev
+gereksinimlerini ve operasyonel kısıtları gözetmeli, yürütme başladıktan sonra
+yürütme durumuna da uymalıdır: bir robot gecikebilir, devre dışı kalabilir
+veya değeri ya da fizibilitesi değişen bir göreve bağlı olabilir.
 Yakın dönem incelemeler merkezi optimizasyon, dağıtık ve piyasa-tabanlı
 yöntemler, meta-sezgiseller ve öğrenme-tabanlı politikaları kapsar
-\cite{chakraa2023review,athira2024systematic}. Çevrim içi MRTA'da tek bir
-andaki düşük maliyetli atama yeterli değildir. Tahsisçi; görevler gelirken,
-robotlar devre dışı kalırken, deadline'lar yaklaşırken ve yürütme yeni
-kısıtları ortaya çıkarırken yararlı kararları korumalıdır.
+\cite{chakraa2023review,athira2024systematic}. Çevrim içi ortamda tek bir andaki düşük maliyetli atama yeterli değildir:
+tahsisçi, durum ayağının altında değişirken yararlı kararları korumalıdır.
 
 Bu koşulların hepsinde tek bir strateji en iyi değildir; çünkü bir rejimde
 işe yarayan seçim başka bir rejimde zarar verir. Üç gerilim yinelenir.
@@ -124,20 +124,13 @@ kendisini sabit bir tasarım tercihi değil, çevrim içi bir karar olarak ele
 almayı gerektirir.
 
 Bu makale, görev gelişi, robot arızası, karışık stres ve deadline baskısı
-altında çevrim içi tek-görev-robot tahsisini ele alır. Tahsisçi görev gelişi,
-arıza, deadline alarmı veya yeniden planlama olayında karar verir. Yalnız bu
-olayda erişebildiği durumu kullanabilir. Bir görevi yeniden atamak tahmini
-seyahat maliyetini azaltabilir. Ancak yürütmeyi kesebilir, fizibil bir rotayı
-bozabilir veya gecikmeyi başka robota aktarabilir. Mevcut sahibi korumak da
+altında çevrim içi tek-görev-robot tahsisini ele alır. Tahsisçi görev gelişi, arıza, deadline alarmı veya yeniden planlama olayında,
+yalnız o anda erişebildiği durumla karar verir. Bir görevi yeniden atamak
+tahmini seyahat maliyetini azaltabilir; ama yürütmeyi kesebilir, fizibil bir
+rotayı bozabilir veya gecikmeyi başka robota aktarabilir. Mevcut sahibi korumak da
 arıza veya zaman payının keskin azalması sonrasında zararlı olabilir. Bu
 yüzden birincil sonuçlar tamamlanma ve deadline ihlalidir. Gecikme, iş yükü
-dengesi, toparlanma, yeniden gönderim, kesinti ve karar gecikmesini takas
-metrikleri olarak raporluyoruz. Navigasyondan bağımsız bir tahsisçideki---her
-gönderilen hedefin ulaşıldığı, dolayısıyla navigasyonun başarısız olamayacağı
-ortamda ölçülen---güçlü bir skor, tek başına kapalı-çevrim navigasyon ya da
-toparlanma başarımını göstermez. Yöntemler sistemi farklı biçimde gözlemleyip değiştirdiğinden, her
-karşılaştırma için gözlem modelini, yeniden tahsis olayını, iletişim
-varsayımlarını ve sonuç metriklerini açıkça veriyoruz.
+dengesi, toparlanma, yeniden gönderim, kesinti ve karar gecikmesini takas metrikleri olarak raporluyoruz.
 
 Yöntemimiz \emph{AHE-MRTA}, Ekosistem-Güdümlü Paradigma Seçimi (EDPS)
 kullanır. EDPS, her olayda yeni bir eniyileyici değil, yorumlanabilir ve
@@ -164,18 +157,13 @@ veya hormon benzetmesinin tek başına yeni bir çözücü ürettiği iddia edil
   hakkındaki nedensel iddiadan ayrı tutan sınırın belirtilmesi.
 \end{enumerate}
 
-Değerlendirme, navigasyonun nasıl modellendiğine göre farklılaşan üç katmandan
-oluşur. \emph{Navigasyondan bağımsız} allocation-only simülasyonda her
-gönderilen hedef belirlenimci olarak başarılıdır; böylece skorları tahsis ve
-kuyruk-sırası kalitesini yerel-planlayıcı gürültüsünden yalıtır. Stokastik
-navigasyon vekili navigasyon maliyetini sabit tutar ama pozisyona-bağlı hedef
-arızasına izin verir ve ölçüme dayanıklılığı ekler. Kapalı-çevrim
-Gazebo/ROS\,2 yığını tam fizik ve Nav2 hattını çalıştırır. Bu ayrım, navigasyon
-veya toparlanma etkisinin tahsis kanıtı olarak yazılmasını önler.
-Kapalı-çevrim kıyaslaması tam yöntemleri karşılaştırır; yürütme yığınında
-yalnız EDPS'in nedensel etkisini sınamaz. Bu iddia için eşleşmiş bir Gazebo
-seçici ablasyonu gerekir. Bu sınırı açıkça vermek, uyarlanabilir seçiciyi sabit
-MRTA temel yöntemleriyle tekrarlanabilir biçimde karşılaştırmayı sağlar.
+Üç katman yalnızca navigasyonun nasıl modellendiğinde ayrışır: belirlenimci
+hedef başarısı, pozisyona-bağlı stokastik hedef arızası ve tam fizik + Nav2
+hattı (Bölüm~\ref{sec:planes}). Ayrımın nedeni, navigasyonun başarısız
+olamadığı bir ortamdaki güçlü skorun tek başına kapalı-çevrim navigasyon ya da
+toparlanma başarımını göstermemesidir. Kapalı-çevrim kıyaslaması tam
+yöntemleri karşılaştırır; yalnız EDPS'in nedensel etkisini ayırmak için
+eşleşmiş bir Gazebo seçici ablasyonu gerekir.
 
 %==============================================================================
 % İlgili Çalışmalar bölümü yazar isteğiyle kaldırıldı (2026-06-20).
@@ -1280,8 +1268,12 @@ $20$--$82{\times}$ daha hızlı --- ve her iki ölçekte gerçek-zaman bütçesi
 
 3-robot ölçeğinde Şekil~\ref{fig:dom-recovery}, bu toplamların ardındaki
 mekanizmayı \textit{robot\_failure} üzerinde izler: baskınlık durumu,
-enjeksiyon boyunca tohum-ortalamalı tamamlama eğrisi ve toparlanma süresi,
-gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
+enjeksiyon boyunca tohum-ortalamalı tamamlama eğrisi ve toparlanma süresi ile
+gecikmenin koşu-bazlı yayılımı. Yeniden-gönderim çizilmedi, çünkü bu ölçekte
+değişkenlik göstermiyor: medyan dört yöntemde de sıfır ve sıfır-olmayan
+kütlenin tamamı AHE-MRTA ile Consensus-DBTA'da 15 koşunun 2'si, BiG-MRTA'da
+4'ü, RoSTAM-EA'da ise hiçbiri; tekil en yüksek koşu AHE-MRTA'da görev başına
+$0.11$, Consensus-DBTA'da $0.30$ yeniden-gönderimdir.
 Şekil~\ref{fig:timeline} ise \textit{robot\_failure} ve
 \textit{mixed\_stress} için karşılık gelen kümülatif tamamlama eğrilerini verir.
 
@@ -1348,7 +1340,7 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
   \centering
   \includegraphics[width=\textwidth]{dominance_recovery_panel.png}
   \caption{\textit{robot\_failure} altında 3-robot ölçeğinde yorumlanabilir
-  uyum; (a)--(b) panelleri 15-görev yoğunluğunu, (c)--(e) panelleri üç
+  uyum; (a)--(b) panelleri 15-görev yoğunluğunu, (c)--(d) panelleri üç
   yoğunluğun havuzunu kullanır.
   Zaman, her koşunun ilk görev etkinleşmesinden ölçülür; böylece (a) ve
   (b)'deki enjeksiyon işaretleri senaryonun $45\pm5$~s'lik ofsetine oturur.
@@ -1357,20 +1349,20 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
   enjeksiyonda (noktalı çizgi, $t{\approx}49$~s) çöker, buna karşılık
   toparlanma ve kararlılık hormonları yükselir ($0.12{\to}0.20$ ve
   $0.15{\to}0.20$). Sonrasında hiçbir hormon arıza öncesi farkı geri
-  kazanmaz: koşunun kalanına kritiklik ve zamansal kanallar liderlik eder,
+  kazanmaz: uzamsal kanal yaklaşık bir dakika boyunca azalmış bir liderliği
+  sürdürür, sonrasında zamansal ve kritiklik kanalları öne geçer;
   gönderilen paradigma zamansal, uzamsal ve toparlanma geçişleri arasında
   dönüşümlü çalışır.
   \textbf{(b)}~Kümülatif görev tamamlama (tohum-ortalamalı; noktalı çizgi:
   medyan enjeksiyon $t{\approx}44$~s): AHE-MRTA
   arızadan sonra tamamlamaya devam eder ve tam görev kümesine ulaşır;
   ancak üç reaktif yöntem içinde buna en son ulaşan odur.
-  \textbf{(c--e)}~Toparlanma süresi, ortalama görev gecikmesi ve görev
-  yeniden-gönderim oranı kutu grafikleri (kutu: IQR; çizgi: medyan; bıyıklar:
-  $1{,}5{\times}$IQR; noktalar: tekil koşular, yöntem başına $n{=}15$):
-  AHE'nin reaktifliği en yüksek toparlanma-süresi medyanı olarak görünür
-  (49--77~s'ye karşı 101~s); gecikme medyanı (98~s) uzlaşma temel
-  yöntemleri (72--84~s) ile görev-terk-eden BiG-MRTA (138~s) arasındadır ve
-  yeniden-gönderim medyanı dört yöntemde de sıfırdır.}
+  \textbf{(c--d)}~Toparlanma süresi ve ortalama görev gecikmesi kutu
+  grafikleri (kutu: IQR; çizgi: medyan; bıyıklar: $1{,}5{\times}$IQR;
+  noktalar: tekil koşular, yöntem başına $n{=}15$): AHE'nin reaktifliği en
+  yüksek toparlanma-süresi medyanı olarak görünür (49--77~s'ye karşı
+  101~s); gecikme medyanı (98~s) ise uzlaşma temel yöntemleri (72--84~s) ile
+  görev-terk-eden BiG-MRTA (138~s) arasındadır.}
   \label{fig:dom-recovery}
 \end{figure}
 
@@ -1646,6 +1638,16 @@ $p{=}0{,}95$; deadline baskısı $-0{,}06$~yp, $p{=}0{,}76$). Yani artefakt
 maliyet fonksiyonunda ölçülebilir, raporlanan sonuçlarda değildir. Uygulanan
 biçimi raporluyor ve düzeltmeyi, değerlendirilen sistemi sonradan yeniden
 ayarlamak yerine bir revizyona bırakıyoruz.
+(xii) \textbf{Asimetrik geliştirme emeği.} AHE-MRTA bu arenaya ve bu üç
+senaryoya karşı geliştirildi, sabitleri de burada seçildi; her temel yöntem ise
+kaynak tanımından bir kez uygulandı ve burada ayarlanmadı. Bir yöntemin
+çevresinde kurulmuş bir kıyaslama, yapısı gereği o yöntemi kayırır. Seçim
+holdout tohumlarla yapıldı, ama bu tohumlar raporlanan kampanyadan ayrık
+değildir: onarım adımının tolerans ve rezervasyon-aralığı sabitlerini belirleyen
+tarama 401--420 tohumlarını kullandı ve bunlar Bölüm~\ref{sec:results-sim}'de
+raporlanan 1--500 aralığının içindedir. Bu nedenle dört-yöntem kıyaslamasını,
+altta yatan algoritmalar hakkında değil, tek bir yığındaki yapılandırılmış
+politikalar hakkında kanıt olarak okuyoruz.
 \section{Sonuç}
 \label{sec:conclusion}
 

@@ -80,16 +80,17 @@ optimization, ROS\,2, Gazebo.
 \section{Introduction}
 \label{sec:intro}
 
-Multi-robot task allocation (MRTA) decides which robot performs each task and
-in what order. The decision must respect robot capabilities, task
-requirements, and operational constraints. During operation, it also depends
-on execution state. A robot may be delayed, unavailable, or committed
+Fielded robot teams are given goals, not schedules. An inspection or delivery
+mission states what has to be visited and by when; which robot goes where, and
+in what order, is settled while the mission is already running. That decision
+is multi-robot task allocation (MRTA). It must respect robot capabilities, task
+requirements, and operational constraints, and once execution begins it also
+depends on execution state: a robot may be delayed, unavailable, or committed
 to a task whose value or feasibility has changed. Recent reviews cover
 centralized optimization, distributed and market-based methods,
 metaheuristics, and learning-based policies \cite{chakraa2023review,athira2024systematic}.
-For online MRTA, a low-cost assignment at one instant is not enough. The
-allocator must preserve useful decisions as tasks arrive, robots become
-unavailable, deadlines approach, and execution exposes new constraints.
+Online, then, a low-cost assignment at one instant is not enough: the
+allocator must preserve useful decisions as the situation moves under it.
 
 No single strategy is best under all of these conditions, because a choice
 that helps in one regime tends to hurt in another. Three tensions recur. The
@@ -114,63 +115,53 @@ allocation \cite{garciamartin2023clustering}, self-adaptive methods react to
 shifts in problem structure \cite{rostam2024selfadaptive}, and decentralized
 energy-aware policies weight power draw \cite{bagchi2024energyaware}---but each
 commits to its position in advance. Because arrival bursts, robot failures,
-and deadline pressure each reward a different position, a strategy tuned for
-one regime is exposed in another. This motivates treating the allocation
-behaviour itself as an online choice rather than a fixed design commitment.
+and deadline pressure each reward a different position, this motivates treating
+the allocation behaviour itself as an online choice rather than a fixed design
+commitment.
 
-This letter considers online single-task-robot allocation with task arrivals,
-robot failures, mixed stress, and deadline pressure. The allocator acts at a
-task arrival, failure, deadline alarm, or replanning event. It can use only
-the state available at that event. Reassigning a task can reduce estimated
-travel cost but can also preempt execution, disrupt a feasible route, or move
-delay to another robot. Keeping an incumbent task can also be harmful after a
-failure or a sharp reduction in time slack. We therefore use completion and
-deadline violations as primary outcomes. We report delay, workload balance,
-recovery, redispatches, preemptions, and decision latency as trade-offs. A
-strong score in a navigation-independent allocator---one measured where every
-dispatched goal is reached, so navigation cannot fail---does not by itself
-demonstrate closed-loop navigation or recovery performance. Because methods
-observe and change the system in different ways, we state the observation
-model, reallocation event, communication assumptions, and outcome metrics for
-each comparison.
+This letter considers online single-task-robot allocation under task arrivals,
+robot failures, mixed stress, and deadline pressure, where the allocator acts
+at a task arrival, failure, deadline alarm, or replanning event and may use
+only the state available then. Reassigning a task can reduce estimated travel
+cost but can also preempt execution, disrupt a feasible route, or move delay to
+another robot; keeping an incumbent can be equally harmful after a failure or a
+sharp loss of time slack. We therefore take completion and deadline violations
+as primary outcomes, and report delay, workload balance, recovery,
+redispatches, preemptions, and decision latency as trade-offs.
 
-Our method, \emph{AHE-MRTA}, uses Ecosystem-Driven Paradigm Selection (EDPS).
-EDPS is an interpretable event-triggered selector, not a new optimizer at
-every event. Four observable signals---task density, robot availability,
-deadline pressure, and recent failure rate---update five hormone states. The
-selected state activates one fixed behaviour: spatial greedy,
-priority-first, deadline-oriented temporal, commit-once stability-oriented,
-or orphan-first recovery allocation. Acute failure and deadline regimes have
-explicit overrides. A fixed dominance dynamic chooses the behaviour in all
-other cases. The contribution is therefore a transparent rule for switching
-between known policy families. It does not claim that one family is always
-best or that the hormone metaphor alone creates a new solver.
+Our method, \emph{AHE-MRTA}, uses Ecosystem-Driven Paradigm Selection (EDPS):
+an interpretable event-triggered selector, not a new optimizer at every event.
+Four observable signals---task density, robot availability, deadline pressure,
+and recent failure rate---update five hormone states, and the selected state
+activates one fixed behaviour: spatial greedy, priority-first,
+deadline-oriented temporal, commit-once stability-oriented, or orphan-first
+recovery allocation. Acute failure and deadline regimes have explicit
+overrides; a fixed dominance dynamic chooses the behaviour in all other cases.
+The contribution is therefore a transparent rule for switching between known
+policy families---not a claim that one family is always best, or that the
+hormone metaphor alone creates a new solver.
 
 The paper makes four bounded contributions:
 \begin{enumerate}
   \item It specifies Ecosystem-Driven Paradigm Selection (EDPS), an
   event-triggered, interpretable policy coupling fixed context signals to
   fixed MRTA behaviours.
-  \item It records decision and execution quantities needed to distinguish
+  \item It records the decision and execution quantities needed to separate
   allocation quality from navigation and recovery effects.
-  \item It evaluates the policy across multiple robot-team scales in both a
-  navigation-independent allocation-only simulator and a ROS~2/Gazebo stack.
-  \item It separates allocation-only, stochastic navigation-proxy, and
-  closed-loop Gazebo evidence, and states the boundary that keeps map-aware
-  ETA and recovery effects distinct from a causal claim about EDPS.
+  \item It evaluates the policy across robot-team scales, in a
+  navigation-independent simulator and in a ROS~2/Gazebo stack.
+  \item It reports allocation-only, stochastic navigation-proxy, and
+  closed-loop Gazebo evidence separately, and states the boundary that keeps
+  map-aware ETA and recovery effects distinct from a causal claim about EDPS.
 \end{enumerate}
 
-The evaluation has three layers that differ in how navigation is modelled. The
-\emph{navigation-independent} allocation-only simulation lets every dispatched
-goal succeed deterministically, so its scores isolate allocation and
-queue-ordering quality from local-planner noise. The stochastic navigation
-proxy keeps navigation cost fixed but allows position-dependent goal failure,
-adding resilience to the measurement. The closed-loop Gazebo/ROS\,2 stack runs
-the full physics and Nav2 pipeline. The separation prevents a navigation or
-recovery effect from being reported as allocation evidence. The closed-loop benchmark compares full methods; it does not test
-the causal effect of EDPS alone in the execution stack. That claim requires a
-matched Gazebo selector ablation. Stating this boundary makes the comparison
-between the adaptive selector and fixed MRTA baselines reproducible.
+The three layers differ only in how navigation is modelled---deterministic
+goal success, stochastic position-dependent goal failure, then the full physics
+and Nav2 pipeline (Section~\ref{sec:planes})---because a strong score where
+navigation cannot fail does not by itself demonstrate closed-loop navigation or
+recovery performance. The closed-loop benchmark compares full methods;
+isolating the causal effect of EDPS would require a matched Gazebo selector
+ablation.
 
 %==============================================================================
 % Related Work section removed per author request (2026-06-20).
@@ -1258,8 +1249,12 @@ scales.
 
 At the 3-robot scale, Figure~\ref{fig:dom-recovery} traces the mechanism
 behind these aggregates on \textit{robot\_failure}: the dominance state, the
-seed-averaged completion curve across the injection, and the per-run spread of
-recovery time, delay, and redispatch. Figure~\ref{fig:timeline} gives the
+seed-averaged completion curve across the injection, and the per-run spread of recovery time and delay. Re-dispatch is
+not plotted because it does not vary at this scale: the median is zero for
+every method, and the entire non-zero mass is 2 of 15 runs for AHE-MRTA and
+for Consensus-DBTA, 4 of 15 for BiG-MRTA, and none for RoSTAM-EA, with the
+largest single run at $0.11$ re-dispatches per task for AHE-MRTA against
+$0.30$ for Consensus-DBTA. Figure~\ref{fig:timeline} gives the
 corresponding cumulative-completion curves for \textit{robot\_failure} and
 \textit{mixed\_stress}.
 
@@ -1323,29 +1318,28 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
   \centering
   \includegraphics[width=\textwidth]{dominance_recovery_panel.png}
   \caption{Interpretable adaptation under \textit{robot\_failure} at the
-  3-robot scale; panels (a)--(b) use the 15-task density and panels (c)--(e)
-  pool the three densities. Time is measured from each run's first task activation, so
-  the injection markers in (a) and (b) sit at the scenario's $45\pm5$~s
-  offset. \textbf{(a)}~Hormone dominance of a representative
+  3-robot scale; panels (a)--(b) use the 15-task density and panels (c)--(d)
+  pool the three densities. Time is measured from each run's first task
+  activation, so the injection markers in (a) and (b) sit at the scenario's
+  $45\pm5$~s offset. \textbf{(a)}~Hormone dominance of a representative
   AHE-MRTA run; the spatial hormone leads the pre-failure phase
   ($D{\approx}0.31$), and at the injection (dotted line, $t{\approx}49$~s)
   it collapses while the recovery and stability hormones rise
-  ($0.12{\to}0.20$ and $0.15{\to}0.20$). No single hormone then regains
-  the pre-failure margin: the criticality and temporal channels lead the
-  remainder of the run and the dispatched paradigm alternates between
-  temporal, spatial, and recovery passes.
-  \textbf{(b)}~Cumulative task
-  completion (seed-averaged; dotted line: median injection
-  $t{\approx}44$~s): AHE-MRTA continues completing tasks
+  ($0.12{\to}0.20$ and $0.15{\to}0.20$). No single hormone then regains the
+  pre-failure margin: the spatial channel keeps a reduced lead for about a
+  minute, after which the temporal and criticality channels lead, and the
+  dispatched paradigm alternates between temporal, spatial, and recovery
+  passes.
+  \textbf{(b)}~Cumulative task completion (seed-averaged; dotted line:
+  median injection $t{\approx}44$~s): AHE-MRTA continues completing tasks
   after the failure and reaches the full task set, though it is the last
   of the three reactive methods to do so.
-  \textbf{(c--e)}~Recovery time, average task delay, and task
-  re-dispatch rate as box plots (box: IQR; line: median; whiskers:
-  $1.5{\times}$IQR; points: individual runs, $n{=}15$ per method):
-  AHE's reactivity shows up as the highest recovery-time median (101~s
-  versus 49--77~s); its delay median (98~s) sits between the consensus
-  baselines (72--84~s) and the task-abandoning BiG-MRTA (138~s), and the
-  re-dispatch median is zero for all four methods.}
+  \textbf{(c--d)}~Recovery time and average task delay as box plots (box:
+  IQR; line: median; whiskers: $1.5{\times}$IQR; points: individual runs,
+  $n{=}15$ per method): AHE's reactivity shows up as the highest
+  recovery-time median (101~s versus 49--77~s), while its delay median
+  (98~s) sits between the consensus baselines (72--84~s) and the
+  task-abandoning BiG-MRTA (138~s).}
   \label{fig:dom-recovery}
 \end{figure}
 
@@ -1618,6 +1612,16 @@ $p{=}0.95$; $-0.06$~pp deadline pressure, $p{=}0.76$). The artefact is
 therefore measurable in the cost function but not in the reported outcomes. We
 report the implemented form and leave the correction to a revision rather than
 re-tuning the evaluated system after the fact.
+(xii) \textbf{Asymmetric development effort.} AHE-MRTA was developed, and its
+fixed constants selected, against this arena and these three scenarios, whereas
+each baseline was implemented once from its source description and not tuned
+here; a benchmark built around one method favours that method by construction.
+The selection used holdout seeds, but they are not disjoint from the reported
+campaign: the sweep that fixed the repair step's tolerance and reservation gap
+used seeds 401--420, which lie inside the 1--500 range reported in
+Section~\ref{sec:results-sim}. We therefore read the four-method comparison as
+evidence about configured policies in one stack, not about the underlying
+algorithms.
 
 %==============================================================================
 \section{Conclusion}

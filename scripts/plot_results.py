@@ -487,21 +487,24 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
 
     Panel (a): one representative robot_failure run (3r/15t, lowest seed).
     Panel (b): cumulative task completion under robot_failure, all methods.
-    Panels (c-e): recovery-time / replanning / instability bars.
+    Panels (c-d): recovery-time and task-delay distributions.
+
+    A re-dispatch-rate panel was dropped: at this scale the median is zero for
+    every method, so the panel spent a quarter of the figure restating what one
+    clause of text says. The rare non-zero runs are reported in the text.
     """
     w = fig_width("dominance_recovery_panel.png")
-    fig = plt.figure(figsize=(w, w * 0.80))
-    gs = fig.add_gridspec(3, 2, hspace=0.62, wspace=0.30,
+    fig = plt.figure(figsize=(w, w * 0.62))
+    gs = fig.add_gridspec(2, 2, hspace=0.55, wspace=0.30,
                           width_ratios=[1.25, 1.0],
-                          left=0.07, right=0.98, top=0.96, bottom=0.06)
+                          left=0.07, right=0.98, top=0.94, bottom=0.09)
 
-    ax_dom = fig.add_subplot(gs[0:2, 0])
-    ax_cum = fig.add_subplot(gs[2, 0])
+    ax_dom = fig.add_subplot(gs[0, 0])
+    ax_cum = fig.add_subplot(gs[1, 0])
     ax_rec = fig.add_subplot(gs[0, 1])
     ax_replan = fig.add_subplot(gs[1, 1])
-    ax_inst = fig.add_subplot(gs[2, 1])
 
-    for ax in [ax_dom, ax_cum, ax_rec, ax_replan, ax_inst]:
+    for ax in [ax_dom, ax_cum, ax_rec, ax_replan]:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
@@ -663,12 +666,8 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
                    "Avg Task Delay (s)", log_y=False)
         ax_replan.set_title("(d) Avg task delay ($\\downarrow$ better)",
                             fontsize=10)
-        _box_panel(ax_inst, rf_sum, methods, "redispatch_per_task",
-                   "Re-dispatch / Task", log_y=False)
-        ax_inst.set_title("(e) Task re-dispatch rate ($\\downarrow$ better)",
-                          fontsize=10)
     else:
-        for ax, lbl in [(ax_rec, "(c)"), (ax_replan, "(d)"), (ax_inst, "(e)")]:
+        for ax, lbl in [(ax_rec, "(c)"), (ax_replan, "(d)")]:
             ax.text(0.5, 0.5, f"{lbl}\nNo data", ha="center", va="center",
                     transform=ax.transAxes)
 
