@@ -1,6 +1,6 @@
 \begin{table}[t]
 \centering
-\caption{Efficiency metrics (Gazebo, 3-robot scale; densities 9/15/24 pooled, $n{=}15$ per cell). WLBal: all-robot Jain workload balance; Lat: mean decision latency; Msgs: allocation messages; Dist: total travel distance. Best value per column (within scenario) in \textbf{bold}.}
+\caption{Efficiency metrics (Gazebo, 3-robot scale; densities 9/15/24 pooled, $n{=}15$ per cell). WLBal: all-robot Jain workload balance; Lat: mean decision latency; Msgs: allocation messages; Dist: total travel distance. Best value per column (within scenario) in \textbf{bold}. AHE-MRTA* latency is the warm-up re-measurement at the same $n{=}15$; all other entries come from the original campaign.}
 \label{tab:efficiency}
 \small
 \begin{tabular}{lrrrr}
@@ -8,19 +8,19 @@
 \textbf{Method} & \textbf{WLBal$\uparrow$} & \textbf{Lat$\downarrow$(ms)} & \textbf{Msgs$\downarrow$} & \textbf{Dist$\downarrow$(m)} \\
 \midrule
 \multicolumn{5}{l}{\textit{Scenario: robot\_failure}} \\
-\textbf{AHE-MRTA*} & 0.853 & 13.66 & 32 & 108.0 \\
+\textbf{AHE-MRTA*} & 0.853 & 0.49 & 32 & 108.0 \\
 BiG-MRTA & \textbf{0.949} & \textbf{0.13} & 131 & \textbf{72.8} \\
 RoSTAM-EA & 0.947 & 40.24 & \textbf{2} & 84.4 \\
 Cons-DBTA & 0.891 & 0.29 & 12 & 90.9 \\
 \midrule
 \multicolumn{5}{l}{\textit{Scenario: mixed\_stress}} \\
-\textbf{AHE-MRTA*} & 0.857 & 13.48 & 35 & 113.1 \\
+\textbf{AHE-MRTA*} & 0.857 & 0.47 & 35 & 113.1 \\
 BiG-MRTA & 0.928 & \textbf{0.08} & 177 & \textbf{57.4} \\
 RoSTAM-EA & \textbf{0.931} & 30.84 & \textbf{4} & 93.7 \\
 Cons-DBTA & 0.875 & 0.17 & 10 & 104.0 \\
 \midrule
 \multicolumn{5}{l}{\textit{Scenario: deadline\_pressure}} \\
-\textbf{AHE-MRTA*} & 0.986 & 13.74 & 25 & 99.2 \\
+\textbf{AHE-MRTA*} & 0.986 & 0.72 & 25 & 99.2 \\
 BiG-MRTA & 0.965 & \textbf{0.09} & 180 & \textbf{43.9} \\
 RoSTAM-EA & 0.978 & 48.86 & \textbf{1} & 76.7 \\
 Cons-DBTA & \textbf{0.997} & 0.51 & 6 & 86.4 \\
