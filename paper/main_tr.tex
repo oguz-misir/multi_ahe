@@ -38,27 +38,34 @@
 
 \begin{document}
 
-\title{Çoklu Robot Görev Atama için Adaptif Heuristic Ekosistemi:\\
-       Arıza, Karışık Stres ve Deadline Baskısı Altında Çevrim İçi Tahsis}
+\title{Bağlam-Tetikli Geçersiz Kılmalar ve Geodezik ETA ile\\
+       Çevrim İçi Çoklu Robot Görev Atama: Arıza, Karışık Stres\\
+       ve Deadline Baskısı Altında}
 
-\author{\thanks{IEEE RA-L'e sunulan müsvedde, Haziran 2026.}}
+\author{\thanks{Sunulan müsvedde, Temmuz 2026.}%
+\thanks{Yöntem, AHE-MRTA adını uygulamasından, veri dizinlerinden ve
+yayımlanan kampanyanın koşu tanımlayıcılarından devralır. Ad izlenebilirlik
+için korunmuştur; burada iddia edilen katkı bağlam-geçersiz kılma kaskadı,
+geodezik-ETA kâhini ve sınırlı terminal yük onarımıdır --- kısaltmanın
+başlangıçta atıfta bulunduğu biyomimetik metafor değil.}}
 
 \maketitle
 
 %==============================================================================
 \begin{abstract}
-Bir mobil robot ekibine işinin tamamı nadiren baştan verilir: filo hareket
+Bir robot ekibine işinin tamamı nadiren baştan verilir: filo hareket
 hâlindeyken yeni işler doğar, dolan deadline'larla kaybolur ve robotlar
 arasında el değiştirir. Bu nedenle çevrim içi çoklu robot görev atama, görevler
 gelirken, deadline'lar sıkışırken ve robotlar yürütmenin ortasında
 arızalanırken sağlam kalmalıdır; tek bir sabit kural her rejime hizmet edemez.
-Tahsis davranışını tasarım zamanında değil çevrim içinde seçen AHE-MRTA'yı
-sunuyoruz. Yöntemin seçicisi Ekosistem-Güdümlü Paradigma Seçimi (EDPS),
-gözlenebilir dört sinyali---görev yoğunluğu, robot uygunluğu, deadline baskısı
-ve yakın arıza oranı---sabit ve yorumlanabilir davranışlardan oluşan küçük bir
-repertuvara eşler; arıza ve deadline rejimlerinde belirlenimci geçersiz
-kılmalar, diğer durumlarda bir baskınlık dinamiği çalışır. Geodezik-ETA kâhini
-ve sınırlı terminal yük onarımı yöntemi tamamlar. Değerlendirmeyi gerçekçiliği
+Rejim değişimine üç açık mekanizmayla tepki veren AHE-MRTA'yı sunuyoruz:
+gözlenen arıza oranı veya deadline baskısı bir eşiği aştığında davranışı
+değiştiren belirlenimci geçersiz kılma kaskadı, atamaları kuş uçuşu değil
+harita mesafesiyle fiyatlayan geodezik-ETA kâhini ve yalnız kapanış çizelgesini
+dengeleyen sınırlı terminal yük onarımı. İki geçersiz kılma da tetiklenmediğinde
+kararı, beş yorumlanabilir davranış üzerindeki bir baskınlık dinamiği verir;
+bu katmanın etkisini varsaymak yerine ölçüyoruz: sabitle değiştirmek 9989
+kararın 3'ünü değiştiriyor. Değerlendirmeyi gerçekçiliği
 artan üç katmanda yapıyoruz: allocation-only kampanya, stokastik navigasyon
 vekili (500 tohum) ve 3, 5, 10 TurtleBot3 ile kapalı-çevrim Gazebo/ROS\,2 Nav2
 deneyleri (300 koşu). İlk ikisi liderleri ayırmaz---vekilde AHE-MRTA ile
@@ -132,29 +139,42 @@ arıza veya zaman payının keskin azalması sonrasında zararlı olabilir. Bu
 yüzden birincil sonuçlar tamamlanma ve deadline ihlalidir. Gecikme, iş yükü
 dengesi, toparlanma, yeniden gönderim, kesinti ve karar gecikmesini takas metrikleri olarak raporluyoruz.
 
-Yöntemimiz \emph{AHE-MRTA}, Ekosistem-Güdümlü Paradigma Seçimi (EDPS)
-kullanır. EDPS, her olayda yeni bir eniyileyici değil, yorumlanabilir ve
-olay-tetiklemeli bir seçicidir. Görev yoğunluğu, robot uygunluğu, deadline
-baskısı ve yakın arıza oranı olmak üzere dört gözlenebilir sinyal beş hormon
-durumunu günceller. Seçilen durum beş sabit davranıştan birini etkinleştirir:
-uzamsal açgözlü, öncelik-önce, deadline-odaklı zamansal, commit-once
-kararlılık-odaklı veya yetim-önce toparlanma tahsisi. Akut arıza ve deadline
-rejimlerinde açık geçersiz kılmalar vardır. Diğer durumlarda davranışı sabit
-bir baskınlık dinamiği seçer. Dolayısıyla katkı, bilinen politika aileleri
-arasında geçiş yapan şeffaf bir kuraldır. Bir ailenin her zaman en iyi olduğu
-veya hormon benzetmesinin tek başına yeni bir çözücü ürettiği iddia edilmez.
+Yöntemimiz \emph{AHE-MRTA}, her olayda yeni bir eniyileyici değil,
+olay-tetiklemeli bir tahsis edicidir. Davranışını iki katmanlı bir seçici
+yönetir. Üst katman, gözlenebilir bağlam üzerinde belirlenimci bir geçersiz
+kılma kaskadıdır: yakın arıza oranı eşiği aştığında tahsis edici yetim-önce
+toparlanmaya, deadline baskısı eşiği aştığında katı en-erken-deadline-önce
+sevkiyata geçer. Alt katman, beş yorumlanabilir davranış---uzamsal açgözlü,
+öncelik-önce, deadline-odaklı zamansal, commit-once kararlılık-odaklı ve
+yetim-önce toparlanma---üzerindeki bir baskınlık dinamiğidir ve yalnız iki
+geçersiz kılma da tetiklenmediğinde karar verir. Seçilen davranışın
+küçülttüğü maliyeti iki mekanizma daha şekillendirir: bir atamayı geçilebilir
+harita mesafesiyle fiyatlayan geodezik-ETA kâhini ve kapanış çizelgesini
+kalan-makespan geriletmeme koruması altında dengeleyen sınırlı terminal yük
+onarımı.
+
+Kendi ölçümlerimizin neyi desteklediğini baştan söylüyoruz. Geçersiz kılma
+kaskadı, geodezik ETA ve terminal onarım yük taşıyor. Altlarındaki baskınlık
+dinamiği taşımıyor: kayıtlı 9989 kararın yeniden oynatılması, dinamiği bir
+sabitte dondurmanın bunların üçünü değiştirdiğini, beş davranıştan ikisinin
+hiç seçilmediğini ve allocation-only ablasyonundaki sekiz varyantın birbirinin
+0.9 yüzde puanı içinde kaldığını gösteriyor. Bu nedenle değiştirme katmanını,
+raporladığımız başarımın gösterilmiş kaynağı olarak değil, uyguladığımız ve
+ölçtüğümüz bir mekanizma olarak sunuyoruz ve kanıtın nerede eksik olduğunu
+söylüyoruz (Bölüm~\ref{sec:limitations}).
 
 \textbf{Makalenin sınırlı katkıları:}
 \begin{enumerate}
-  \item EDPS: sabit bağlam sinyallerini sabit MRTA davranışlarına bağlayan,
-  olay-tetiklemeli ve yorumlanabilir bir politika.
+  \item Sabit bağlam sinyallerini sabit ve yorumlanabilir tahsis
+  davranışlarına bağlayan iki katmanlı bağlam-geçersiz kılma seçicisi ve her
+  katmanın gerçekte ne kadarını belirlediğinin niceliği.
   \item Tahsis kalitesini navigasyon ve toparlanma etkilerinden ayırmak için
   gerekli karar/yürütme nicelikleri.
   \item Navigation-independent simülatör ve ROS~2/Gazebo yığınında çoklu
   filo ölçeğinde değerlendirme.
   \item Allocation-only, stokastik navigasyon-vekili ve kapalı-çevrim Gazebo
-  kanıtını ayırıp, harita-duyarlı ETA ve toparlanma etkilerini EDPS
-  hakkındaki nedensel iddiadan ayrı tutan sınırın belirtilmesi.
+  kanıtını ayırıp, harita-duyarlı ETA ve toparlanma etkilerini değiştirme
+  katmanı hakkındaki nedensel iddiadan ayrı tutan sınırın belirtilmesi.
 \end{enumerate}
 
 Üç katman yalnızca navigasyonun nasıl modellendiğinde ayrışır: belirlenimci
@@ -317,7 +337,7 @@ karşılaştırma sonuçları olarak raporlanır. Bu ayrım, gerçek-zaman gerek
 korurken gecikme takaslarını görünür yapar.
 
 %==============================================================================
-\section{AHE-MRTA: Ekosistem-Güdümlü Paradigma Seçimi}
+\section{AHE-MRTA: Bağlam-Geçersiz Kılma Tabanlı Tahsis Edici}
 \label{sec:method}
 
 \noindent\textbf{Tasarım ilkesi ve olay-tetiklemeli mimari.}

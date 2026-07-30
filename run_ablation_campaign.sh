@@ -12,6 +12,19 @@ set -eo pipefail
 cd /home/oguz/multi_ahe
 source scripts/exp_lib.sh
 
+# load_guard'ın varsayılan eşiği (10) bu iş için fazla gevşek.  2026-07-31'de
+# kampanya iki koşuyu üst üste `STARTUP FAILED: 0/5 Nav2 hazır` ile kaybetti:
+# guard load ~10'da yeşil verdi, 5 robotluk bring-up yükü 320'ye çıkardı,
+# lifecycle servis çağrıları zaman aşımına uğradı (`failed to send response to
+# .../get_state`), REKICK 42 kez yeniden denedi ve yükü daha da besledi.  Aynı
+# hücre makine boştayken 38 s'de 5/5 hazır oldu -- yani sorun yapılandırma
+# değil, koşuya girerken makinede kalan artık yük.  5 eşiği o artığı eler;
+# temizlik sonrası load zaten 3-5 dk'da 5'in altına iniyor.
+: "${MAX_LOAD:=5}"
+export MAX_LOAD
+# Kampanya koşarken ağır iş (sim kampanyası, LaTeX derlemesi, ikinci Gazebo)
+# YAPMA -- yukarıdaki iki kayıp tam olarak böyle oldu.
+
 # Yayımlanan temel ortam — dört kol da bunu paylaşır.  Kol farkı yalnız
 # aşağıdaki run_arm çağrılarında verilen ek bayraktır.
 export AHE_F58_GEODESIC=1 AHE_F58_FAIR_REPAIR=1 \
@@ -28,10 +41,11 @@ consensus_dbta robot_failure,consensus_dbta mixed_stress,consensus_dbta deadline
 
 # run_arm <etiket> <combos> [ek bayrak ataması...]
 # Ek bayraklar yalnız bu alt-kabukta geçerlidir; kollar birbirine sızmaz.
+# Argümansız `export` tüm ortamı listeler, o yüzden boş durum ayrı ele alınır.
 run_arm() {
     local label="$1" combos="$2"; shift 2
     echo "########## KOL $label  (ek bayrak: ${*:-yok}) ##########"
-    ( export "$@" 2>/dev/null || true
+    ( if [ $# -gt 0 ]; then export "$@"; fi
       bash run_experiments_robust.sh \
           --robots 5 --tasks 25 --seeds "$SEEDS" \
           --combos "$combos" --results-dir "$OUT/$label" )

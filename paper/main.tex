@@ -36,29 +36,37 @@
 
 \begin{document}
 
-\title{Adaptive Heuristic Ecosystem for Online Multi-Robot Task Allocation\\
-       under Failures, Mixed Stress, and Deadline Pressure}
+\title{Context-Triggered Overrides and Geodesic ETA for Online\\
+       Multi-Robot Task Allocation under Failures,\\
+       Mixed Stress, and Deadline Pressure}
 
-\author{\thanks{Manuscript submitted to IEEE RA-L, June 2026.}}
+\author{\thanks{Manuscript submitted July 2026.}%
+\thanks{The method keeps the name AHE-MRTA from its implementation, data
+directories, and the run identifiers of the released campaign. The name is
+retained for traceability; the contribution claimed here is the
+context-override cascade, the geodesic-ETA oracle, and the bounded terminal
+load repair, not the biomimetic metaphor the acronym originally referred to.}}
 
 \maketitle
 
 %==============================================================================
 \begin{abstract}
-A mobile robot team is rarely handed all of its work up front: work appears,
-expires, and changes hands while the fleet is moving. Online
+A robot team is rarely handed all of its work up front: work appears,
+expires, and changes hands while the fleet moves. Online
 multi-robot task allocation must therefore stay sound as tasks arrive,
 deadlines tighten, and robots fail mid-execution; no fixed rule serves
-every regime. We present AHE-MRTA, which chooses allocation behaviour
-online rather than at design time. Its selector, Ecosystem-Driven Paradigm
-Selection (EDPS), maps four observable signals---task density, robot
-availability, deadline pressure, and recent failure rate---onto a small
-repertoire of fixed, interpretable behaviours, with deterministic overrides
-for failure and deadline regimes, a dominance dynamic elsewhere; a
-geodesic-ETA oracle and bounded terminal load repair complete it. We evaluate
-on three layers of realism: an allocation-only campaign, a
+every regime. We present AHE-MRTA, which reacts to regime change through
+three mechanisms: a deterministic override cascade that switches behaviour
+when observed failure rate or deadline pressure crosses a threshold, a
+geodesic-ETA oracle that costs assignments by map distance, not
+straight-line distance, and a bounded terminal load repair that rebalances
+only the closing schedule. A dominance dynamic over five interpretable
+behaviours is the fallback when neither override fires; we measure its
+influence rather than assume it: replacing it with a constant changes 3 of
+9989 decisions. We evaluate
+on three layers of realism: allocation-only, a
 stochastic navigation proxy (500 seeds), and closed-loop Gazebo/ROS\,2 Nav2
-experiments with 3, 5, and 10 TurtleBot3 robots (300 runs). The first two do
+with 3, 5, and 10 TurtleBot3 robots (300 runs). The first two do
 not separate the leaders---AHE-MRTA and Consensus-DBTA co-lead the
 proxy ($+0.007$ under mixed stress, $p{=}0.042$)---but physical execution does.
 AHE-MRTA completes every task under robot failure at 3 and 5 robots and leads
@@ -67,8 +75,7 @@ $0.76$ at 10, against at most $0.66$ and $0.52$), cutting the strongest
 baseline's deadline-violation rate by $38\%$ and $49\%$ while deciding in
 $0.5$--$3.4$~ms, paying with longer routes and lower workload balance. With
 five seeds per physical cell these are descriptive patterns, not corrected
-rankings, and the selector is not isolated from other
-execution-stack differences.
+rankings, and the selector is not isolated from other stack differences.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -129,30 +136,43 @@ sharp loss of time slack. We therefore take completion and deadline violations
 as primary outcomes, and report delay, workload balance, recovery,
 redispatches, preemptions, and decision latency as trade-offs.
 
-Our method, \emph{AHE-MRTA}, uses Ecosystem-Driven Paradigm Selection (EDPS):
-an interpretable event-triggered selector, not a new optimizer at every event.
-Four observable signals---task density, robot availability, deadline pressure,
-and recent failure rate---update five hormone states, and the selected state
-activates one fixed behaviour: spatial greedy, priority-first,
-deadline-oriented temporal, commit-once stability-oriented, or orphan-first
-recovery allocation. Acute failure and deadline regimes have explicit
-overrides; a fixed dominance dynamic chooses the behaviour in all other cases.
-The contribution is therefore a transparent rule for switching between known
-policy families---not a claim that one family is always best, or that the
-hormone metaphor alone creates a new solver.
+Our method, \emph{AHE-MRTA}, is an event-triggered allocator, not a new
+optimizer at every event. Its behaviour is governed by a two-level selector.
+The upper level is a deterministic override cascade over observable context:
+when the recent failure rate exceeds a threshold the allocator switches to
+orphan-first recovery, and when deadline pressure exceeds a threshold it
+switches to strict earliest-deadline-first dispatch. The lower level is a
+dominance dynamic over five interpretable behaviours---spatial greedy,
+priority-first, deadline-oriented temporal, commit-once stability-oriented,
+and orphan-first recovery---which decides only when neither override fires.
+Two further mechanisms shape the cost the selected behaviour minimizes: a
+geodesic-ETA oracle that prices an assignment by traversable map distance,
+and a bounded terminal load repair that rebalances the closing schedule under
+a remaining-makespan non-regression guard.
+
+We state at the outset what our own measurements support. The override
+cascade, the geodesic ETA, and the terminal repair are load-bearing. The
+dominance dynamic beneath them is not: a replay of 9989 recorded decisions
+shows that freezing it at a constant changes three of them, two of the five
+behaviours are never selected, and eight allocation-only ablation variants
+fall within 0.9 percentage points of one another. We therefore present the
+switching layer as a mechanism we implemented and measured, not as a
+demonstrated source of the performance we report, and we say where the
+evidence for it is missing (Section~\ref{sec:limitations}).
 
 The paper makes four bounded contributions:
 \begin{enumerate}
-  \item It specifies Ecosystem-Driven Paradigm Selection (EDPS), an
-  event-triggered, interpretable policy coupling fixed context signals to
-  fixed MRTA behaviours.
+  \item It specifies a two-level context-override selector for online MRTA
+  that couples fixed context signals to fixed, interpretable allocation
+  behaviours, and quantifies how much each level actually decides.
   \item It records the decision and execution quantities needed to separate
   allocation quality from navigation and recovery effects.
   \item It evaluates the policy across robot-team scales, in a
   navigation-independent simulator and in a ROS~2/Gazebo stack.
   \item It reports allocation-only, stochastic navigation-proxy, and
   closed-loop Gazebo evidence separately, and states the boundary that keeps
-  map-aware ETA and recovery effects distinct from a causal claim about EDPS.
+  map-aware ETA and recovery effects distinct from a causal claim about the
+  switching layer.
 \end{enumerate}
 
 The three layers differ only in how navigation is modelled---deterministic
@@ -317,7 +337,7 @@ this AHE service target. This distinction preserves the real-time requirement
 while making latency trade-offs visible.
 
 %==============================================================================
-\section{AHE-MRTA: Ecosystem-Driven Paradigm Selection}
+\section{AHE-MRTA: A Context-Override Allocator}
 \label{sec:method}
 
 \noindent\textbf{Design principle and event-triggered architecture.}
