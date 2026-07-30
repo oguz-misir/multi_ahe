@@ -625,6 +625,19 @@ class AHEMRTAv3Allocator(BaseAllocator):
     LW_DEADLINE_RULE = 3   # H_RES  → load_balance   (c3 > 0.5)
     LW_FAILURE_RULE  = 0   # H_SPATIAL → spatial_greedy (c4 > 0.05)
     LW_DEFAULT_RULE  = 2   # H_TEMP → edf_strict (3PHA)
+    # ─── B1 (eşleşmiş Gazebo ablasyonu, 2026-07-30) ───
+    # Vekil düzlemdeki ablasyon 8 varyantı 0.9 yp içinde bırakıyor; kapalı
+    # çevrimde seçicinin katmanlarını tek tek kapatabilmek için üç kol gerekiyor
+    # ve zorlanmış-paradigma bayrağı kodda YOKTU (F50 başka bir şey: statik
+    # bağlam-anahtarlı seçici, hâlâ bağlama bakar). Bu üç bayrak seçiciyi
+    # katmanlarına ayırır; üçü de kapalıyken karar yolu bit-özdeştir.
+    #   AHE_FORCE_PARADIGM=0..4  → seçiciyi tümden atla, sabit paradigma koş
+    #   AHE_NO_OVERRIDE=1        → bağlam-override kaskadını kapat (yalnız
+    #                              argmax(dominance) kalır = klasik EDPS)
+    #   AHE_NO_RECOVERY_BOOST=1  → arızada W_RECOVERY blend'ini kapat
+    FORCE_PARADIGM = -1            # -1 = kapalı (seçici karar verir)
+    NO_CONTEXT_OVERRIDE = False    # True → failure/deadline override'ları atla
+    NO_RECOVERY_BOOST = False      # True → W_RECOVERY blend'i atla
 
     def __init__(self):
         self._prev_queues: dict = {}
@@ -645,6 +658,12 @@ class AHEMRTAv3Allocator(BaseAllocator):
         self._backlog_ratio: float = 0.0
         # F23: paradigma bekleme sayacı
         self._paradigm_hold: int = 0
+        # B1: ablasyon bayrakları. allocate() her çağrıda env'den tazeler; burada
+        # da kurulur ki seçici doğrudan çağrıldığında (birim testler, replay
+        # araçları) tanımsız kalmasın.
+        self._force_paradigm: int = self.FORCE_PARADIGM
+        self._no_context_override: bool = self.NO_CONTEXT_OVERRIDE
+        self._recovery_turbo: bool = self.RECOVERY_TURBO
 
     def name(self) -> str:
         return 'ahe_mrta_v3'
@@ -712,7 +731,7 @@ class AHEMRTAv3Allocator(BaseAllocator):
 
         # M11+M19+M23: Recovery turbo — W_RECOVERY ile blend (failure modu)
         # blend: 0.50→0.80 (failure_rate yüksekse W_RECOVERY %80 dominant)
-        if self.RECOVERY_TURBO and self._failure_active:
+        if self._recovery_turbo and self._failure_active:
             blend = min(0.80, 0.50 + failure_rate * 0.60)
             w = [(1.0 - blend) * a + blend * b for a, b in zip(w, W_RECOVERY)]
         return w
@@ -991,7 +1010,12 @@ class AHEMRTAv3Allocator(BaseAllocator):
 
         H_RECOV (4) seçimi beklemeyi bypass eder — arıza reaktifliği korunur.
         F50 aktifse statik hafif-seçici kullanılır (dinamik EDPS atlanır).
+        B1: AHE_FORCE_PARADIGM her ikisinden de önce gelir — sabit-paradigma
+        kolları seçiciyi hiç çalıştırmaz (dwell sayacı da ilerlemez).
         """
+        if 0 <= self._force_paradigm <= 4:
+            self._last_paradigm = self._force_paradigm
+            return self._force_paradigm
         if self.F50_LIGHTWEIGHT_SELECTOR:
             idx = self._select_paradigm_lightweight(context)
             self._last_paradigm = idx
@@ -1028,8 +1052,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
             return 2  # default: H_TEMP edf_strict (3PHA full pipeline)
 
         # Context vektörü kontrolü (4-dim: [td, ra, dp, fr]) — sert override
+        # B1: AHE_NO_OVERRIDE kaskadı atlar → yalnız argmax(dominance) kalır.
         ctx = context.context_vector if context.context_vector else []
-        if len(ctx) >= 4:
+        if len(ctx) >= 4 and not self._no_context_override:
             failure_rate = float(ctx[3])
             deadline_p   = float(ctx[2])
 
@@ -2026,6 +2051,15 @@ class AHEMRTAv3Allocator(BaseAllocator):
             self.F58_REMAINING_MAKESPAN_NONREGRESSION)
         self._priority_cost_scale = max(0.0, _env_float(
             'AHE_PRIORITY_COST_SCALE', self.F59_PRIORITY_COST_SCALE))
+        # B1 ablasyon kolları. Aralık dışı bir AHE_FORCE_PARADIGM (ör. -1 veya
+        # 7) seçiciyi açık bırakır — hatalı bir bayrak sessizce sabit paradigma
+        # koşmasın diye kapalı yön güvenli taraf.
+        self._force_paradigm = int(_env_float(
+            'AHE_FORCE_PARADIGM', self.FORCE_PARADIGM))
+        self._no_context_override = _env_bool(
+            'AHE_NO_OVERRIDE', self.NO_CONTEXT_OVERRIDE)
+        self._recovery_turbo = self.RECOVERY_TURBO and not _env_bool(
+            'AHE_NO_RECOVERY_BOOST', self.NO_RECOVERY_BOOST)
 
         _max_fleet = self.F44_AGGRESSIVE_MAX_FLEET
         _env_mf = os.environ.get('AHE_MAX_FLEET')

@@ -822,6 +822,16 @@ def benchmark(
     for seed in range(seed_start, seed_start + n_seeds):
         for mname in methods:
             alloc = registry[mname]()
+            # Stochastic allocators carry their own RNG.  RoSTAM's is built
+            # unseeded, so without this the proxy plane redrew its search on
+            # every invocation: two runs of identical code disagreed in 56 of
+            # 60 seed cells while the three deterministic methods matched to
+            # the last digit.  The Gazebo runner has always seeded the
+            # allocator from the experiment seed
+            # (experiment_runner_node.py); the proxy harness simply never
+            # mirrored it, so only this plane was irreproducible.
+            if hasattr(alloc, 'seed'):
+                alloc.seed(seed)
             eco = EcosystemSimulator() if _needs_eco(mname) else None
             r = run_simulation(
                 alloc, scenario, seed,
@@ -1178,7 +1188,13 @@ def main():
         print(f"\n[OK]  Fitness CSV → {out_csv}  ({len(fit_csv_rows)} satır)")
 
     if seedwise_fit_rows:
-        raw_csv = os.path.join(out_dir, 'sim_fitness_seedwise.csv')
+        # The seed-wise file follows whatever name the summary was given.  It
+        # used to be hard-coded, so `--fitness-summary-name` protected the
+        # summary while a short exploratory run silently overwrote the 500-seed
+        # per-seed data behind it -- and that file is gitignored, so git could
+        # not bring it back.  One name, one pair of outputs.
+        raw_csv = os.path.join(
+            out_dir, args.fitness_summary_name.replace('.csv', '_seedwise.csv'))
         import csv as _csv
         with open(raw_csv, 'w', newline='') as f:
             w = _csv.DictWriter(f, fieldnames=list(seedwise_fit_rows[0].keys()))
