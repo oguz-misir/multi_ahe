@@ -32,7 +32,6 @@
 \graphicspath{{./}{figure/}}
 
 \newcommand{\AHE}{AHE-MRTA*}
-\newcommand{\EDPS}{EDPS}
 
 \begin{document}
 
@@ -180,7 +179,7 @@ goal success, stochastic position-dependent goal failure, then the full physics
 and Nav2 pipeline (Section~\ref{sec:planes})---because a strong score where
 navigation cannot fail does not by itself demonstrate closed-loop navigation or
 recovery performance. The closed-loop benchmark compares full methods;
-isolating the causal effect of EDPS would require a matched Gazebo selector
+isolating the causal effect of the selector would require a matched Gazebo selector
 ablation.
 
 %==============================================================================
@@ -299,7 +298,7 @@ by the remaining features and by $\Psi_{r\tau}^k$. In the reported runs
 The other base features are dimensionless. The correction $\Psi_{r\tau}^k$ collects the
 deadline and critical-battery penalties, deadline-capability and bid bonuses,
 incumbent sticky bonus, reassignment penalty, and capacity penalty. This form
-avoids adding seconds directly to normalized features. EDPS supplies $w$;
+avoids adding seconds directly to normalized features. The selector supplies $w$;
 the active paradigm can also shape task order and eligibility. A safe
 incumbent retains base urgency, whereas an unassigned or at-risk task receives
 nonlinear urgency growth. The factor $\rho$ was written as a discount for
@@ -348,13 +347,21 @@ changing regimes. AHE-MRTA answers this not with a new global solver but with
 an event-triggered \emph{selection hyper-heuristic} that chooses, online, among
 a fixed library of five well-understood low-level behaviours
 \cite{burke2013hyper}. At each allocation event it observes the fleet state,
-the open task pool, and the previous queues, updates its context and internal
-state, activates one paradigm, and publishes robot-specific queues. Adaptation
-therefore acts on two coupled layers---\emph{which} behaviour runs, and
-\emph{how} the shared cost function is weighted---both driven by the same
-context, so a single interpretable state governs the entire decision. The
-selector runs no new inter-robot negotiation protocol: the central manager
-publishes only each robot's own queue, keeping a low-bandwidth interface.
+the open task pool, and the previous queues, updates its context, activates one
+paradigm, and publishes robot-specific queues. The selector runs no new
+inter-robot negotiation protocol: the central manager publishes only each
+robot's own queue, keeping a low-bandwidth interface.
+
+Selection is a two-level cascade, and the levels are not equal partners. The
+upper level is a pair of deterministic context overrides---one for failure, one
+for deadline pressure---that fire on threshold crossings and settle three
+quarters of all events (Section~\ref{sec:dispatch}). Only when neither fires
+does a dominance dynamic over the five behaviours decide
+(Section~\ref{sec:dominance}); Section~\ref{sec:limitations} reports how little
+that tier changes. Two further mechanisms shape the cost the selected behaviour
+minimizes rather than the choice itself: a cached geodesic-ETA oracle and a
+bounded terminal load repair (Section~\ref{sec:geodesic-repair}). We describe
+the cascade first because that is where the decisions are made.
 
 The persistent selector state comprises a five-dimensional dominance vector
 $D_k\in\mathbb{R}_{\geq0}^{5}$, the last accepted paradigm, and the remaining
@@ -393,7 +400,7 @@ Here, $\Delta_d=60$~s. Tasks with an infinite deadline do not enter the
 $c_{3,k}$ count. The first two signals describe demand--supply balance, the
 third the fraction of tasks with shrinking time slack, and the last the
 capacity loss requiring recovery. They are computed from the task pool and
-already published robot-status summaries; EDPS therefore adds no inter-robot
+already published robot-status summaries; the selector therefore adds no inter-robot
 communication burden.
 
 Each paradigm $i\in\{1,\ldots,5\}$ has a designer-defined context prototype
@@ -410,52 +417,78 @@ Table~\ref{tab:hormones-proto} gives the prototypes.
 
 \input{table/proto_vectors.tex}
 
-\subsection{Dominance update and cost weights}
+\subsection{Context-override cascade}
+\label{sec:dispatch}
+
+The acute regimes are handled first and deterministically, without consulting
+any adaptive state. The raw choice $\tilde p_k$ follows the priority order
+\begin{equation}
+\tilde p_k=
+\begin{cases}
+\mathrm{H\_RECOV}, & c_{4,k}>0.05,\\
+\mathrm{H\_TEMP}, & c_{4,k}\leq0.05\ \wedge\ c_{3,k}>0.50,\\
+\arg\max_i D_{i,k+1}, & \text{otherwise}.
+\end{cases}
+\label{eq:dispatch}
+\end{equation}
+Recovery therefore has priority when an event contains both failure and
+deadline pressure. The third branch is a fallback, described in
+Section~\ref{sec:dominance}; H\_TEMP is used instead whenever $D_k$ is absent
+or its component range is below $10^{-4}$, i.e., when that state is not
+discriminative.
+
+This ordering is not a presentational choice: it is where the decisions are
+made. Replaying the selector over the $9{,}989$ logged states of the benchmark
+campaign, the failure override decides $50.2\%$ of events and the deadline
+override a further $25.0\%$, leaving $24.8\%$ to the fallback
+(Section~\ref{sec:limitations} reports what the fallback does with them).
+The two thresholds are the method's operative content.
+
+Because the raw choice can switch rapidly, a change other than H\_RECOV is
+held for four allocation events. More specifically, if
+$\tilde p_k\ne p_{k-1}$ while the dwell counter is positive, the dispatcher
+returns $p_k=p_{k-1}$ and decrements the counter. Once a change is accepted,
+the counter is reset to $\rho=4$. H\_RECOV bypasses this hold, so a detected
+failure does not defer the recovery pass to the next event. This mechanism
+retains override reactivity while limiting ping-pong switching in normal
+regimes.
+
+\subsection{Cost weights and the dominance fallback}
 \label{sec:dominance}
 
-The dominance vector is initialized uniformly and kept on the probability
-simplex at every event: $D_0=\frac15\mathbf1$, $D_k\succeq0$, and
-$\|D_k\|_1=1$. Let $N^{\rm c}_k$ and $N^{\rm f}_k$ be, respectively, the
-numbers of completed and failed tasks between events $k$ and $k+1$. The
-compatibility-scaled performance feedback and failure support are
-\begin{equation}
-  \mathbf p_k=g_k\mathbf v_k,\qquad
-  g_k=\frac{N^{\rm c}_k-N^{\rm f}_k}
-            {\max(1,N^{\rm c}_k+N^{\rm f}_k)},\qquad
-  \mathbf b_k=c_{4,k}\,[-0.3,0,0,0.4,0.6]^\top .
-  \label{eq:dominance-inputs}
-\end{equation}
-Thus, a failure supports H\_RECOV and H\_STAB while reducing the dominance
-of the purely spatial behaviour. The cooperation matrix $A$ and suppression
-matrix $S$ are sparse. $A_{ij}>0$ means that paradigm $j$ supports paradigm
-$i$; $S_{ij}>0$ means that $j$ suppresses $i$. Their nonzero entries are
-reported in Table~\ref{tab:as-matrices}.
-
-The update is
+\paragraph{Dominance fallback.} When neither override fires, the third branch
+of Eq.~\eqref{eq:dispatch} reads a five-dimensional dominance vector $D_k$,
+initialized uniformly and kept on the probability simplex at every event
+($D_0=\frac15\mathbf1$, $D_k\succeq0$, $\|D_k\|_1=1$). Its update
 \begin{equation}
 \begin{aligned}
  D_{k+1}=\operatorname{Proj}_{\Delta^4}\!\Big(&
  \operatorname{clip}_{[0,1]}\big[\alpha D_k+\eta A D_k-\lambda S D_k\\
- &{}+\beta\mathbf p_k+\gamma\mathbf v_k+\delta\mathbf b_k\big]\Big),
+ &{}+\beta\mathbf p_k+\gamma\mathbf v_k+\delta\mathbf b_k\big]\Big)
 \end{aligned}
 \label{eq:dominance}
 \end{equation}
-where $\operatorname{Proj}_{\Delta^4}$ denotes the implementation's
-non-negative $\ell_1$ normalization (with a uniform fallback when the sum is
-zero), rather than an iterative Euclidean projection. The rule combines interaction-inspired
-winner-reinforcement and competitor-suppression terms with short-horizon
-performance and context compatibility \cite{peng2023competition}.
-Functionally, it is a fixed, low-dimensional smoothing of paradigm preference:
-context and recent outcomes nudge the dominance vector, while the
-cooperation--suppression terms damp abrupt swings, giving learning-free
-hysteresis. It is not an online learned model and provides no optimality
-guarantee; all matrices and coefficients are fixed, and acute failure or
-deadline regimes do not depend on it---they are handled by the explicit
-overrides of Section~\ref{sec:dispatch}.
+combines interaction-inspired winner-reinforcement ($A$) and
+competitor-suppression ($S$) terms with context compatibility $\mathbf v_k$
+(Eq.~\eqref{eq:context-compatibility}), short-horizon performance
+$\mathbf p_k=g_k\mathbf v_k$ scaled by the completed-minus-failed ratio
+$g_k=(N^{\rm c}_k-N^{\rm f}_k)/\max(1,N^{\rm c}_k+N^{\rm f}_k)$, and a failure
+support $\mathbf b_k=c_{4,k}[-0.3,0,0,0.4,0.6]^\top$ that lifts H\_RECOV and
+H\_STAB while damping the purely spatial behaviour
+\cite{peng2023competition}. Here $\operatorname{Proj}_{\Delta^4}$ is the
+implementation's non-negative $\ell_1$ normalization with a uniform fallback,
+not an iterative Euclidean projection; the sparse $A$ and $S$ are given in
+Table~\ref{tab:as-matrices}. Functionally this is a fixed, low-dimensional
+smoothing of paradigm preference that supplies learning-free hysteresis. It is
+not an online learned model, carries no optimality guarantee, and---as
+Section~\ref{sec:limitations} quantifies---changes the selected paradigm in
+three of the $9{,}989$ replayed states. We report it because the system runs
+it, not because the evidence supports it as a contributor. The same vector
+does carry weight generation below, which is load-bearing.
 
 \input{table/as_matrices.tex}
 
-\paragraph{Weight generation.} EDPS also produces the seven weights of the
+\paragraph{Weight generation.} The selector also produces the seven weights of the
 common cost function. The channels correspond, in order, to travel time,
 priority, battery risk, queue load, failure risk, deadline urgency, and
 reassignment/recovery cost. The fixed paradigm--weight map is
@@ -501,7 +534,7 @@ task migration.
 \label{sec:geodesic-repair}
 
 AHE-MRTA uses a cached geodesic cost oracle and a terminal, bounded
-load-repair step. Neither component changes the EDPS selector or the paradigm
+load-repair step. Neither component changes the selector or the paradigm
 library. The cost oracle uses cached geodesic distance
 $d_G$ on the 0.55~m-inflated occupancy mask of the shared Gazebo map, using an
 eight-connected free-cell graph. A pair is infeasible if no route exists. For robot $r$ with
@@ -544,42 +577,15 @@ can use Nav2's published remaining-path length instead of a static grid query.
 These guards prevent the repair from accepting a visually more balanced
 reassignment that increases deadline misses, route cost, or remaining makespan.
 
-The geodesic ETA and bounded repair change execution cost but leave the EDPS
+The geodesic ETA and bounded repair change execution cost but leave the
 selector unchanged; the closed-loop benchmark therefore does not independently
 test the causal effect of the selector. This distinction is maintained in the
 interpretation of the results.
 
-\subsection{Paradigm dispatch and dwell hysteresis}
-\label{sec:dispatch}
-
-Acute conditions do not wait for the dominance update to respond. The raw
-choice $\tilde p_k$ follows the priority order
-\begin{equation}
-\tilde p_k=
-\begin{cases}
-\mathrm{H\_RECOV}, & c_{4,k}>0.05,\\
-\mathrm{H\_TEMP}, & c_{4,k}\leq0.05\ \wedge\ c_{3,k}>0.50,\\
-\arg\max_i D_{i,k+1}, & \text{otherwise}.
-\end{cases}
-\label{eq:dispatch}
-\end{equation}
-Thus, recovery has priority when an event contains both failure and deadline
-pressure. H\_TEMP is the fallback if $D_k$ is absent or its component range
-is below $10^{-4}$, i.e., if the state is not discriminative.
-
-Because the raw choice can switch rapidly, a change other than H\_RECOV is
-held for four allocation events. More specifically, if
-$\tilde p_k\ne p_{k-1}$ while the dwell counter is positive, the dispatcher
-returns $p_k=p_{k-1}$ and decrements the counter. Once a change is accepted,
-the counter is reset to $\rho=4$. H\_RECOV bypasses this hold, so a detected
-failure does not defer the recovery pass to the next event. This mechanism
-retains override reactivity while limiting ping-pong switching in normal
-regimes.
-
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\textwidth]{fig1.drawio.png}
-  \caption{Ecosystem-Driven Paradigm Selection. Context $c_k$ updates the
+  \caption{Two-level context-override selection. Context $c_k$ updates the
   dominance state; failure/deadline overrides and dwell hysteresis select the
   active paradigm. The selected paradigm and cost weights produce
   robot-specific queues through feasibility-masked assignment over the cached
@@ -644,7 +650,7 @@ one assignment pass, not a claim of global optimality for the entire run.
 \subsection{Algorithm}
 \label{sec:ahe-loop}
 
-Algorithm~\ref{alg:ahe} gives the execution order at one EDPS event. A task
+Algorithm~\ref{alg:ahe} gives the execution order at one allocation event. A task
 arrival, robot failure, deadline alarm, or replanning timer triggers the
 cycle. Only queues are published at the end: $D_k$, $A$, $S$, $V$, and the
 full cost matrix remain at the manager node.
@@ -872,7 +878,7 @@ the selector question in the proxy setting.
 loop, interfaces, and cost inputs, but they are operational re-implementations
 rather than independent replications of every source system. The four-method
 benchmark therefore compares these implementations in one common stack. It is
-not a universal ranking of the cited algorithms. A controlled Gazebo EDPS
+not a universal ranking of the cited algorithms. A controlled Gazebo selector
 ablation against fixed paradigms is required before any closed-loop difference
 can be attributed to the selector itself (Section~\ref{sec:limitations}).
 
@@ -1155,7 +1161,7 @@ respectively. These observations are descriptive. The four-method cells have
 $n{=}5$, and no Bonferroni-corrected cross-method comparison supports a
 general ranking.
 
-The four-method comparison cannot attribute a Gazebo difference to EDPS
+The four-method comparison cannot attribute a Gazebo difference to the selector
 because methods differ in several components. The evaluated method is
 therefore promising under deadline pressure, but a fixed-paradigm/no-override
 Gazebo ablation is needed before assigning the pattern to paradigm switching.
@@ -1492,7 +1498,7 @@ whose co-leading fitness and decisive physical-stack advantages
 
 \subsection{Ablation: what does the switching machinery add?}
 \label{sec:ablation}
-To isolate the contribution of online paradigm switching, we replace the EDPS
+To isolate the contribution of online paradigm switching, we replace the
 selector with each single \emph{fixed} paradigm, and separately disable the
 context overrides (\emph{no-override}: pure $\arg\max_i D_i$) and the recovery
 boost (\emph{no-recovery-boost}: $\delta{=}0$), holding everything else fixed
@@ -1503,15 +1509,15 @@ oracle).
 
 The eight variants span a mean-fitness range of only $[0.469,0.479]$
 (spread $0.009$, or one tenth of the per-seed standard deviation of $0.09$):
-\emph{no} configuration statistically separates from full EDPS, and removing
+\emph{no} configuration statistically separates from the full selector, and removing
 the overrides or the recovery boost leaves proxy fitness essentially
 unchanged. This proxy
 ablation establishes only that the tested selector variants do not separate
-on this navigation-proxy metric. It neither establishes a benefit of EDPS in
+on this navigation-proxy metric. It neither establishes a benefit of the selector in
 the physical stack nor rules one out. The four-method Gazebo comparison also
 cannot fill that gap because its policies differ in more than the selector.
 Thus, physical differences reported here must be attributed to the evaluated
-full configurations, not to EDPS alone. A causal test requires matched Gazebo
+full configurations, not to the selector alone. A causal test requires matched Gazebo
 runs of the full configuration against fixed-paradigm, no-override, and
 no-recovery-boost variants on common seeds and at least one additional map.
 
@@ -1598,12 +1604,12 @@ $24.8\%$---where it returns spatial-greedy in $99.9\%$ of cases. Replacing
 that tier with a constant would change the selected paradigm in 3 of $9{,}989$
 states ($0.03\%$), and two of the five paradigms, priority-first and
 commit-once, are never activated in any evaluated scenario. We therefore frame
-EDPS as a context-driven override cascade \emph{with} an adaptive
+the method as a context-driven override cascade \emph{with} an adaptive
 dynamics tier, not as a dynamics-only selector, and we do not claim the
 dynamics tier as an operative contributor at these stress levels. The ablation
 in Table~\ref{tab:ablation} (Sec.~\ref{sec:ablation}) is consistent: removing the
 overrides or the recovery boost, and replacing the selector with any single
-fixed paradigm, all leave navigation-proxy fitness within $0.8$~pp of EDPS.
+fixed paradigm, all leave navigation-proxy fitness within $0.8$~pp of the selector.
 This proxy observation must not be extrapolated into a closed-loop
 claim: no matched closed-loop selector ablation is yet available.
 (ix) \textbf{Allocation-fitness model.} The navigation-proxy simulator uses a
@@ -1612,10 +1618,10 @@ robustness; its failure rate is deliberately higher than the closed-loop
 Gazebo stack (where Nav2 reaches goals almost always). The proxy therefore
 measures relative allocation robustness, not an absolute success rate, and is
 reported alongside---never instead of---the closed-loop Gazebo results.
-(x) \textbf{Missing physical EDPS ablation:} The four-method
+(x) \textbf{Missing physical selector ablation:} The four-method
 physical benchmark compares different policies but has $n{=}5$ per cell and
 does not hold every non-selector component fixed. A decisive follow-up is a
-common-seed Gazebo experiment of EDPS, each fixed paradigm, no-override, and
+common-seed Gazebo experiment of the selector, each fixed paradigm, no-override, and
 no-recovery-boost variants, with a pre-specified primary metric, at least
 20--30 seeds per condition, and more than one map.
 (xi) \textbf{Priority is expressed twice in the cost.} The additive term
@@ -1664,9 +1670,9 @@ under deadline pressure---about $19\%$ (5 robots) and $46\%$ (10 robots) above
 the strongest baseline, whose deadline-violation rate it also cuts by $38\%$
 and $49\%$---at the cost of longer routes and lower workload balance.
 
-The current experiments do not causally isolate EDPS in closed-loop execution;
+The current experiments do not causally isolate the selector in closed-loop execution;
 the external baselines differ in more than the selector. The required next
-experiment is a matched, multi-map Gazebo ablation of EDPS against fixed
+experiment is a matched, multi-map Gazebo ablation of the selector against fixed
 paradigms, no-override, and no-recovery-boost variants. It should use a
 pre-specified primary endpoint and a larger common-seed budget. Separating
 allocation-only and closed-loop evidence is essential for interpreting the

@@ -182,7 +182,7 @@ hedef başarısı, pozisyona-bağlı stokastik hedef arızası ve tam fizik + Na
 hattı (Bölüm~\ref{sec:planes}). Ayrımın nedeni, navigasyonun başarısız
 olamadığı bir ortamdaki güçlü skorun tek başına kapalı-çevrim navigasyon ya da
 toparlanma başarımını göstermemesidir. Kapalı-çevrim kıyaslaması tam
-yöntemleri karşılaştırır; yalnız EDPS'in nedensel etkisini ayırmak için
+yöntemleri karşılaştırır; yalnız seçicinin nedensel etkisini ayırmak için
 eşleşmiş bir Gazebo seçici ablasyonu gerekir.
 
 %==============================================================================
@@ -299,7 +299,7 @@ hücrelerinin kuyruğunu etkiler.
 Diğer taban özellikler boyutsuzdur. $\Psi_{r\tau}^k$ düzeltmesi deadline ve kritik
 batarya cezalarını, deadline-yetenek ve teklif bonuslarını, mevcut-sahip
 yapışkanlığını, yeniden atama cezasını ve kapasite cezasını toplar. Böylece
-saniye cinsinden değerlerle normalize özellikler doğrudan toplanmaz. EDPS
+saniye cinsinden değerlerle normalize özellikler doğrudan toplanmaz. Seçici
 $w$'yu üretir; etkin paradigma görev sırasını ve uygunluğu da şekillendirir.
 Güvenli mevcut görev taban aciliyette kalırken atanmamış veya riskli görev
 doğrusal olmayan aciliyet artışı alır. $\rho$ çarpanı acil işe bir indirim
@@ -357,7 +357,7 @@ yönetir. Seçici, robotlar arasında yeni bir müzakere protokolü çalıştır
 merkezi yönetici yalnız her robotun kendi kuyruğunu yayınlar ve düşük-bant
 genişlikli bir arayüz korur.
 
-EDPS'nin kalıcı seçici durumu, beş boyutlu baskınlık vektörü
+seçicinin kalıcı seçici durumu, beş boyutlu baskınlık vektörü
 $D_k\in\mathbb{R}_{\geq0}^{5}$, son kabul edilen paradigma ve bu paradigma
 için kalan bekleme sayacıdır. Tahsisçi ayrıca yürütülmekte olan hedefleri,
 önceki görev--robot sahipliğini ve yetim görev havuzunu korur. Bu ikinci grup
@@ -395,7 +395,7 @@ görevler $c_{3,k}$ sayacına girmez. İlk iki sinyal, talep--arz dengesini;
 üçüncü sinyal zaman payı daralan görevlerin oranını; son sinyal ise
 toparlanma gerektiren kapasite kaybını temsil eder. Bu sinyaller görev
 havuzundan ve zaten yayımlanan robot durum özetlerinden hesaplanır; dolayısıyla
-EDPS ek robotlar-arası haberleşme yükü getirmez.
+Seçici ek robotlar-arası haberleşme yükü getirmez.
 
 Her paradigma $i\in\{1,\ldots,5\}$ için tasarımcı-tanımlı bir bağlam
 prototipi $V_i\in[0,1]^4$ vardır. Prototipler öğrenilmiş sınıf merkezleri
@@ -411,53 +411,79 @@ Tablo~\ref{tab:hormones-proto} kullanılan prototipleri verir.
 
 \input{table/proto_vectors_tr.tex}
 
-\subsection{Baskınlık güncellemesi ve maliyet ağırlıkları}
+\subsection{Bağlam-geçersiz kılma kaskadı}
+\label{sec:dispatch}
+
+Akut rejimler önce ve belirlenimci biçimde, hiçbir uyarlanır duruma
+danışılmadan ele alınır.
+Ham seçim $\tilde p_k$ aşağıdaki öncelik sırasıyla yapılır:
+\begin{equation}
+\tilde p_k=
+\begin{cases}
+\mathrm{H\_RECOV}, & c_{4,k}>0.05,\\
+\mathrm{H\_TEMP}, & c_{4,k}\leq0.05\ \wedge\ c_{3,k}>0.50,\\
+\arg\max_i D_{i,k+1}, & \text{aksi hâlde}.
+\end{cases}
+\label{eq:dispatch}
+\end{equation}
+Dolayısıyla aynı olayda hem arıza hem deadline baskısı varsa toparlanma
+önceliklidir. $D_k$ yoksa ya da bileşen aralığı $10^{-4}$'ten küçükse
+varsayılan H\_TEMP'tir. Üçüncü dal bir geri düşüştür ve
+Bölüm~\ref{sec:dominance}'te anlatılır.
+
+Bu sıralama bir sunum tercihi değil, kararların gerçekte nerede verildiğidir.
+Seçici, kıyaslama kampanyasının kayıtlı $9{,}989$ durumu üzerinde yeniden
+oynatıldığında arıza geçersiz kılması olayların \%$50.2$'sini, deadline
+geçersiz kılması \%$25.0$'ini karara bağlıyor; geriye kalan \%$24.8$ geri
+düşüşe kalıyor (Bölüm~\ref{sec:limitations} onun bu paylaşımla ne yaptığını
+raporluyor). Yöntemin işleyen içeriği bu iki eşiktir.
+
+Ham seçim tek başına hızlı geçişlere yol açabileceğinden, H\_RECOV dışındaki
+paradigma değişimleri dört tahsis olayı boyunca ertelenir. Daha açık olarak,
+son kabul edilen paradigma $p_{k-1}$'den farklı bir $\tilde p_k$ önerildiğinde
+ve bekleme sayacı pozitif olduğunda dağıtıcı $p_k=p_{k-1}$ döndürür ve sayacı
+bir azaltır. Değişim kabul edildiğinde sayaç $\rho=4$'e kurulur. H\_RECOV bu
+beklemeyi atlar; arıza algılandıktan sonra kurtarma geçişi bir sonraki olaya
+ertelenmez. Bu mekanizma, bağlam override'ının reaktifliğini korurken normal
+rejimlerdeki ping-pong geçişlerini sınırlar.
+
+
+\subsection{Maliyet ağırlıkları ve baskınlık geri düşüşü}
 \label{sec:dominance}
 
-Baskınlık vektörü başlangıçta uniformdur ve her olayda olasılık
-simpleksinde tutulur: $D_0=\frac15\mathbf1$, $D_k\succeq0$ ve
-$\|D_k\|_1=1$. Olay $k$ ile $k+1$ arasındaki tamamlanan ve başarısız görev
-sayıları sırasıyla $N^{\rm c}_k$ ve $N^{\rm f}_k$ olsun. Uyumla ölçekli
-başarım geri beslemesi ve arıza desteği
-\begin{equation}
-  \mathbf p_k=g_k\mathbf v_k,\qquad
-  g_k=\frac{N^{\rm c}_k-N^{\rm f}_k}
-            {\max(1,N^{\rm c}_k+N^{\rm f}_k)},\qquad
-  \mathbf b_k=c_{4,k}\,[-0.3,0,0,0.4,0.6]^\top
-  \label{eq:dominance-inputs}
-\end{equation}
-şeklindedir. Dolayısıyla bir başarısızlık H\_RECOV ve H\_STAB'ı desteklerken
-salt uzamsal davranışın baskınlığını azaltır. İşbirliği matrisi $A$ ve
-baskılama matrisi $S$ seyrektir. $A_{ij}>0$, $j$ paradigmasının $i$
-paradigmasını desteklediğini; $S_{ij}>0$ ise $j$ paradigmasının $i$
-paradigmasını bastırdığını ifade eder. Kullanılan sıfır-dışı girişler
-Tablo~\ref{tab:as-matrices}'de verilmiştir.
-
-Güncelleme kuralı
+\paragraph{Baskınlık geri düşüşü.} İki geçersiz kılma da tetiklenmediğinde
+Denklem~\eqref{eq:dispatch}'in üçüncü dalı beş boyutlu bir baskınlık vektörü
+$D_k$ okur; vektör başlangıçta uniformdur ve her olayda olasılık simpleksinde
+tutulur ($D_0=\frac15\mathbf1$, $D_k\succeq0$, $\|D_k\|_1=1$). Güncellemesi
 \begin{equation}
 \begin{aligned}
  D_{k+1}=\operatorname{Proj}_{\Delta^4}\!\Big(&
  \operatorname{clip}_{[0,1]}\big[\alpha D_k+\eta A D_k-\lambda S D_k\\
- &{}+\beta\mathbf p_k+\gamma\mathbf v_k+\delta\mathbf b_k\big]\Big),
+ &{}+\beta\mathbf p_k+\gamma\mathbf v_k+\delta\mathbf b_k\big]\Big)
 \end{aligned}
 \label{eq:dominance}
 \end{equation}
-biçimindedir. Burada $\operatorname{Proj}_{\Delta^4}$, uygulamadaki
-negatif-olmayan $\ell_1$ normalizasyonunu (toplam sıfırsa tekdüze fallback)
-gösterir; yinelemeli Öklid projeksiyonu değildir. Kural, ekolojik etkileşimlerden esinlenen
-kazananı destekleme--rakibi bastırma terimlerini, kısa dönem başarım ve bağlam
-uyumluluğu ile birleştirir \cite{peng2023competition}. İşlevsel olarak bu,
-paradigma tercihinin sabit ve düşük-boyutlu bir yumuşatmasıdır: bağlam ve son
-sonuçlar baskınlık vektörünü hafifçe iterken destekleme--bastırma terimleri
-ani sıçramaları söndürür ve öğrenmesiz bir histerezis sağlar. Bu terimler
-öğrenilmiş bir çevrim içi model ya da optimalite garantisi değildir; tüm
-matrisler ve katsayılar sabittir ve akut arıza ya da deadline rejimleri buna
-dayanmaz---bunlar Bölüm~\ref{sec:dispatch}'teki açık geçersiz kılmalarla ele
-alınır.
+ekolojik etkileşimlerden esinlenen kazananı destekleme ($A$) ve rakibi
+bastırma ($S$) terimlerini; bağlam uyumluluğu $\mathbf v_k$
+(Denklem~\eqref{eq:context-compatibility}); tamamlanan-eksi-başarısız oranı
+$g_k=(N^{\rm c}_k-N^{\rm f}_k)/\max(1,N^{\rm c}_k+N^{\rm f}_k)$ ile ölçekli
+kısa dönem başarım $\mathbf p_k=g_k\mathbf v_k$; ve H\_RECOV ile H\_STAB'ı
+yükseltip salt uzamsal davranışı söndüren arıza desteği
+$\mathbf b_k=c_{4,k}[-0.3,0,0,0.4,0.6]^\top$ ile birleştirir
+\cite{peng2023competition}. Burada $\operatorname{Proj}_{\Delta^4}$,
+uygulamadaki negatif-olmayan $\ell_1$ normalizasyonudur (toplam sıfırsa
+tekdüze fallback), yinelemeli Öklid projeksiyonu değil; seyrek $A$ ve $S$
+Tablo~\ref{tab:as-matrices}'de verilmiştir. İşlevsel olarak bu, paradigma
+tercihinin sabit ve düşük-boyutlu bir yumuşatmasıdır ve öğrenmesiz bir
+histerezis sağlar. Öğrenilmiş bir çevrim içi model değildir, optimalite
+garantisi taşımaz ve---Bölüm~\ref{sec:limitations}'in nicelediği gibi---yeniden
+oynatılan $9{,}989$ durumun üçünde seçilen paradigmayı değiştirir. Sistem onu
+koştuğu için raporluyoruz; kanıt onu bir katkı olarak desteklediği için değil.
+Aynı vektör aşağıdaki ağırlık üretimini de besler ve orası yük taşıyor.
 
 \input{table/as_matrices_tr.tex}
 
-\paragraph{Ağırlık üretimi.} EDPS yalnızca paradigma seçmez; ortak maliyet
+\paragraph{Ağırlık üretimi.} Seçici yalnızca paradigma seçmez; ortak maliyet
 fonksiyonunun yedi ağırlığını da üretir. Ağırlık kanalları sırasıyla seyahat
 zamanı, öncelik, batarya riski, kuyruk yükü, arıza riski, deadline aciliyeti
 ve yeniden atama/toparlanma maliyetine karşılık gelir. Sabit paradigma--ağırlık
@@ -505,7 +531,7 @@ yeniden planlamanın gereksiz görev taşımasına dönüşmesini önler.
 \label{sec:geodesic-repair}
 
 AHE-MRTA, önbellekli bir geodezik maliyet-kâhini ve terminal, sınırlı bir yük
-onarım adımı kullanır. Bu bileşenlerin hiçbiri EDPS seçicisini veya paradigma
+onarım adımı kullanır. Bu bileşenlerin hiçbiri seçiciyi veya paradigma
 kütüphanesini değiştirmez. Maliyet-kâhini,
 Gazebo ile paylaşılan harita üzerindeki 0.55~m şişirilmiş
 doluluk maskesinde, sekiz-komşulu serbest hücre grafiğinden önbellekli
@@ -549,42 +575,14 @@ yol uzunluğunu kullanabilir. Bu korumalar onarımı, sadece daha dengeli görü
 ancak deadline, rota veya kalan makespan maliyeti üreten bir yeniden atamayı
 kabul etmekten alıkoyar.
 
-Geodezik ETA ve sınırlı onarım yürütme maliyetini değiştirir ancak EDPS
-seçicisini değiştirmez; bu nedenle kapalı-çevrim kıyaslaması seçicinin nedensel
+Geodezik ETA ve sınırlı onarım yürütme maliyetini değiştirir ancak
+seçiciyi değiştirmez; bu nedenle kapalı-çevrim kıyaslaması seçicinin nedensel
 etkisini tek başına sınamaz. Bu ayrım sonuçların yorumunda korunur.
-
-\subsection{Paradigma dağıtımı ve dwell histerezisi}
-\label{sec:dispatch}
-
-Akut durumlar baskınlık güncellemesinin yavaş tepki vermesini beklemez.
-Ham seçim $\tilde p_k$ aşağıdaki öncelik sırasıyla yapılır:
-\begin{equation}
-\tilde p_k=
-\begin{cases}
-\mathrm{H\_RECOV}, & c_{4,k}>0.05,\\
-\mathrm{H\_TEMP}, & c_{4,k}\leq0.05\ \wedge\ c_{3,k}>0.50,\\
-\arg\max_i D_{i,k+1}, & \text{aksi hâlde}.
-\end{cases}
-\label{eq:dispatch}
-\end{equation}
-Dolayısıyla aynı olayda hem arıza hem deadline baskısı varsa toparlanma
-önceliklidir. $D_k$ yoksa ya da bileşen aralığı $10^{-4}$'ten küçükse
-varsayılan H\_TEMP'tir. Bu tercih, bağlam bilgisi
-ayrıştırıcı olmadığında deadline-duyarlı güvenli yolu kullanır.
-
-Ham seçim tek başına hızlı geçişlere yol açabileceğinden, H\_RECOV dışındaki
-paradigma değişimleri dört tahsis olayı boyunca ertelenir. Daha açık olarak,
-son kabul edilen paradigma $p_{k-1}$'den farklı bir $\tilde p_k$ önerildiğinde
-ve bekleme sayacı pozitif olduğunda dağıtıcı $p_k=p_{k-1}$ döndürür ve sayacı
-bir azaltır. Değişim kabul edildiğinde sayaç $\rho=4$'e kurulur. H\_RECOV bu
-beklemeyi atlar; arıza algılandıktan sonra kurtarma geçişi bir sonraki olaya
-ertelenmez. Bu mekanizma, bağlam override'ının reaktifliğini korurken normal
-rejimlerdeki ping-pong geçişlerini sınırlar.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\textwidth]{fig1.drawio.png}
-  \caption{Ekosistem-Güdümlü Paradigma Seçimi. Olaydaki bağlam $c_k$,
+  \caption{İki katmanlı bağlam-geçersiz kılma seçimi. Olaydaki bağlam $c_k$,
   baskınlık durumunu günceller; arıza/deadline override'ları ve dwell
   histerezisi etkin paradigmayı belirler. Seçilen paradigma ile maliyet
   ağırlıkları, önbelleklenmiş geodezik-ETA maliyet kâhini üzerindeki
@@ -653,7 +651,7 @@ için küresel optimalite iddiası değildir.
 \subsection{Algoritma}
 \label{sec:ahe-loop}
 
-Algoritma~\ref{alg:ahe}, EDPS'nin bir olaydaki yürütme sırasını verir.
+Algoritma~\ref{alg:ahe}, seçicinin bir olaydaki yürütme sırasını verir.
 Görev gelişi, robot arızası, deadline alarmı veya yeniden planlama zamanlayıcısı
 bu çevrimi tetikler. Çevrim sonunda yalnız kuyruklar yayımlanır; $D_k$,
 $A$, $S$, $V$ ve tam maliyet matrisi yönetici düğümde kalır.
@@ -883,7 +881,7 @@ arayüzleri ve maliyet girdilerini paylaşır. Ancak her kaynak sistemin bağım
 yeniden üretimi değildir. Dört-yöntem karşılaştırması, bu uygulamaları ortak
 bir yığında kıyaslar. Atıf verilen algoritmaların evrensel sıralaması olarak
 okunmamalıdır. Kapalı-çevrim farkını seçicinin kendisine atfetmek için sabit
-paradigmalarla eşleşmiş Gazebo EDPS ablasyonu gerekir
+paradigmalarla eşleşmiş Gazebo seçici ablasyonu gerekir
 (Bölüm~\ref{sec:limitations}).
 
 \subsection{Değerlendirme ortamları}
@@ -1167,7 +1165,7 @@ betimleyicidir: dört-yöntem hücreleri $n{=}5$'tir ve Bonferroni-düzeltilmiş
 bir çapraz-yöntem karşılaştırması genel performans sıralamasını desteklemez.
 
 Dört-yöntem kıyaslaması, politikalar arasında birden çok bileşen değiştiği
-için fiziksel farkı EDPS'e atfedemez. Bu nedenle değerlendirilen yöntem
+için fiziksel farkı seçiciye atfedemez. Bu nedenle değerlendirilen yöntem
 deadline baskısında umut verici görünmektedir; paradigma değişimine nedensel
 atıf için sabit-paradigma ve no-override fiziksel ablasyonu gereklidir.
 
@@ -1518,7 +1516,7 @@ belirleyici fiziksel-yığın üstünlükleri daha güçlü işletim noktasıdı
 
 \subsection{Ablasyon: switching makinesi ne katıyor?}
 \label{sec:ablation}
-Online paradigma-değişiminin katkısını yalıtmak için EDPS seçiciyi her bir
+Online paradigma-değişiminin katkısını yalıtmak için seçiciyi her bir
 \emph{sabit} paradigma ile değiştiriyoruz; ayrıca bağlam override'larını
 (\emph{no-override}: saf $\arg\max_i D_i$) ve recovery boost'u
 (\emph{no-recovery-boost}: $\delta{=}0$) gerisini sabit tutarak kapatıyoruz
@@ -1528,13 +1526,13 @@ Online paradigma-değişiminin katkısını yalıtmak için EDPS seçiciyi her b
 
 Sekiz varyant yalnız $[0.469,0.479]$ ortalama-uygunluk aralığına yayılıyor
 (yayılım $0.009$; tohum-başına standart sapma olan $0.09$'un onda biri):
-\emph{hiçbir} konfigürasyon tam EDPS'ten ayrışmıyor, override'ları veya
+\emph{hiçbir} konfigürasyon tam seçici'ten ayrışmıyor, override'ları veya
 recovery boost'u kaldırmak vekil uygunluğunu neredeyse değiştirmiyor.
 Bu vekil ablasyonu yalnız test edilen
 seçici varyantlarının bu navigation-proxy metriğinde ayrışmadığını gösterir.
-Ne fiziksel yığında EDPS yararını kurar ne de onu dışlar. Dört-yöntem Gazebo
+Ne fiziksel yığında seçicinin yararını kurar ne de onu dışlar. Dört-yöntem Gazebo
 kıyaslaması da politikalar seçiciden daha fazla bileşende farklılaştığı için
-bu boşluğu doldurmaz. Bu nedenle fiziksel farklar EDPS'e değil,
+bu boşluğu doldurmaz. Bu nedenle fiziksel farklar seçiciye değil,
 değerlendirilen tam konfigürasyonlara atfedilmelidir. Nedensel test için tam
 konfigürasyonun sabit-paradigma, no-override ve no-recovery-boost
 varyantlarıyla ortak tohumlarda, en az bir ek haritada eşleşmiş Gazebo
@@ -1621,13 +1619,13 @@ $\%24{,}8$'ini ise dominance katmanı belirler---ve bu katman vakaların
 $\%99{,}9$'unda spatial-greedy döndürür. Bu katmanın yerine bir sabit koymak
 seçilen paradigmayı $9{,}989$ durumun 3'ünde ($\%0{,}03$) değiştirirdi; beş
 paradigmadan ikisi, priority-first ve commit-once, değerlendirilen hiçbir
-senaryoda etkinleşmez. Bu nedenle EDPS'i
+senaryoda etkinleşmez. Bu nedenle yöntemi
 yalnızca-dinamik bir seçici olarak değil, uyarlanır dinamik katmanı
 \emph{olan} bağlam-güdümlü bir override cascade olarak çerçeveliyoruz ve bu
 stres düzeylerinde dinamik katmanı işlevsel bir katkı olarak öne sürmüyoruz.
 Tablo~\ref{tab:ablation}'deki ablasyon (Bölüm~\ref{sec:ablation}) bununla tutarlıdır:
 override'ları veya recovery boost'u kaldırmak ve seçiciyi herhangi bir tek-sabit
-paradigmayla değiştirmek, vekil uygunluğunu EDPS'in $0.8$~pp içinde bırakır.
+paradigmayla değiştirmek, vekil uygunluğunu seçicinin $0.8$~pp içinde bırakır.
 Bu vekil bulgusu kapalı-çevrim iddiasına taşınmamalıdır: henüz
 eşleşmiş kapalı-çevrim seçici ablasyonu yoktur.
 (ix) \textbf{Navigation-proxy modeli.} Allocation-only düzleminden ayrı tutulan
@@ -1637,9 +1635,9 @@ başarısızlık oranı, gerçek Gazebo yığınından (Nav2 hedeflere neredeyse
 ulaşır) kasıtlı olarak yüksektir. Bu nedenle proxy mutlak başarı oranını değil,
 göreli tahsis dayanıklılığını ölçer ve kapalı-çevrim Gazebo sonuçlarının yerine
 değil, yanında raporlanır.
-(x) \textbf{Eksik fiziksel EDPS ablasyonu:} Dört-yöntem
+(x) \textbf{Eksik fiziksel seçici ablasyonu:} Dört-yöntem
 fiziksel kıyaslaması hücre başına $n{=}5$'tir ve seçici dışındaki bileşenleri
-sabit tutmaz. Belirleyici takip deneyi; EDPS, her sabit paradigma,
+sabit tutmaz. Belirleyici takip deneyi; tam seçici, her sabit paradigma,
 no-override ve no-recovery-boost varyantlarını, önceden belirlenmiş birincil
 metrik, koşul başına en az 20--30 tohum ve birden fazla harita ile ortak
 tohumlarda karşılaştırmalıdır.
@@ -1690,9 +1688,9 @@ yaklaşık \%$19$ (5 robot) ve \%$46$ (10 robot) üzerinde, ve o yöntemin
 deadline-ihlal oranını da \%$38$ ve \%$49$ düşürerek---bunun bedeli daha uzun
 rotalar ve daha düşük iş yükü dengesidir.
 
-Mevcut deneyler EDPS'i kapalı-çevrim yürütmede nedensel olarak ayırmaz; dış
+Mevcut deneyler seçiciyi kapalı-çevrim yürütmede nedensel olarak ayırmaz; dış
 temel yöntemler seçicinin ötesinde bileşenlerde farklıdır. Gerekli sonraki
-deney; EDPS'i sabit paradigmalar, no-override ve no-recovery-boost
+deney; tam seçiciyi sabit paradigmalar, no-override ve no-recovery-boost
 varyantlarıyla eşleşmiş, çok-haritalı Gazebo ablasyonunda karşılaştırmaktır.
 Deneyde önceden belirlenmiş birincil uç nokta ve daha büyük ortak-tohum
 bütçesi kullanılmalıdır. Allocation-only ve kapalı-çevrim kanıtlarını ayırmak,
