@@ -277,9 +277,12 @@ $P_\tau=(4-\pi_\tau)/3$, batarya riski $B_r^k$, göreli yük $L_r^k$, arıza
 riski $F_r^k$, deadline aciliyeti $U_\tau^k$ ve navigasyon/toparlanma riski
 $R_r^k$. Uygun bir çiftin ortak maliyeti
 \begin{equation}
-  C_{r\tau}^k =
-  w_dA_{r\tau}^k+w_pP_\tau+w_bB_r^k+w_lL_r^k
-  +w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k .
+\begin{aligned}
+  C_{r\tau}^k =\ &\rho(\pi_\tau)\bigl[
+  w_dA_{r\tau}^k+w_pP_\tau+w_bB_r^k+w_lL_r^k\\
+  &\quad+w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k\bigr],\\
+  &\rho(\pi)=1-0.1(\pi-1) .
+\end{aligned}
   \label{eq:cost}
 \end{equation}
 Burada $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$ ($A_{\max}=220$~s).
@@ -294,7 +297,13 @@ yapışkanlığını, yeniden atama cezasını ve kapasite cezasını toplar. B�
 saniye cinsinden değerlerle normalize özellikler doğrudan toplanmaz. EDPS
 $w$'yu üretir; etkin paradigma görev sırasını ve uygunluğu da şekillendirir.
 Güvenli mevcut görev taban aciliyette kalırken atanmamış veya riskli görev
-doğrusal olmayan aciliyet artışı alır.
+doğrusal olmayan aciliyet artışı alır. $\rho$ çarpanı acil işe bir indirim
+olarak yazılmıştır ve köşeli parantez pozitifken öyle davranır. Değerlendirilen
+yapılandırmada pozitif değildir: $\Psi_{r\tau}^k$ içindeki deadline-yetenek
+bonusu ağırlıklı öznitelikleri bastırdığından uygun çiftlerde parantez
+negatiftir ve $\rho$ o durumda öncelik-3 görevini aynı durumdaki öncelik-1
+görevinden \emph{daha pahalı} kılar. Amaçlanan biçimi değil uygulanan biçimi
+raporluyoruz; etkisini Bölüm~\ref{sec:limitations}'de niceliklendiriyoruz.
 
 \textbf{Koşu düzeyinde sonuçlar ve zamanlama sözleşmesi.} Koşu düzeyi amaç,
 bitmeyen görevleri gizlemeden tamamlanmayı artırmak ve deadline ihlalini
@@ -725,6 +734,16 @@ ve TF aktarır. Bir TF aktarıcısı, görüntüleme için ad uzaylı ağaçlar�
 birleştirir. Tüm yöntemler aynı Nav2 parametrelerini kullanır.
 Şekil~\ref{fig:system}, ekosistem yöneticisinin ve robot-başına Nav2 yaşam
 döngülerinin bu yığında nasıl bağlandığını gösterir.
+
+\paragraph{Değerlendirilen yapılandırma ve yapıtlar.} AHE-MRTA*, geodezik-ETA
+kâhini ve terminal yük onarımı etkinken değerlendirilir. İkisi de başlatmada
+açıkça açılır: tahsis edicinin yerleşik varsayılanları, ablasyon için tutulan
+eski Öklid ve onarımsız referansı üretir; dolayısıyla neyin koştuğunu yöntem
+adı değil yapılandırma belirler. Çözülen anahtar kümesi hem her koşunun
+üstverisine hem de kampanya dizinine yazılır; böylece bir koşu, aynı adı
+taşıyan farklı yapılandırmalı bir koşuyla karıştırılamaz. Tahsis edici,
+kampanya sürücüleri ve her tabloyu/figürü ham loglardan üreten betikler bu
+gönderime eşlik eder.
 
 \subsection{Denetim Arenası}
 Arena, $20{\times}20$~m'lik duvarlı kapalı bir makettir. 1.5~m genişliğinde
@@ -1190,9 +1209,10 @@ dışı tüm farklar olağan Gazebo koşu-arası değişiminin içinde kaldı.}
 Uzlaşma temel yöntemleri tek seferde commit ederek neredeyse mükemmel
 iş yükü dengesi ve minimum mesaj sayısı elde eder; AHE bu dengenin
 bir kısmını reaktif değişiklikler ve raporlanan
-deadline sonuçları için takas eder: tüm-robot Jain dengesi commit-once temel
-yöntemlerin 0.93--1.00'ine karşı 0.85--0.99, rotaları ise daha uzundur
-(3 robotta 44--94~m'ye karşı 99--113~m), çünkü yeniden gönderilen görevlere
+deadline sonuçları için takas eder: 3 robotta tüm-robot Jain dengesi
+0.85--0.99'dur; commit-once BiG-MRTA'da 0.93--0.96, Consensus-DBTA'da
+0.88--1.00. Rotaları ise daha uzundur
+(44--104~m'ye karşı 99--113~m), çünkü yeniden gönderilen görevlere
 farklı bir robottan yaklaşılır.
 
 \input{table/latex_efficiency_table_tr.tex}
@@ -1244,16 +1264,16 @@ tamamlamayı verir ($\mathrm{CR}{\times}(1{-}\mathrm{DVR})\approx 0.76$),
 Cons-DBTA (${\approx}0.52$) ve RoSTAM-EA'nın (${\approx}0.48$) çok
 önünde --- bunlar CR\,=\,0.916/0.964'e ancak DVR\,=\,0.428/0.504 ödeyerek
 erişir. \textit{mixed\_stress}'te AHE en yüksek tamamlama oranını
-(CR\,=\,0.988) kaydeder ve zamanında-etkin tamamlamada Cons-DBTA ile aynı
-seviyededir (her biri ${\approx}0.64$), RoSTAM-EA'nın (${\approx}0.52$)
-üstünde. \textit{robot\_failure}'da AHE ile commit-once BiG-MRTA en yüksek
-tamamlama oranında berabere (CR\,=\,0.976) ve zamanında-etkin tamamlamada
-aynı seviyededir (${\approx}0.91$--$0.93$); görev-terk-eden BiG-MRTA düşük
+(CR\,=\,0.988) kaydeder, ancak zamanında-etkin tamamlamada Cons-DBTA onu
+kıl payı geçer ($0.650$'ye karşı $0.641$); ikisi de RoSTAM-EA'nın
+($0.529$) belirgin üstünde. \textit{robot\_failure}'da AHE ile commit-once
+BiG-MRTA en yüksek tamamlama oranında berabere (CR\,=\,0.976); zamanında-etkin
+tamamlamada BiG-MRTA hafifçe öndedir ($0.936$'ya karşı $0.915$); görev-terk-eden BiG-MRTA düşük
 DVR'ını yalnızca diğer iki senaryoda çok daha az görev tamamladığı yerde
 kaydeder (CR\,=\,0.696--0.724). 5-robot ölçeğinde AHE her senaryoda tam
 tamamlamaya (CR\,=\,1.000) ulaşır ve zamanında-etkin tamamlamada baştan
 sona öndedir: \textit{robot\_failure} ${\approx}0.98$ (DVR\,=\,0.016) vs
-${\leq}0.91$, \textit{deadline\_pressure} ${\approx}0.79$ (DVR\,=\,0.208)
+${\leq}0.92$, \textit{deadline\_pressure} ${\approx}0.79$ (DVR\,=\,0.208)
 vs ${\leq}0.66$ ve \textit{mixed\_stress} ${\approx}0.72$ vs ${\leq}0.70$;
 BiG-MRTA yük altında görev terk eder (CR\,=\,0.728/0.752). Karar gecikmesi
 5 robotta 0.8--1.2~ms, 10 robotta 1.9--3.4~ms'dir --- commit-once temel
@@ -1298,7 +1318,7 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
   gecikmesi (log ölçek). AHE-MRTA tam tamamlamaya (CR\,=\,1.000) ve en
   yüksek zamanında-etkin tamamlamaya ($0.852$; diğerleri $0.727$--$0.804$)
   ulaşır; BiG-MRTA'nın düşük DVR'ı terk edilen görevleri yansıtır (en düşük
-  CR). AHE-MRTA karar gecikmesini ve bir miktar gecikmeyi reaktif yeniden
+  CR). AHE-MRTA bir miktar gecikme ve rota maliyetini reaktif yeniden
   tahsisle takas eder. Bu havuzlanmış nokta tahminleri ödünleşimi gösterir,
   Bonferroni-düzeltilmiş bir yöntem sıralaması sağlamaz.}
   \label{fig:gazebo-multi}
@@ -1330,7 +1350,9 @@ gecikme ile yeniden-gönderimin koşu-bazlı yayılımı.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{dominance_recovery_panel.png}
-  \caption{\textit{robot\_failure} altında yorumlanabilir uyum (3r/15g).
+  \caption{\textit{robot\_failure} altında 3-robot ölçeğinde yorumlanabilir
+  uyum; (a)--(b) panelleri 15-görev yoğunluğunu, (c)--(e) panelleri üç
+  yoğunluğun havuzunu kullanır.
   Zaman, her koşunun ilk görev etkinleşmesinden ölçülür; böylece (a) ve
   (b)'deki enjeksiyon işaretleri senaryonun $45\pm5$~s'lik ofsetine oturur.
   \textbf{(a)}~Temsilî bir AHE-MRTA koşusunun hormon baskınlığı; arıza
@@ -1401,11 +1423,15 @@ Gazebo verisi bununla tutarlıdır, ancak bu etkiler birincil sonuçlarda değil
 rota maliyetinde görünür. AHE-MRTA tamamlama ve deadline üstünlüğünü kapalı
 çevrimde korur---her hücrede tamamlama lideri ya da eş-lideridir ve en güçlü
 temel yönteme karşı DVR'yi $\%38$ (5r) ve $\%49$ (10r) düşürür---ek yeniden
-planlamanın bedelini ise toplam katedilen mesafede (3 robotta 44--94~m'ye
+planlamanın bedelini ise toplam katedilen mesafede (3 robotta 44--104~m'ye
 karşı 99--113~m) ve küçük ölçeklerde \textit{mixed\_stress} makespan'inde
-(3 robotta 182--219~s'ye karşı 243~s) öder. Bedel yeniden-gönderim churn'ünde
-\emph{değildir}: yürütülen yeniden-atamalar görev başına 0.01'in altında
-kalır, dört yöntemin en iyi bandında.
+(3 robotta diğer iki reaktif temel yöntemin 182--219~s'sine karşı 243~s;
+commit-once BiG-MRTA bu hücrede 900~s ufkuna kadar koşar) öder. Bedel,
+birincil ölçekte yeniden-gönderim churn'ünde \emph{değildir}: 5 robotta
+yürütülen yeniden-atamalar görev başına 0.01'in altında kalır, dört yöntemin
+en iyi bandında. 10 robotta ise görev başına 0.06--0.08'e çıkar;
+Consensus-DBTA ile aynı seviyede (0.04--0.13) ve commit-once BiG-MRTA'nın
+(0.005--0.03) üstünde.
 
 \subsection{Gözlenen işletim örüntüleri ve nedensellik sınırı}
 
@@ -1426,7 +1452,7 @@ değildir:
   \item \textbf{Arıza-toparlanma örüntüsü.}
     \textit{robot\_failure} altında AHE, 5 robotta tam tamamlamayı
     (CR\,=\,1.000, DVR\,=\,0.016, zamanında-etkin ${\approx}0.98$ vs
-    ${\leq}0.91$) ile 10 robotta berabere-en-yüksek tamamlamayı
+    ${\leq}0.92$) ile 10 robotta berabere-en-yüksek tamamlamayı
     (CR\,=\,0.976, zamanında-etkin tamamlamada BiG-MRTA ile aynı
     seviyede) birleştirir. Uygulama arıza sonrası yetim-kurtarma davranışı
     kullanır; mevcut dört-yöntem karşılaştırması bunun marjinal nedensel
@@ -1508,20 +1534,31 @@ varyantlarıyla ortak tohumlarda, en az bir ek haritada eşleşmiş Gazebo
 \subsection{Haberleşme ayak izi}
 AHE-MRTA yalnızca robot başına optimize görev kuyrukları yayınlar; baskınlık
 vektörü, işbirliği/baskılama matrisleri ve global maliyet matrisi ekosistem
-yöneticisini asla terk etmez. Şekil~\ref{fig:comm} olay başına düşen
-yükü gösterir: AHE-MRTA için 84~bayt, commit-once temel yöntemler için 134 ve
-239~bayt, popülasyon alışverişi baskın olan RoSTAM-EA için $1{,}7{\times}10^{4}$
-bayt. Arayüz dolayısıyla boyutu paradigma değişim sıklığıyla değil filo
-büyüklüğüyle belirlenen bir kuyruk yayınıdır; burada yalnız yükü raporluyoruz
+yöneticisini asla terk etmez. Her yöntemin yükü aynı biçimde sayılır:
+protokolünün o olayda ilettiği alanlar çarpı alan boyutu---kuyruk girdisi
+4~baytlık görev kimliği, her robot 8~baytlık başlık, bir teklif kaydı 16~bayt,
+bir fayda-matrisi girdisi 4~bayt. Şekil~\ref{fig:comm} olay başına düşen
+yükü gösterir. Ölçekler havuzlandığında AHE-MRTA için 63~bayt, commit-once
+temel yöntemler için 134 ve 239~bayt, popülasyon alışverişi baskın olan
+RoSTAM-EA için $1{,}7{\times}10^{4}$ bayttır. Havuzlanmış değer farkı olduğundan
+küçük gösterir, çünkü arayüzler farklı ölçeklenir: AHE-MRTA robot başına tek ve
+sınırlı bir kuyruk yayınladığından yükü filoda doğrusal büyür (3, 5 ve 10
+robotta 40, 71 ve 137~bayt); teklif ve fayda-matrisi alışverişleri ise
+robot--görev çarpımıyla büyür (aynı aralıkta BiG-MRTA 71\,$\to$\,697,
+Consensus-DBTA 89\,$\to$\,684 ve RoSTAM-EA $7{,}4{\times}10^{3}$\,$\to$\,%
+$2{,}6{\times}10^{4}$~bayt). Burada yalnız yükü raporluyoruz
 ve bu deney değiştirme sıklığını değiştirmediği için o sıklığa bağlı davranış
 hakkında bir iddiada bulunmuyoruz.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.80\textwidth]{communication_footprint.png}
-  \caption{Tahsis olayı başına haberleşme ayak izi. Yalnızca robot başına
-  kuyruklar yayınlanır; ekosistem içsel durumları yerel kalır, bant genişliğini
-  sınırlı tutar.}
+  \caption{Tahsis olayı başına haberleşme ayak izi; her protokolün ilettiği
+  alanlardan sayılmıştır. \textbf{(a)}~Tüm yöntemler, ölçekler havuzlanmış
+  (log eksen). \textbf{(b)}~Aynı yük filo büyüklüğüne göre, aralık nedeniyle
+  RoSTAM-EA hariç: AHE-MRTA yalnız robot başına kuyruk yayınladığından yükü
+  filoda doğrusal büyür; teklif ve fayda-matrisi alışverişleri robot--görev
+  çarpımıyla büyür.}
   \label{fig:comm}
 \end{figure}
 
@@ -1538,8 +1575,10 @@ vekilini, yapılandırma testi olarak hücre başına 100 tohumlu belirlenimci
 kampanyayı ve Cliff $\delta$'yı raporlayarak hafifletiyoruz;
 daha büyük bir 10-robot tohum bütçesi ek çıkarımsal destek sağlar.
 (ii) \textbf{Toparlanma süresi varyansı:} \textit{mixed\_stress}
-toparlanma süresi yüksek varyans taşır (10r: $72\pm78$~s) çünkü bazı
-tohumlarda gözlem penceresinde arıza oluşmaz; garanti pencere-içi arızalı
+toparlanma süresi yüksek varyans taşır (3r, AHE-MRTA: 0--263~s'ye yayılan
+koşularda $67\pm78$~s) çünkü bazı tohumlarda pencere içinde arıza
+toparlanması kaydedilmez---3 robotta 60 koşunun 6'sı, 5 robotta 20'nin
+1'i; garanti pencere-içi arızalı
 \textit{robot\_failure} senaryosu daha temiz toparlanma ölçüsüdür.
 (iii) \textbf{Donanım-bağlı ölçek tavanı:} 15 robota ölçeklemek 16-iş-parçacığı/
 16\,GiB test düzeneğimizde uygulanamazdı---çok sayıda robot-başına Nav2 yığını
@@ -1595,6 +1634,21 @@ sabit tutmaz. Belirleyici takip deneyi; EDPS, her sabit paradigma,
 no-override ve no-recovery-boost varyantlarını, önceden belirlenmiş birincil
 metrik, koşul başına en az 20--30 tohum ve birden fazla harita ile ortak
 tohumlarda karşılaştırmalıdır.
+(xi) \textbf{Öncelik maliyette iki kez ifade ediliyor.} Toplamsal $w_pP_\tau$
+terimi yüksek öncelikli görevleri ucuzlatırken, Denklem~\eqref{eq:cost}'daki
+$\rho(\pi_\tau)$ çarpanı şekillendirilmiş maliyetin tamamını yeniden ölçekler.
+Tahsis edicinin $2{,}3{\times}10^{4}$ maliyet değerlendirmesi üzerinde yeniden
+oynatılması, uygun her çiftte köşeli parantezin negatif olduğunu gösterir---%
+deadline-yetenek bonusu ağırlıklı öznitelikleri bastırır---dolayısıyla $\rho$,
+toplamsal terimin yalnızca $0{,}07$ avantaj verdiği öncelik-3 adayına yaklaşık
+$0{,}50$ ekler ve amaçlanan sıralamayı tersine çevirir. Birincil sonuçlar
+önceliğe duyarsızdır; çarpanın kaldırıldığı eşli 500-tohumlu bir A/B, öncelik
+ağırlıklı vekil uygunluğunu her senaryoda $0{,}4$~yüzde puanı içinde bırakır
+(robot arızası $+0{,}38$~yp, $p{=}0{,}14$; karışık stres $+0{,}04$~yp,
+$p{=}0{,}95$; deadline baskısı $-0{,}06$~yp, $p{=}0{,}76$). Yani artefakt
+maliyet fonksiyonunda ölçülebilir, raporlanan sonuçlarda değildir. Uygulanan
+biçimi raporluyor ve düzeltmeyi, değerlendirilen sistemi sonradan yeniden
+ayarlamak yerine bir revizyona bırakıyoruz.
 \section{Sonuç}
 \label{sec:conclusion}
 
@@ -1611,11 +1665,11 @@ tamamlayan kanıtlar sunar.
 Dört-yöntemli Gazebo kıyaslamasında hücre başına beş tohum vardır. Bu nedenle
 nokta tahminlerini evrensel üstünlük olarak değil, betimleyici çalışma
 örüntüleri olarak raporluyoruz. Test edilen harita ve Nav2 yığınında AHE-MRTA,
-robot arızası altında tam tamamlamaya ve deadline baskısı altında en yüksek
-zamanında-etkin tamamlamaya ulaşır---en güçlü temel yöntemin yaklaşık \%$19$ (5
-robot) ve \%$46$ (10 robot) üzerinde, ve o yöntemin deadline-ihlal oranını da
-\%$38$ ve \%$49$ düşürerek---bunun bedeli daha yüksek karar gecikmesi ve daha
-düşük iş yükü dengesidir.
+3 ve 5 robotta robot arızası altında tam tamamlamaya ve deadline baskısı
+altında en yüksek zamanında-etkin tamamlamaya ulaşır---en güçlü temel yöntemin
+yaklaşık \%$19$ (5 robot) ve \%$46$ (10 robot) üzerinde, ve o yöntemin
+deadline-ihlal oranını da \%$38$ ve \%$49$ düşürerek---bunun bedeli daha uzun
+rotalar ve daha düşük iş yükü dengesidir.
 
 Mevcut deneyler EDPS'i kapalı-çevrim yürütmede nedensel olarak ayırmaz; dış
 temel yöntemler seçicinin ötesinde bileşenlerde farklıdır. Gerekli sonraki

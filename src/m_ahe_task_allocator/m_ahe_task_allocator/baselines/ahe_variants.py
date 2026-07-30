@@ -493,6 +493,20 @@ class AHEMRTAv3Allocator(BaseAllocator):
     # under a hard remaining-makespan non-regression guard.
     F58_FAIR_TERMINAL_TASKS_PER_ROBOT = 3.0
     F58_REMAINING_MAKESPAN_NONREGRESSION = True
+    # F59 (Priority cost scaling), audit 2026-07-30.  `_cost` ends with
+    # ``cost *= (1 - F59_PRIORITY_COST_SCALE * (priority - 1))``, written as a
+    # discount for urgent work.  A 23k-evaluation replay shows the shaped cost
+    # is negative at that point in 100% of feasible pairs (the 2.20 deadline-
+    # capability bonus dominates the weighted features), so the factor in fact
+    # charges priority 3 about 0.50 MORE than priority 1 -- roughly seven times
+    # the 0.07 advantage the additive w_p*P term grants it.  The default keeps
+    # the published campaign bit-identical; ``AHE_PRIORITY_COST_SCALE=0``
+    # disables the factor for the A/B that measures what it costs.
+    F59_PRIORITY_COST_SCALE = 0.10
+    # Queue-broadcast payload accounting (see _comm_footprint).
+    COMM_HEADER_BYTES = 8
+    COMM_ID_BYTES = 4
+
     # ─── v4.2 kararlılık paketi (F25–F27) ───
     # Teşhis (30-seed sim, 2026-06-12): reassignment'ların %85'i A→B→A
     # ping-pong; kaynak = arıza modunda NOOP+sticky+commit-lock üçünün
@@ -944,6 +958,19 @@ class AHEMRTAv3Allocator(BaseAllocator):
                         self.F57_PAIR_FAILURE_PENALTY)
                 * self._pair_failure_count(robot, task))
 
+
+    def _comm_footprint(self, queues: dict) -> int:
+        """Bytes broadcast for one allocation event.
+
+        Per-robot task queues are the only thing this method puts on the wire.
+        The payload is counted the way every baseline counts its own protocol
+        (transmitted fields x field size), so the numbers stay comparable.
+        The previous constant 84 was another variant's 3-robot weight-vector
+        size and did not move with the fleet.
+        """
+        entries = sum(len(q) for q in queues.values())
+        return (len(queues) * self.COMM_HEADER_BYTES
+                + entries * self.COMM_ID_BYTES)
 
     def _select_paradigm_lightweight(self, context: Optional[EcosystemContext]) -> int:
         """F50: Statik bağlam-anahtarlı seçim (EDPS dinamiği yok).
@@ -1930,8 +1957,12 @@ class AHEMRTAv3Allocator(BaseAllocator):
         if len(q) >= cap:
             cost += self.OVER_CAP_PENALTY
 
-        # Priority bonus: öncelikli görevleri biraz daha çekici yap
-        cost *= (1.0 - 0.10 * (task.priority - 1))
+        # Priority bonus: öncelikli görevleri biraz daha çekici yap.
+        # F59: uygulanan biçim çarpımsal; maliyet bu noktada negatifken
+        # ters yönde çalışır (bkz. sınıf sabiti). Varsayılan kampanyayı korur.
+        _pri_scale = getattr(self, '_priority_cost_scale',
+                             self.F59_PRIORITY_COST_SCALE)
+        cost *= (1.0 - _pri_scale * (task.priority - 1))
 
         # F53: exact-completion fairness is a bounded bonus for under-served,
         # near-arrival candidates.  It never penalises an efficient candidate;
@@ -1993,6 +2024,8 @@ class AHEMRTAv3Allocator(BaseAllocator):
         self._f58_remaining_makespan_nonregression = _env_bool(
             'AHE_F58_REMAINING_MAKESPAN_NONREGRESSION',
             self.F58_REMAINING_MAKESPAN_NONREGRESSION)
+        self._priority_cost_scale = max(0.0, _env_float(
+            'AHE_PRIORITY_COST_SCALE', self.F59_PRIORITY_COST_SCALE))
 
         _max_fleet = self.F44_AGGRESSIVE_MAX_FLEET
         _env_mf = os.environ.get('AHE_MAX_FLEET')
@@ -2175,9 +2208,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
             )
             if state_key == self._prev_state_key:
                 # State değişmedi → mevcut kuyrukları olduğu gibi döndür
-                return AllocationResult(queues=dict(self._prev_queues),
-                                        latency_ms=0,
-                                        communication_footprint_bytes=84)
+                _q = dict(self._prev_queues)
+                return AllocationResult(
+                    queues=_q, latency_ms=0,
+                    communication_footprint_bytes=self._comm_footprint(_q))
             self._prev_state_key = state_key
 
         if not unassigned or not avail:
@@ -2187,8 +2221,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
                 ordered[r.robot_id] = [t.task_id for t in self._order_queue(r, q_tasks, current_time)]
             self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
             self._update_assign_history(ordered)
-            return AllocationResult(queues=ordered, latency_ms=0,
-                                    communication_footprint_bytes=84)
+            return AllocationResult(
+                queues=ordered, latency_ms=0,
+                communication_footprint_bytes=self._comm_footprint(ordered))
 
         # RADİKAL PAKET (JTSC): robot_cap=1 zorla — her robotta tek görev, kuyruk
         # blokajı yok. Robot tamamlayınca allocator hemen yeni atama yapar.
@@ -2250,8 +2285,10 @@ class AHEMRTAv3Allocator(BaseAllocator):
                                     if tid in active_tids}
                 self._prev_queues = {rid: list(q) for rid, q in ordered_paradigm.items()}
                 self._update_assign_history(ordered_paradigm)
-                return AllocationResult(queues=ordered_paradigm, latency_ms=0,
-                                        communication_footprint_bytes=84)
+                return AllocationResult(
+                    queues=ordered_paradigm, latency_ms=0,
+                    communication_footprint_bytes=self._comm_footprint(
+                        ordered_paradigm))
 
         # ════════════════════════════════════════════════════════════════
         # 3PHA — Methodolojik kök fark: çok-fazlı hiyerarşik allocation
@@ -2329,8 +2366,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
                                            self._order_queue(r, q_tasks, current_time)]
                 self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
                 self._update_assign_history(ordered)
-                return AllocationResult(queues=ordered, latency_ms=0,
-                                        communication_footprint_bytes=84)
+                return AllocationResult(
+                    queues=ordered, latency_ms=0,
+                    communication_footprint_bytes=self._comm_footprint(ordered))
 
             unassigned = remaining_tasks
 
@@ -2444,8 +2482,9 @@ class AHEMRTAv3Allocator(BaseAllocator):
         self._prev_queues = {rid: list(q) for rid, q in ordered.items()}
         self._update_assign_history(ordered)
 
-        return AllocationResult(queues=ordered, latency_ms=0,
-                                communication_footprint_bytes=84)
+        return AllocationResult(
+            queues=ordered, latency_ms=0,
+            communication_footprint_bytes=self._comm_footprint(ordered))
 
 
 # Ablasyon varyantları kaldırıldı (paper kapsamı dışı — ana_method §1.3).

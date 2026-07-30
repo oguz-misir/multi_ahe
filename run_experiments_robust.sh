@@ -21,6 +21,18 @@ cd "$REPO"
 source "$REPO/scripts/exp_lib.sh"
 EXPECTED_TOTAL="${EXPECTED_TOTAL:-60}"
 
+# ── Değerlendirilen AHE-MRTA yapılandırması ──────────────────────────────────
+# AHEMRTAv3Allocator'ın sınıf varsayılanları tarihsel F45 referansını bit-özdeş
+# korur; makalenin yöntemi (geodezik ETA + sınırlı terminal yük onarımı) bu
+# bayraklarla açılır. Bunlar export EDİLMEZSE aynı `ahe_mrta_v3` adıyla Öklid
+# ve onarımsız BAŞKA bir yöntem koşulur — yayımlanan kampanya bu ayarlarla
+# üretildi. Üzerine yazmak için çağırmadan önce export et.
+export AHE_F58_GEODESIC="${AHE_F58_GEODESIC:-1}"
+export AHE_F58_FAIR_REPAIR="${AHE_F58_FAIR_REPAIR:-1}"
+export AHE_F58_FAIR_RESERVATION_GAP="${AHE_F58_FAIR_RESERVATION_GAP:-2}"
+export AHE_F58_FAIR_EXTRA_QUEUE="${AHE_F58_FAIR_EXTRA_QUEUE:-1}"
+export AHE_F58_FAIR_TERMINAL_TASKS_PER_ROBOT="${AHE_F58_FAIR_TERMINAL_TASKS_PER_ROBOT:-3}"
+
 # ── Varsayılanlar ─────────────────────────────────────────────────────────────
 DRY_RUN=0
 SKIP_DONE=1

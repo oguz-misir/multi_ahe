@@ -275,9 +275,12 @@ $P_\tau=(4-\pi_\tau)/3$, battery risk $B_r^k$, relative load $L_r^k$,
 failure risk $F_r^k$, deadline urgency $U_\tau^k$, and navigation/recovery
 risk $R_r^k$. For a feasible pair, the common cost is
 \begin{equation}
-  C_{r\tau}^k =
-  w_dA_{r\tau}^k+w_pP_\tau+w_bB_r^k+w_lL_r^k
-  +w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k .
+\begin{aligned}
+  C_{r\tau}^k =\ &\rho(\pi_\tau)\bigl[
+  w_dA_{r\tau}^k+w_pP_\tau+w_bB_r^k+w_lL_r^k\\
+  &\quad+w_fF_r^k+w_tU_\tau^k+w_rR_r^k+\Psi_{r\tau}^k\bigr],\\
+  &\rho(\pi)=1-0.1(\pi-1) .
+\end{aligned}
   \label{eq:cost}
 \end{equation}
 Here $A_{r\tau}^k=\min(1,\hat a_{r\tau}^k/A_{\max})$ with $A_{\max}=220$~s.
@@ -292,7 +295,13 @@ incumbent sticky bonus, reassignment penalty, and capacity penalty. This form
 avoids adding seconds directly to normalized features. EDPS supplies $w$;
 the active paradigm can also shape task order and eligibility. A safe
 incumbent retains base urgency, whereas an unassigned or at-risk task receives
-nonlinear urgency growth.
+nonlinear urgency growth. The factor $\rho$ was written as a discount for
+urgent work and behaves as one while the bracket is positive. In the evaluated
+configuration it is not: the deadline-capability bonus inside
+$\Psi_{r\tau}^k$ outweighs the weighted features, so the bracket is negative
+for feasible pairs and $\rho$ then charges a priority-3 task \emph{more} than a
+priority-1 task in the same state. We report the implemented form rather than
+the intended one and quantify the effect in Section~\ref{sec:limitations}.
 
 \textbf{Run-level outcomes and timing contract.} The run-level objective is
 to maximize completion and minimize deadline violations without hiding
@@ -714,6 +723,16 @@ visualization. All methods use identical Nav2 parameters.
 Figure~\ref{fig:system} shows how the ecosystem manager and the per-robot Nav2
 lifecycles are wired together in this stack.
 
+\paragraph{Evaluated configuration and artifacts.} AHE-MRTA* is evaluated with
+its geodesic-ETA oracle and terminal load repair active. Both are switched on
+explicitly at launch: the allocator's built-in defaults reproduce the earlier
+Euclidean, repair-free reference kept for ablation, so the configuration---not
+only the method name---determines what runs. The resolved switch set is
+recorded in each run's metadata and in the campaign directory, so a run cannot
+be confused with a differently configured one under the same name. The
+allocator, the campaign drivers, and the scripts that generate every table and
+figure from the raw logs accompany this submission.
+
 \subsection{Inspection Arena}
 The arena is a $20{\times}20$~m walled indoor mock-up. Two horizontal walls
 with a 1.5~m central passage create upper and lower lanes. Two rows of square
@@ -1097,8 +1116,8 @@ both lanes; it is not a quantitative result.
     \includegraphics[width=\linewidth]{rviz_10r_example.png}\\[2pt]
     {\small (b) RViz --- map + live Nav2 plans}
   \end{minipage}
-  \caption{Representative live snapshot of one 10-robot AHE-MRTA run on a
-  illustrative 10-robot / 50-task run with staggered task arrivals, outside
+  \caption{Representative live snapshot of an illustrative 10-robot /
+  50-task AHE-MRTA run with staggered task arrivals, outside
   the three benchmark scenarios. Both panels are captured from
   the same paused simulation instant of the same run, so robot positions
   correspond one-to-one. \textbf{(a)} Gazebo Harmonic (top-down view)
@@ -1176,9 +1195,10 @@ campaign's latency (15.4 versus 15.9~ms) while every non-latency difference
 stayed inside ordinary Gazebo run-to-run variation.} Consensus methods have
 nearly perfect workload balance and few messages
 because they commit assignments. AHE trades some of this balance
-for reactive changes and the reported deadline outcomes: its all-robot Jain
-balance is 0.85--0.99 against 0.93--1.00 for the commit-once baselines, and
-its routes are longer (99--113~m versus 44--94~m at 3 robots) because
+for reactive changes and the reported deadline outcomes: at 3 robots its
+all-robot Jain balance is 0.85--0.99, against 0.93--0.96 for commit-once
+BiG-MRTA and 0.88--1.00 for Consensus-DBTA, and
+its routes are longer (99--113~m versus 44--104~m) because
 redispatched tasks are re-approached from a different robot.
 
 \input{table/latex_efficiency_table.tex}
@@ -1306,8 +1326,9 @@ corresponding cumulative-completion curves for \textit{robot\_failure} and
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{dominance_recovery_panel.png}
-  \caption{Interpretable adaptation under \textit{robot\_failure}
-  (3r/15t). Time is measured from each run's first task activation, so
+  \caption{Interpretable adaptation under \textit{robot\_failure} at the
+  3-robot scale; panels (a)--(b) use the 15-task density and panels (c)--(e)
+  pool the three densities. Time is measured from each run's first task activation, so
   the injection markers in (a) and (b) sit at the scenario's $45\pm5$~s
   offset. \textbf{(a)}~Hormone dominance of a representative
   AHE-MRTA run; the spatial hormone leads the pre-failure phase
@@ -1374,11 +1395,14 @@ cost rather than in the primary outcomes. AHE-MRTA keeps its completion and
 deadline advantage in the closed loop---it is the completion leader or
 co-leader in every cell and cuts DVR by $38\%$ (5r) and $49\%$ (10r) against
 the strongest baseline---while paying for the extra replanning in total travel
-distance (99--113~m versus 44--94~m at 3 robots) and, at the smaller scales,
-in makespan under \textit{mixed\_stress} (243~s versus 182--219~s at 3
-robots). Redispatch churn is \emph{not} where the cost appears: executed
-reassignments stay at or below 0.01 per task, in the best band of the four
-methods.
+distance (99--113~m versus 44--104~m at 3 robots) and, at the smaller scales,
+in makespan under \textit{mixed\_stress} (243~s versus 182--219~s for the two
+other reactive baselines at 3 robots; commit-once BiG-MRTA runs to the 900~s
+horizon in this cell). Redispatch churn is \emph{not} where the cost appears
+at the primary scale: at 5 robots executed reassignments stay at or below 0.01
+per task, the best band of the four methods. At 10 robots they rise to
+0.06--0.08 per task, level with Consensus-DBTA (0.04--0.13) and above
+commit-once BiG-MRTA (0.005--0.03).
 
 \subsection{Observed operating patterns and attribution boundary}
 
@@ -1399,7 +1423,7 @@ ablation is available:
   \item \textbf{Failure-recovery pattern.} Under
     \textit{robot\_failure} AHE combines full completion at 5 robots
     (CR\,=\,1.000, DVR\,=\,0.016, effective on-time ${\approx}0.98$
-    vs ${\leq}0.91$) with tied-highest completion at 10
+    vs ${\leq}0.92$) with tied-highest completion at 10
     robots (CR\,=\,0.976, level with BiG-MRTA on effective on-time).
     The implementation invokes an orphan-rescue behaviour after a failure,
     but the present four-method comparison does not identify its marginal
@@ -1484,20 +1508,32 @@ no-recovery-boost variants on common seeds and at least one additional map.
 \subsection{Communication footprint}
 AHE-MRTA publishes only per-robot optimized task queues; the
 dominance vector, cooperation/suppression matrices, and global cost
-matrix never leave the ecosystem manager. Figure~\ref{fig:comm} shows the resulting
-per-event payload: 84~bytes for AHE-MRTA against 134 and 239~bytes for the
+matrix never leave the ecosystem manager. Each method's payload is counted the
+same way---the fields its protocol transmits at that event times their field
+size---so a queue entry costs a 4-byte task id and each robot an 8-byte
+header, a bid record 16 bytes, and a utility-matrix entry 4 bytes.
+Figure~\ref{fig:comm} shows the resulting per-event payload. Pooled over
+scales it is 63~bytes for AHE-MRTA against 134 and 239~bytes for the
 commit-once baselines and $1.7{\times}10^{4}$~bytes for RoSTAM-EA, whose
-population exchange dominates. The interface is therefore a queue broadcast
-whose size is set by the fleet, not by how often the paradigm switches; we
-report the payload only and make no claim about its behaviour as a function of
-switching frequency, which this experiment does not vary.
+population exchange dominates. The pooled figure understates the difference
+because the interfaces scale differently: AHE-MRTA broadcasts one bounded
+queue per robot, so its payload grows linearly in the fleet
+(40, 71, and 137~bytes at 3, 5, and 10 robots), whereas bid and
+utility-matrix exchanges grow with the robot--task product
+(BiG-MRTA 71\,$\to$\,697, Consensus-DBTA 89\,$\to$\,684, and RoSTAM-EA
+$7.4{\times}10^{3}$\,$\to$\,$2.6{\times}10^{4}$~bytes over the same range).
+We report the payload only and make no claim about its behaviour as a function
+of switching frequency, which this experiment does not vary.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.80\textwidth]{communication_footprint.png}
-  \caption{Communication footprint per allocation event. Only
-  per-robot queues are broadcast; ecosystem internals stay local,
-  keeping bandwidth bounded.}
+  \caption{Communication footprint per allocation event, counted from the
+  fields each protocol transmits. \textbf{(a)}~All methods, pooled over
+  scales (log axis). \textbf{(b)}~The same payload by fleet size, RoSTAM-EA
+  omitted for range: only per-robot queues are broadcast by AHE-MRTA, so its
+  payload grows linearly in the fleet while bid and utility-matrix exchanges
+  grow with the robot--task product.}
   \label{fig:comm}
 \end{figure}
 
@@ -1514,8 +1550,10 @@ high-power cross-method test and the 100-seed-per-cell deterministic campaign
 as the configuration test, together with Cliff's $\delta$; a
 larger 10-robot seed budget would add inferential support.
 (ii) \textbf{Recovery-time variance:} Recovery time under
-\textit{mixed\_stress} carries high variance (10r: $72\pm78$~s) because
-some seeds have no robot failure within the observation window; the
+\textit{mixed\_stress} carries high variance (3r, AHE-MRTA:
+$67\pm78$~s over runs spanning 0--263~s) because some seeds record no
+in-window failure recovery---6 of the 60 runs at 3 robots and 1 of 20 at
+5 robots; the
 \textit{robot\_failure} scenario, with guaranteed in-window failures,
 is the cleaner recovery measure.
 (iii) \textbf{Hardware-bound scale ceiling:} Scaling to 15 robots was
@@ -1570,6 +1608,20 @@ does not hold every non-selector component fixed. A decisive follow-up is a
 common-seed Gazebo experiment of EDPS, each fixed paradigm, no-override, and
 no-recovery-boost variants, with a pre-specified primary metric, at least
 20--30 seeds per condition, and more than one map.
+(xi) \textbf{Priority is expressed twice in the cost.} The additive term
+$w_pP_\tau$ discounts high-priority tasks, while the factor $\rho(\pi_\tau)$
+of Eq.~\eqref{eq:cost} rescales the whole shaped cost. Replaying the allocator
+over $2.3{\times}10^{4}$ cost evaluations shows the bracket is negative for
+every feasible pair---the deadline-capability bonus outweighs the weighted
+features---so $\rho$ adds about $0.50$ to a priority-3 candidate where the
+additive term grants it only $0.07$, reversing the intended ordering. The
+primary outcomes are priority-agnostic, and a paired 500-seed A/B with the
+factor removed leaves the priority-weighted proxy fitness within $0.4$~pp in
+every scenario ($+0.38$~pp robot failure, $p{=}0.14$; $+0.04$~pp mixed stress,
+$p{=}0.95$; $-0.06$~pp deadline pressure, $p{=}0.76$). The artefact is
+therefore measurable in the cost function but not in the reported outcomes. We
+report the implemented form and leave the correction to a revision rather than
+re-tuning the evaluated system after the fact.
 
 %==============================================================================
 \section{Conclusion}
@@ -1587,7 +1639,7 @@ settings provide complementary evidence, not one global performance ranking.
 The four-method Gazebo benchmark has five seeds per cell. We therefore report
 its point estimates as descriptive operating patterns, not as universal
 superiority. Within the evaluated map and Nav2 stack, AHE-MRTA reaches full
-completion under robot failure and the largest effective on-time completion
+completion under robot failure at 3 and 5 robots and the largest effective on-time completion
 under deadline pressure---about $19\%$ (5 robots) and $46\%$ (10 robots) above
 the strongest baseline, whose deadline-violation rate it also cuts by $38\%$
 and $49\%$---at the cost of longer routes and lower workload balance.

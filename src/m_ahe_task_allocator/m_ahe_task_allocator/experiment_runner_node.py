@@ -985,6 +985,13 @@ class ExperimentRunnerNode(Node):
             'seed': self._seed,
             'timeout_sec': EXPERIMENT_TIMEOUT_SEC,
             'gazebo_startup_delay_sec': self._startup_delay,
+            # The evaluated allocator is flag-gated: the class defaults are the
+            # historical F45 reference, and the paper configuration is switched
+            # on through the environment.  Without this record a run cannot be
+            # told apart from a differently configured one carrying the same
+            # strategy name, so the resolved switches travel with the results.
+            'allocator_env': {k: v for k, v in sorted(os.environ.items())
+                              if k.startswith('AHE_')},
         }
         with open(os.path.join(self._results_dir, 'metadata.yaml'), 'w') as f:
             yaml.dump(meta, f)

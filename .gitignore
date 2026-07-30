@@ -3,8 +3,9 @@ build/
 install/
 log/
 
-# Experiment results (raw data — büyük dosyalar)
-results/raw/
+# Experiment results (raw data — büyük dosyalar).
+# Kural aşağıda `results/*` bloğunda toplanır; burada ayrıca dışlamak
+# istisnaları imkânsız kılıyordu (dışlanmış dizinin içi geri alınamaz).
 
 # Python
 __pycache__/
@@ -52,6 +53,19 @@ results/*
 !results/processed/
 results/processed/*
 !results/processed/ahe_latency_warmup.csv
+# Aynı sözleşme haberleşme kolonu için: yoksa plot_results sessizce kampanyanın
+# sabit 84 baytını çizer ve Şekil 12 metinle çelişir.
+!results/processed/ahe_comm_footprint.csv
+# Öncelik-çarpanı A/B'sinin özetleri (Limitasyon xi'deki sayıların kaynağı).
+!results/processed/ab_prio_on.csv
+!results/processed/ab_prio_off.csv
+# Ham veri izlenmez AMA kampanyanın hangi yapılandırmayla üretildiği izlenir:
+# bayraklar koşu artefaktlarında yoktu, bu not olmadan veri yorumlanamaz.
+!results/raw/
+results/raw/*
+!results/raw/gazebo_benchmark_f58/
+results/raw/gazebo_benchmark_f58/*
+!results/raw/gazebo_benchmark_f58/CONFIG.md
 # LaTeX build artefaktları (tex/pdf/cls/bst commit edilir)
 *.aux
 *.bbl

@@ -38,6 +38,7 @@ from typing import Optional
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from latency_override import apply_latency_override  # noqa: E402
+from comm_override import apply_comm_override  # noqa: E402
 
 # ── Global publication style ───────────────────────────────────────────────────
 plt.rcParams.update({
@@ -170,6 +171,10 @@ def _load(processed_dir: Path, fname: str) -> Optional[pd.DataFrame]:
         # Figures must carry the same superseded latency column as the tables,
         # otherwise the plots contradict the text.
         df = apply_latency_override(df, processed_dir)
+    if fname == "all_communication.csv":
+        # Same contract for the payload column: the campaign logged a constant
+        # for AHE-MRTA that described neither its protocol nor the fleet size.
+        df = apply_comm_override(df, processed_dir)
     return df
 
 
@@ -719,24 +724,36 @@ def plot_communication_footprint(df_comm: Optional[pd.DataFrame],
                 _fmt_val(mean), ha="center", va="bottom", fontsize=7.5,
                 fontweight="bold")
 
-    # Panel (b): linear scale — exclude RoSTAM-EA to show detail among others
+    # Panel (b): how the payload grows with the fleet. A pooled mean hides this,
+    # and scaling is the whole claim being made about the interface, so the
+    # non-RoSTAM methods are shown per fleet size instead of pooled.
     ax = axes[1]
     methods2 = [m for m in methods if m != "rostam_ea"]
-    labels2  = [METHOD_LABELS.get(m, m) for m in methods2]
-    colors2  = [METHOD_PALETTE.get(m, "#999999") for m in methods2]
-    means2   = [df_comm[df_comm["strategy"] == m][col].mean() for m in methods2]
-    errs2    = [df_comm[df_comm["strategy"] == m][col].std(ddof=1) for m in methods2]
-    yerr2 = np.vstack([np.minimum(np.nan_to_num(errs2), np.nan_to_num(means2)), errs2])
-    ax.bar(labels2, means2, color=colors2, yerr=yerr2, capsize=3,
-           edgecolor="black", linewidth=0.6, error_kw={"linewidth": 0.8})
+    scales = sorted(df_comm["robot_count"].unique()) \
+        if "robot_count" in df_comm.columns else []
+    if scales:
+        width = 0.8 / max(1, len(methods2))
+        idx = np.arange(len(scales), dtype=float)
+        for k, m in enumerate(methods2):
+            vals = [df_comm[(df_comm["strategy"] == m)
+                            & (df_comm["robot_count"] == s)][col].mean()
+                    for s in scales]
+            pos = idx + (k - (len(methods2) - 1) / 2) * width
+            ax.bar(pos, vals, width=width,
+                   color=METHOD_PALETTE.get(m, "#999999"),
+                   edgecolor="black", linewidth=0.6,
+                   label=METHOD_LABELS.get(m, m))
+            for x, v in zip(pos, vals):
+                if not np.isnan(v):
+                    ax.text(x, v, f" {_fmt_val(v)}", ha="center", va="bottom",
+                            fontsize=6.0)
+        ax.set_xticks(idx)
+        ax.set_xticklabels([f"{int(s)}r" for s in scales])
+        ax.set_xlabel("Fleet size")
+        ax.margins(y=0.18)
+        ax.legend(fontsize=6.5, frameon=False, ncol=1, loc="upper left")
     ax.set_ylabel("Bytes / event")
-    ax.set_xticks(range(len(labels2)))
-    ax.set_xticklabels(labels2, rotation=45, ha="right")
-    ax.set_title("(b) Excluding RoSTAM-EA, linear", fontsize=9)
-    for i, (mean, err) in enumerate(zip(means2, errs2)):
-        if not np.isnan(mean):
-            ax.text(i, mean + (err if not np.isnan(err) else 0) + max(means2) * 0.02,
-                    _fmt_val(mean), ha="center", va="bottom", fontsize=7.5)
+    ax.set_title("(b) Payload vs fleet size (RoSTAM-EA omitted)", fontsize=9)
 
     fig.tight_layout()
     out_path = out_dir / "communication_footprint.png"
