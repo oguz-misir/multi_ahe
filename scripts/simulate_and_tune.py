@@ -38,6 +38,7 @@ from m_ahe_task_allocator.baselines.base_allocator import (
     AllocationResult, EcosystemContext, RobotState, TaskState, jain_index,
 )
 from m_ahe_task_allocator.baselines.ahe_variants import AHEMRTAv3Allocator
+from m_ahe_task_allocator import scenarios
 from m_ahe_task_allocator.placement import (
     task_positions as _free_task_positions,
     robot_spawns as _free_robot_spawns,
@@ -123,11 +124,18 @@ def _nav_success_prob(pos: Tuple[float, float], rng: random.Random) -> float:
 
 
 def _nav_time(robot_pos: Tuple[float, float], task_pos: Tuple[float, float],
-              distance: Optional[float] = None) -> float:
-    """Simulated navigation time in seconds."""
+              distance: Optional[float] = None,
+              service_time: float = SERVICE_TIME) -> float:
+    """Simulated navigation time in seconds: travel plus the dwell at the goal.
+
+    The dwell is the task's own service time.  It used to be the flat
+    ``SERVICE_TIME`` constant, which was consistent while every task carried the
+    same 2.0 s; now that tasks draw U[2,8] s as the paper documents, charging a
+    constant would have made that draw decorative.
+    """
     d = (math.hypot(task_pos[0] - robot_pos[0], task_pos[1] - robot_pos[1])
          if distance is None else distance)
-    return max(1.0, d / ROBOT_SPEED) + SERVICE_TIME
+    return max(1.0, d / ROBOT_SPEED) + service_time
 
 
 def _execution_distance(start: Tuple[float, float], goal: Tuple[float, float]) -> float:
@@ -362,37 +370,28 @@ def _gen_tasks(n: int, rng: random.Random, scenario: str,
     # robot depot.
     positions = _free_task_positions(n, seed, n_robots)
 
-    # Task activation schedule:
-    #   deadline_pressure : all at t=0 (single tight wave)
-    #   robot_failure     : wave 1 @ t=0 (8 tasks), wave 2 @ t=60 (4), wave 3 @ t=120 (3)
-    #   mixed_stress      : same waves as robot_failure + faster battery drain (handled
-    #                       in run_simulation via scenario check)
-    # Staggered activation ensures L/B/F context factors are non-zero at waves 2-3,
-    # making ecosystem weight adaptation visible in ablation comparisons.
-    deadline_pressure = (scenario == 'deadline_pressure')
-    if deadline_pressure or n <= 5:
-        activation_schedule = [0.0] * n
-    else:
-        # 8 tasks at t=0, 4 at t=60, remainder at t=120
-        n_w1 = min(8, n)
-        n_w2 = min(4, n - n_w1)
-        n_w3 = n - n_w1 - n_w2
-        activation_schedule = ([0.0] * n_w1 + [60.0] * n_w2 + [120.0] * n_w3)
+    # Scenario semantics come from the shared definition module, so this plane
+    # and the Gazebo runner cannot drift apart again.  They had: this plane used
+    # its own wave schedule (8/4/rest at 0/60/120 regardless of scenario), a
+    # generous act_t+0.75*T deadline, and a deadline_pressure draw of U[200,400]
+    # -- none of which is what the paper documents.  The practical effect was
+    # that mixed_stress differed from robot_failure by battery drain alone.
+    activation_schedule = []
+    for offset, count in scenarios.activation_batches(scenario, n):
+        activation_schedule.extend([offset] * count)
 
     for i, (pos, act_t) in enumerate(zip(positions, activation_schedule)):
-        pri = rng.choice([1, 2, 3])
-        if deadline_pressure:
-            dl = rng.uniform(200.0, 400.0)   # tight deadlines
-        else:
-            # Generous deadline from activation time (not experiment start)
-            dl = act_t + exp_duration * 0.75
+        pri = scenarios.priority(rng)
+        # Deadlines are anchored at run start, not at activation, so later
+        # waves arrive with less slack.
+        dl = scenarios.deadline_offset_s(scenario, rng)
         tasks.append(TaskState(
             task_id=f'task_{i+1:03d}',
             position=pos,
             priority=pri,
             activation_time=act_t,
             deadline=dl,
-            service_time=SERVICE_TIME,
+            service_time=scenarios.service_time_s(rng),
             active=(act_t == 0.0),   # only wave-1 tasks active at start
             completed=False,
         ))
@@ -467,12 +466,17 @@ def run_simulation(
         BATT_DRAIN_PER_METER = batt_drain
     NAV_FAIL_STUCK_SEC   = nav_fail_stuck
 
-    # Failure injection (robot_failure + mixed_stress)
+    # Failure injection, from the shared scenario definitions.  This plane used
+    # to pick the victim at random and fire at a fixed 45.0 s; the documented
+    # design targets a fixed robot index (so the recovery burden is identical
+    # across methods for a given seed) at 45 +/- 5 s.
     fail_robot_id = None
     fail_time = -1.0
-    if scenario in ('robot_failure', 'mixed_stress'):
-        fail_robot_id = rng.choice([r.robot_id for r in robots])
-        fail_time = 45.0
+    for offset, target in scenarios.failure_events(scenario, rng):
+        ids = [r.robot_id for r in robots]
+        fail_robot_id = target if target in ids else ids[
+            min(scenarios.FAILURE_TARGET_INDEX, len(ids)) - 1]
+        fail_time = offset
 
     # Task backoff
     task_fail_count: Dict[str, int] = {}
@@ -678,7 +682,8 @@ def run_simulation(
                     continue
                 # Start navigation
                 dist = _execution_distance(robot.pos, task.position)
-                nav_t = _nav_time(robot.pos, task.position, dist)
+                nav_t = _nav_time(robot.pos, task.position, dist,
+                                  task.service_time)
                 if ideal_nav:
                     # Navigation-independent evaluation: perfect navigation, so
                     # every metric reflects allocation quality alone (robot
