@@ -102,7 +102,6 @@ yukarıdaki çıktılardan elle taşınır. Bayatlama riski buradadır:
 
 | Tablo | Beslendiği kaynak |
 |---|---|
-| `allocation_only{,_tr}.tex` | `stats/f58_allocation_only*/` |
 | `fitness{,_tr}.tex` | `processed/sim_fitness.csv` |
 | `scalability{,_tr}.tex` | `processed/sim_scalability.csv` |
 | `ablation{,_tr}.tex` | `processed/ablation_edps_100_geodesic.txt` |
@@ -110,6 +109,19 @@ yukarıdaki çıktılardan elle taşınır. Bayatlama riski buradadır:
 
 Bu dosyalardan birine dokunulduğunda kaynağıyla birebir karşılaştır. `ablation.tex`
 tam olarak bu adım atlandığı için aylarca `sim_scalability.csv` ile çelişti.
+
+> `allocation_only{,_tr}.tex` **2026-07-30'da elle-bakımdan çıkarıldı** →
+> `python3 scripts/make_allocation_table.py`. Sebep: elle doldurulmuş hâli
+> kaynağından sapmıştı (10r/50t robot_failure hücresi tabloda 0.982 Jain /
+> 284.1 m / 0.200 ms, kaynakta 0.961 / 272.7 m / **0.361 ms**) ve bayat
+> 0.200 ms değeri metne *"latency is at most 0.201 ms"* olarak sızmıştı.
+
+### Warm-up sonrası latency (2026-07-30)
+`processed/ahe_latency_warmup.csv`, geodezik kâhin başlangıçta kurulduğunda
+yeniden ölçülen **AHE latency**'sini taşır. `scripts/latency_override.py`
+bunu `all_summary.csv` üzerine uygular; **hem** `make_extra_tables.py` **hem**
+`plot_results.py` bu yardımcıyı çağırır — biri atlanırsa figürler metinle
+çelişir. Kararlar bit-özdeş olduğu için yalnız bu kolon süperseded'dir.
 
 ## Makale sayılarını doğrulama
 

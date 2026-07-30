@@ -35,6 +35,10 @@ import matplotlib.patches as mpatches
 from pathlib import Path
 from typing import Optional
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from latency_override import apply_latency_override  # noqa: E402
+
 # ── Global publication style ───────────────────────────────────────────────────
 plt.rcParams.update({
     "font.size": 10,
@@ -160,7 +164,13 @@ def _load(processed_dir: Path, fname: str) -> Optional[pd.DataFrame]:
     if not path.exists():
         return None
     df = pd.read_csv(path)
-    return df if not df.empty else None
+    if df.empty:
+        return None
+    if fname == "all_summary.csv":
+        # Figures must carry the same superseded latency column as the tables,
+        # otherwise the plots contradict the text.
+        df = apply_latency_override(df, processed_dir)
+    return df
 
 
 def _ordered_methods(df: pd.DataFrame, subset=None) -> list:

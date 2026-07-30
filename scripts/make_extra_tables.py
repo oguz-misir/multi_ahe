@@ -7,6 +7,10 @@
 import pandas as pd
 from pathlib import Path
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from latency_override import apply_latency_override  # noqa: E402
+
 PROC = Path("results/processed")
 STATS = Path("results/stats")          # data artefacts (stat_tests.csv) read from here
 STATS.mkdir(exist_ok=True)
@@ -33,6 +37,8 @@ SCEN_LABEL_TR = {
 }
 
 df = pd.read_csv(PROC / "all_summary.csv")
+
+df = apply_latency_override(df, PROC)
 
 # ---- 1. Efficiency table ----
 def efficiency_table(scen_label_map, caption, label, fname):
@@ -137,7 +143,9 @@ efficiency_table(
     "Efficiency metrics (Gazebo, 3-robot scale; densities 9/15/24 pooled, $n{=}15$ per cell). "
     "WLBal: all-robot Jain workload balance; Lat: mean decision latency; "
     "Msgs: allocation messages; Dist: total travel distance. "
-    "Best value per column (within scenario) in \\textbf{bold}.",
+    "Best value per column (within scenario) in \\textbf{bold}. "
+    "AHE-MRTA* latency is the warm-up re-measurement at the same $n{=}15$; "
+    "all other entries come from the original campaign.",
     "tab:efficiency", "latex_efficiency_table.tex")
 effect_size_table(
     SCEN_LABEL,
@@ -153,7 +161,9 @@ efficiency_table(
     "Verimlilik metrikleri (Gazebo, 3 robot \\\"ol\\c{c}e\\u{g}i; 9/15/24 yo\\u{g}unluk havuzu, h\\\"ucre ba\\c{s}\\i na $n{=}15$). "
     "WLBal: t\\\"um-robot Jain i\\c{s} y\\\"uk\\\"u dengesi; Lat: ortalama karar gecikmesi; "
     "Msgs: tahsis mesajlar\\i; Dist: toplam yol mesafesi. "
-    "Her s\\\"utunda en iyi de\\u{g}er \\textbf{kal\\i n}.",
+    "Her s\\\"utunda en iyi de\\u{g}er \\textbf{kal\\i n}. "
+    "AHE-MRTA* gecikmesi ayn\\i\\ $n{=}15$'te warm-up yeniden-\\\"ol\\c{c}\\\"um\\\"udur; "
+    "di\\u{g}er t\\\"um de\\u{g}erler \\\"ozg\\\"un kampanyadand\\i r.",
     "tab:efficiency", "latex_efficiency_table_tr.tex")
 effect_size_table(
     SCEN_LABEL_TR,

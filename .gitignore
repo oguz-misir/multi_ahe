@@ -46,6 +46,12 @@ venv/
 results/*
 # ...ama veri haritası izlenir: hangi dizin kanonik, zincir nasıl yeniden üretilir.
 !results/README.md
+# ...ve makale tablolarını besleyen küçük override: yoksa make_extra_tables /
+# plot_results / statistical_analysis onu SESSİZCE atlar ve süperseded latency
+# değerlerini üretir. 7 KB; kanonik veri değil, düzeltme katmanı.
+!results/processed/
+results/processed/*
+!results/processed/ahe_latency_warmup.csv
 # LaTeX build artefaktları (tex/pdf/cls/bst commit edilir)
 *.aux
 *.bbl

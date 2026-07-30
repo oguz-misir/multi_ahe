@@ -23,6 +23,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from latency_override import apply_latency_override  # noqa: E402
+
 warnings.filterwarnings("ignore")
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -397,6 +401,9 @@ def main():
     table_dir.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_csv(processed_dir / "all_summary.csv")
+    # The latency column is superseded by the warm-up re-measurement; the tests
+    # and descriptive stats must see the same values as the tables and figures.
+    df = apply_latency_override(df, processed_dir)
     print(f"Loaded {len(df)} experiments (all scales)")
     # Restrict the headline main/deadline tables to the primary scale.
     if {"robot_count", "target_count"}.issubset(df.columns):
