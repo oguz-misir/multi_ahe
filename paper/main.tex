@@ -1146,6 +1146,26 @@ both lanes; it is not a quantitative result.
 
 \input{table/latex_deadline_table.tex}
 
+\paragraph{The deadline-pressure result.}
+The clearest closed-loop separation is under \textit{deadline\_pressure}, and
+it is the same at both physical scales. Effective on-time completion,
+$\mathrm{CR}{\times}(1{-}\mathrm{DVR})$, is $0.79$ for AHE-MRTA* at 5 robots
+against $0.66$ for the strongest baseline, and $0.76$ against $0.52$ at 10
+robots. The margin comes from deadline compliance rather than from throughput:
+three of the four methods complete essentially every task at 5 robots, and the
+separation is entirely in DVR, which AHE-MRTA* holds at $0.208$ where the
+strongest baseline (Consensus-DBTA, the best baseline by the same measure)
+records $0.336$---a $38\%$ relative reduction. At 10 robots the same
+comparison is $0.220$ against $0.428$, a $49\%$ reduction, and the baselines
+reach their completion rates only by tolerating those violations. This is the
+pattern the method was built for: the deadline override and the geodesic ETA
+both act on time slack, and this is the regime where slack is scarce.
+
+These are descriptive point estimates. The four-method cells have $n{=}5$, and
+no Bonferroni-corrected cross-method comparison supports a general ranking;
+the pattern is consistent across two independent scales, which is why we
+report it, not a corrected result.
+
 \paragraph{Descriptive Gazebo patterns.}
 Table~\ref{tab:main_comparison} reports the \textit{robot\_failure} and
 \textit{mixed\_stress} cells at the primary scale and
@@ -1154,12 +1174,6 @@ Figure~\ref{fig:gazebo-multi} shows the same scale across all six primary
 metrics. AHE-MRTA completes every task in the reported
 runs (CR\,=\,1.000). BiG-MRTA has lower point estimates under
 \textit{deadline\_pressure} (0.728) and \textit{mixed\_stress} (0.752).
-AHE-MRTA* also has the largest reported effective
-on-time-completion point estimates under deadline pressure: 0.79 at 5 robots
-and 0.76 at 10 robots. The largest baseline point estimates are 0.66 and 0.52,
-respectively. These observations are descriptive. The four-method cells have
-$n{=}5$, and no Bonferroni-corrected cross-method comparison supports a
-general ranking.
 
 The four-method comparison cannot attribute a Gazebo difference to the selector
 because methods differ in several components. The evaluated method is

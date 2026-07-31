@@ -1151,6 +1151,25 @@ böyle meşgul tutar.
 
 \input{table/latex_deadline_table.tex}
 
+\paragraph{Deadline baskısı sonucu.}
+Kapalı çevrimdeki en belirgin ayrışma \textit{deadline\_pressure}
+senaryosundadır ve iki fiziksel ölçekte de aynıdır. Zamanında-etkin tamamlama
+$\mathrm{CR}{\times}(1{-}\mathrm{DVR})$, AHE-MRTA* için 5 robotta $0.79$'a
+karşı en güçlü temel yöntemde $0.66$; 10 robotta $0.76$'ya karşı $0.52$'dir.
+Fark verimden değil deadline uyumundan gelir: 5 robotta dört yöntemin üçü
+neredeyse her görevi tamamlar ve ayrışmanın tamamı DVR'dedir. AHE-MRTA* DVR'yi
+$0.208$'de tutarken aynı ölçüte göre en güçlü temel yöntem olan
+Consensus-DBTA $0.336$ kaydeder --- \%$38$ göreli düşüş. 10 robotta aynı
+karşılaştırma $0.220$'ye karşı $0.428$, yani \%$49$ düşüştür; temel yöntemler
+tamamlama oranlarına ancak bu ihlalleri tolere ederek ulaşır. Yöntemin
+tasarlandığı örüntü budur: deadline geçersiz kılması ve geodezik ETA'nın
+ikisi de zaman payı üzerinde çalışır, bu da payın kıt olduğu rejimdir.
+
+Bunlar betimleyici nokta tahminleridir. Dört-yöntem hücreleri $n{=}5$'tir ve
+Bonferroni-düzeltilmiş bir çapraz-yöntem karşılaştırması genel bir sıralamayı
+desteklemez; örüntüyü raporlamamızın nedeni iki bağımsız ölçekte tutarlı
+olması, düzeltilmiş bir sonuç olması değil.
+
 \paragraph{Betimleyici fiziksel örüntüler.}
 Tablo~\ref{tab:main_comparison} birincil ölçekteki \textit{robot\_failure} ve
 \textit{mixed\_stress} hücrelerini, Tablo~\ref{tab:deadline} ise
@@ -1158,11 +1177,7 @@ Tablo~\ref{tab:main_comparison} birincil ölçekteki \textit{robot\_failure} ve
 aynı ölçeği altı birincil metrik üzerinden gösterir.
 5-robot birincil ölçekte AHE-MRTA raporlanan koşularda tam tamamlamaya ulaşır
 (CR\,=\,1.000); BiG-MRTA'nın deadline baskısı ve karışık stres nokta
-tahminleri daha düşüktür (sırasıyla 0.728 ve 0.752). AHE-MRTA*'nın
-deadline-baskısındaki zamanında-etkin tamamlama nokta
-tahminleri de 5 robotta 0.79, 10 robotta 0.76 ile en yüksektir. Bu gözlemler
-betimleyicidir: dört-yöntem hücreleri $n{=}5$'tir ve Bonferroni-düzeltilmiş
-bir çapraz-yöntem karşılaştırması genel performans sıralamasını desteklemez.
+tahminleri daha düşüktür (sırasıyla 0.728 ve 0.752).
 
 Dört-yöntem kıyaslaması, politikalar arasında birden çok bileşen değiştiği
 için fiziksel farkı seçiciye atfedemez. Bu nedenle değerlendirilen yöntem
