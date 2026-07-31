@@ -1556,6 +1556,9 @@ of switching frequency, which this experiment does not vary.
 \subsection{Limitations}
 \label{sec:limitations}
 
+We group the limitations by what a reader should do with them: the first group bounds what our evidence establishes, the second bounds where it applies, and the third records artefacts we found in our own instrument and chose to report rather than repair after the fact.
+
+\paragraph{What the evidence can and cannot support}
 (i) \textbf{Statistical power at the primary scale:} At the 5-robot
 primary scale ($n{=}5$ per cell) no comparison survives Bonferroni
 correction---$n{=}5$ is structurally underpowered---whereas at 3 robots
@@ -1565,34 +1568,7 @@ reporting the 500-seed stochastic navigation-proxy fitness as the primary
 high-power cross-method test and the 100-seed-per-cell deterministic campaign
 as the configuration test, together with Cliff's $\delta$; a
 larger 10-robot seed budget would add inferential support.
-(ii) \textbf{Recovery-time variance:} Recovery time under
-\textit{mixed\_stress} carries high variance (3r, AHE-MRTA:
-$67\pm78$~s over runs spanning 0--263~s) because some seeds record no
-in-window failure recovery---6 of the 60 runs at 3 robots and 1 of 20 at
-5 robots; the
-\textit{robot\_failure} scenario, with guaranteed in-window failures,
-is the cleaner recovery measure.
-(iii) \textbf{Hardware-bound scale ceiling:} Scaling to 15 robots was
-infeasible on our 16-thread/16\,GiB testbed---multiple per-robot Nav2
-stacks failed readiness at launch (startup failures)---so 10 robots is
-the largest \emph{validated} physical scale. This is a compute limit of
-the simulation host, not an algorithmic one; the navigation-independent
-setting confirms the allocation policy itself scales further.
-(iv) \textbf{Arena generality:} All experiments use a single layout;
-cross-environment generalisation is not shown.
-(v) \textbf{Fixed hormone--paradigm mapping:} The $A$, $S$, and $V$
-matrices are designer-specified; learning them from domain data
-is left to future work.
-(vi) \textbf{Single-robot capability:} All robots are identical (ST-SR);
-heterogeneous-capability fleets are not evaluated.
-(vii) \textbf{Ground-truth localization:} The physical benchmark supplies
-pose through a static \texttt{map}$\to$\texttt{odom} transform at the
-spawn pose, deliberately isolating allocation quality from localization
-error. Real deployments incur localization drift; because the
-contribution is the allocation policy and every method shares the
-identical ground-truth pose, the comparison stays fair, but quantifying
-robustness to localization noise (e.g., AMCL) is left to future work.
-(viii) \textbf{Bounded role of the hormone dynamics.} In the evaluated
+(ii) \textbf{Bounded role of the hormone dynamics.} In the evaluated
 stress scenarios the deterministic context overrides
 (Section~\ref{sec:method}) resolve the acute events---robot failure and
 deadline pressure---so the Lotka--Volterra dynamics act mainly on the
@@ -1612,19 +1588,60 @@ overrides or the recovery boost, and replacing the selector with any single
 fixed paradigm, all leave navigation-proxy fitness within $0.8$~pp of the selector.
 This proxy observation must not be extrapolated into a closed-loop
 claim: no matched closed-loop selector ablation is yet available.
-(ix) \textbf{Allocation-fitness model.} The navigation-proxy simulator uses a
-position-dependent navigation-failure model chosen to \emph{stress} allocation
-robustness; its failure rate is deliberately higher than the closed-loop
-Gazebo stack (where Nav2 reaches goals almost always). The proxy therefore
-measures relative allocation robustness, not an absolute success rate, and is
-reported alongside---never instead of---the closed-loop Gazebo results.
-(x) \textbf{Missing physical selector ablation:} The four-method
+(iii) \textbf{Missing physical selector ablation:} The four-method
 physical benchmark compares different policies but has $n{=}5$ per cell and
 does not hold every non-selector component fixed. A decisive follow-up is a
 common-seed Gazebo experiment of the selector, each fixed paradigm, no-override, and
 no-recovery-boost variants, with a pre-specified primary metric, at least
 20--30 seeds per condition, and more than one map.
-(xi) \textbf{Priority is expressed twice in the cost.} The additive term
+(iv) \textbf{Asymmetric development effort.} AHE-MRTA was developed, and its
+fixed constants selected, against this arena and these three scenarios, whereas
+each baseline was implemented once from its source description and not tuned
+here; a benchmark built around one method favours that method by construction.
+The selection used holdout seeds, but they are not disjoint from the reported
+campaign: the sweep that fixed the repair step's tolerance and reservation gap
+used seeds 401--420, which lie inside the 1--500 range reported in
+Section~\ref{sec:results-sim}. We therefore read the four-method comparison as
+evidence about configured policies in one stack, not about the underlying
+algorithms.
+
+\paragraph{Scope of the evaluated setting}
+(v) \textbf{Hardware-bound scale ceiling:} Scaling to 15 robots was
+infeasible on our 16-thread/16\,GiB testbed---multiple per-robot Nav2
+stacks failed readiness at launch (startup failures)---so 10 robots is
+the largest \emph{validated} physical scale. This is a compute limit of
+the simulation host, not an algorithmic one; the navigation-independent
+setting confirms the allocation policy itself scales further.
+(vi) \textbf{Arena generality:} All experiments use a single layout;
+cross-environment generalisation is not shown. The arena is fixed in the placement module, so a second layout requires parameterising it rather than re-tuning the method; that experiment is specified and costed but not run here.
+(vii) \textbf{Single-robot capability:} All robots are identical (ST-SR);
+heterogeneous-capability fleets are not evaluated. The cost function already carries a capability term and the admission gate already rejects incapable pairs, so the extension is a scenario change rather than a method change; we do not claim it until it is measured.
+(viii) \textbf{Ground-truth localization:} The physical benchmark supplies
+pose through a static \texttt{map}$\to$\texttt{odom} transform at the
+spawn pose, deliberately isolating allocation quality from localization
+error. Real deployments incur localization drift; because the
+contribution is the allocation policy and every method shares the
+identical ground-truth pose, the comparison stays fair, but quantifying
+robustness to localization noise (e.g., AMCL) is left to future work.
+
+\paragraph{Model and implementation artefacts}
+(ix) \textbf{Recovery-time variance:} Recovery time under
+\textit{mixed\_stress} carries high variance (3r, AHE-MRTA:
+$67\pm78$~s over runs spanning 0--263~s) because some seeds record no
+in-window failure recovery---6 of the 60 runs at 3 robots and 1 of 20 at
+5 robots; the
+\textit{robot\_failure} scenario, with guaranteed in-window failures,
+is the cleaner recovery measure.
+(x) \textbf{Fixed hormone--paradigm mapping:} The $A$, $S$, and $V$
+matrices are designer-specified; learning them from domain data
+is left to future work.
+(xi) \textbf{Allocation-fitness model.} The navigation-proxy simulator uses a
+position-dependent navigation-failure model chosen to \emph{stress} allocation
+robustness; its failure rate is deliberately higher than the closed-loop
+Gazebo stack (where Nav2 reaches goals almost always). The proxy therefore
+measures relative allocation robustness, not an absolute success rate, and is
+reported alongside---never instead of---the closed-loop Gazebo results.
+(xii) \textbf{Priority is expressed twice in the cost.} The additive term
 $w_pP_\tau$ discounts high-priority tasks, while the factor $\rho(\pi_\tau)$
 of Eq.~\eqref{eq:cost} rescales the whole shaped cost. Replaying the allocator
 over $2.3{\times}10^{4}$ cost evaluations shows the bracket is negative for
@@ -1638,16 +1655,6 @@ $p{=}0.95$; $-0.06$~pp deadline pressure, $p{=}0.76$). The artefact is
 therefore measurable in the cost function but not in the reported outcomes. We
 report the implemented form and leave the correction to a revision rather than
 re-tuning the evaluated system after the fact.
-(xii) \textbf{Asymmetric development effort.} AHE-MRTA was developed, and its
-fixed constants selected, against this arena and these three scenarios, whereas
-each baseline was implemented once from its source description and not tuned
-here; a benchmark built around one method favours that method by construction.
-The selection used holdout seeds, but they are not disjoint from the reported
-campaign: the sweep that fixed the repair step's tolerance and reservation gap
-used seeds 401--420, which lie inside the 1--500 range reported in
-Section~\ref{sec:results-sim}. We therefore read the four-method comparison as
-evidence about configured policies in one stack, not about the underlying
-algorithms.
 
 %==============================================================================
 \section{Conclusion}

@@ -10,6 +10,11 @@
 # başlatıldığında DONE olan hücreleri atlar, kaldığı yerden sürer.
 set -eo pipefail
 cd /home/oguz/multi_ahe
+
+# exp_lib.sh sourcing sırasında `: "${MAX_LOAD:=10}"` ile varsayılanı KURAR;
+# bu yüzden eşik ondan ÖNCE set edilmeli, sonra yazılan atama no-op olur.
+export MAX_LOAD="${MAX_LOAD:-5}"
+
 source scripts/exp_lib.sh
 
 # load_guard'ın varsayılan eşiği (10) bu iş için fazla gevşek.  2026-07-31'de

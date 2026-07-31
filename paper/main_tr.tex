@@ -1572,6 +1572,9 @@ hakkında bir iddiada bulunmuyoruz.
 \subsection{Sınırlılıklar}
 \label{sec:limitations}
 
+Limitasyonları okuyucunun onlarla ne yapması gerektiğine göre grupluyoruz: birinci grup kanıtımızın neyi kurduğunu, ikinci grup nerede geçerli olduğunu sınırlar; üçüncü grup ise kendi ölçüm aracımızda bulduğumuz ve sonradan onarmak yerine raporlamayı seçtiğimiz artefaktları kaydeder.
+
+\paragraph{Kanıtın desteklediği ve desteklemediği şeyler}
 (i) \textbf{Birincil ölçekte istatistiksel güç:} 5-robot birincil ölçekte
 (hücre başına $n{=}5$) hiçbir karşılaştırma Bonferroni düzeltmesini geçmez
 ---$n{=}5$ yapısal olarak yetersiz güçlüdür---; 3 robotta ($n{=}15$) ise 63
@@ -1581,33 +1584,7 @@ Yüksek güçlü çapraz-yöntem testi olarak 500-tohumlu stokastik navigasyon
 vekilini, yapılandırma testi olarak hücre başına 100 tohumlu belirlenimci
 kampanyayı ve Cliff $\delta$'yı raporlayarak hafifletiyoruz;
 daha büyük bir 10-robot tohum bütçesi ek çıkarımsal destek sağlar.
-(ii) \textbf{Toparlanma süresi varyansı:} \textit{mixed\_stress}
-toparlanma süresi yüksek varyans taşır (3r, AHE-MRTA: 0--263~s'ye yayılan
-koşularda $67\pm78$~s) çünkü bazı tohumlarda pencere içinde arıza
-toparlanması kaydedilmez---3 robotta 60 koşunun 6'sı, 5 robotta 20'nin
-1'i; garanti pencere-içi arızalı
-\textit{robot\_failure} senaryosu daha temiz toparlanma ölçüsüdür.
-(iii) \textbf{Donanım-bağlı ölçek tavanı:} 15 robota ölçeklemek 16-iş-parçacığı/
-16\,GiB test düzeneğimizde uygulanamazdı---çok sayıda robot-başına Nav2 yığını
-başlatmada hazır-olma denetiminden geçemedi (başlatma hataları)---bu yüzden
-10 robot en büyük \emph{doğrulanmış} fiziksel ölçektir. Bu, simülasyon
-ana makinesinin hesaplama limitidir, algoritmik değil; navigasyondan-bağımsız ayar
-tahsis politikasının daha ileri ölçeklendiğini doğrular.
-(iv) \textbf{Arena genelliği:} Tüm deneyler tek bir yerleşim kullanır;
-ortamlar-arası genelleme gösterilmemiştir.
-(v) \textbf{Sabit hormon-paradigma eşlemesi:} $A$, $S$ ve $V$ matrisleri
-tasarımcı-tanımlıdır; bunları veriden öğrenmek gelecek çalışmaya
-bırakılmıştır.
-(vi) \textbf{Tek-tip robot yeteneği:} Tüm robotlar özdeştir (ST-SR);
-heterojen-yetenekli filolar değerlendirilmemiştir.
-(vii) \textbf{Ground-truth yerelleştirme:} Fiziksel kıyaslama, pozu
-başlangıç pozuna sabitlenmiş statik bir \texttt{map}$\to$\texttt{odom}
-dönüşümüyle sağlar ve tahsis kalitesini yerelleştirme hatasından kasıtlı
-olarak yalıtır. Gerçek konuşlandırmalarda yerelleştirme kayması olur;
-katkı tahsis politikası olduğundan ve her yöntem aynı ground-truth pozu
-paylaştığından kıyaslama adil kalır, ancak yerelleştirme gürültüsüne
-(örn. AMCL) dayanıklılığın ölçülmesi gelecek çalışmaya bırakılır.
-(viii) \textbf{Hormon dinamiğinin sınırlı rolü.} Değerlendirilen stres
+(ii) \textbf{Hormon dinamiğinin sınırlı rolü.} Değerlendirilen stres
 senaryolarında belirlenimci bağlam geçersiz-kılmaları
 (Bölüm~\ref{sec:method}) akut olayları---robot arızası ve deadline
 baskısı---çözdüğünden, Lotka--Volterra dinamiği her kararda değil esas
@@ -1628,20 +1605,60 @@ override'ları veya recovery boost'u kaldırmak ve seçiciyi herhangi bir tek-sa
 paradigmayla değiştirmek, vekil uygunluğunu seçicinin $0.8$~pp içinde bırakır.
 Bu vekil bulgusu kapalı-çevrim iddiasına taşınmamalıdır: henüz
 eşleşmiş kapalı-çevrim seçici ablasyonu yoktur.
-(ix) \textbf{Navigation-proxy modeli.} Allocation-only düzleminden ayrı tutulan
+(iii) \textbf{Eksik fiziksel seçici ablasyonu:} Dört-yöntem
+fiziksel kıyaslaması hücre başına $n{=}5$'tir ve seçici dışındaki bileşenleri
+sabit tutmaz. Belirleyici takip deneyi; tam seçici, her sabit paradigma,
+no-override ve no-recovery-boost varyantlarını, önceden belirlenmiş birincil
+metrik, koşul başına en az 20--30 tohum ve birden fazla harita ile ortak
+tohumlarda karşılaştırmalıdır.
+(iv) \textbf{Asimetrik geliştirme emeği.} AHE-MRTA bu arenaya ve bu üç
+senaryoya karşı geliştirildi, sabitleri de burada seçildi; her temel yöntem ise
+kaynak tanımından bir kez uygulandı ve burada ayarlanmadı. Bir yöntemin
+çevresinde kurulmuş bir kıyaslama, yapısı gereği o yöntemi kayırır. Seçim
+holdout tohumlarla yapıldı, ama bu tohumlar raporlanan kampanyadan ayrık
+değildir: onarım adımının tolerans ve rezervasyon-aralığı sabitlerini belirleyen
+tarama 401--420 tohumlarını kullandı ve bunlar Bölüm~\ref{sec:results-sim}'de
+raporlanan 1--500 aralığının içindedir. Bu nedenle dört-yöntem kıyaslamasını,
+altta yatan algoritmalar hakkında değil, tek bir yığındaki yapılandırılmış
+politikalar hakkında kanıt olarak okuyoruz.
+
+\paragraph{Değerlendirilen ortamın kapsamı}
+(v) \textbf{Donanım-bağlı ölçek tavanı:} 15 robota ölçeklemek 16-iş-parçacığı/
+16\,GiB test düzeneğimizde uygulanamazdı---çok sayıda robot-başına Nav2 yığını
+başlatmada hazır-olma denetiminden geçemedi (başlatma hataları)---bu yüzden
+10 robot en büyük \emph{doğrulanmış} fiziksel ölçektir. Bu, simülasyon
+ana makinesinin hesaplama limitidir, algoritmik değil; navigasyondan-bağımsız ayar
+tahsis politikasının daha ileri ölçeklendiğini doğrular.
+(vi) \textbf{Arena genelliği:} Tüm deneyler tek bir yerleşim kullanır;
+ortamlar-arası genelleme gösterilmemiştir. Arena, yerleştirme modülünde sabit kodludur; ikinci bir düzen yöntemi yeniden ayarlamayı değil o modülü parametrelemeyi gerektirir. Deney tanımlı ve maliyeti çıkarılmış durumda, ancak burada koşulmadı.
+(vii) \textbf{Tek-tip robot yeteneği:} Tüm robotlar özdeştir (ST-SR);
+heterojen-yetenekli filolar değerlendirilmemiştir. Maliyet fonksiyonu zaten bir yetenek terimi taşıyor ve kabul kapısı yeteneksiz eşleşmeleri reddediyor; dolayısıyla genişletme bir yöntem değişikliği değil senaryo değişikliğidir. Ölçülene kadar iddia etmiyoruz.
+(viii) \textbf{Ground-truth yerelleştirme:} Fiziksel kıyaslama, pozu
+başlangıç pozuna sabitlenmiş statik bir \texttt{map}$\to$\texttt{odom}
+dönüşümüyle sağlar ve tahsis kalitesini yerelleştirme hatasından kasıtlı
+olarak yalıtır. Gerçek konuşlandırmalarda yerelleştirme kayması olur;
+katkı tahsis politikası olduğundan ve her yöntem aynı ground-truth pozu
+paylaştığından kıyaslama adil kalır, ancak yerelleştirme gürültüsüne
+(örn. AMCL) dayanıklılığın ölçülmesi gelecek çalışmaya bırakılır.
+
+\paragraph{Model ve uygulama artefaktları}
+(ix) \textbf{Toparlanma süresi varyansı:} \textit{mixed\_stress}
+toparlanma süresi yüksek varyans taşır (3r, AHE-MRTA: 0--263~s'ye yayılan
+koşularda $67\pm78$~s) çünkü bazı tohumlarda pencere içinde arıza
+toparlanması kaydedilmez---3 robotta 60 koşunun 6'sı, 5 robotta 20'nin
+1'i; garanti pencere-içi arızalı
+\textit{robot\_failure} senaryosu daha temiz toparlanma ölçüsüdür.
+(x) \textbf{Sabit hormon-paradigma eşlemesi:} $A$, $S$ ve $V$ matrisleri
+tasarımcı-tanımlıdır; bunları veriden öğrenmek gelecek çalışmaya
+bırakılmıştır.
+(xi) \textbf{Navigation-proxy modeli.} Allocation-only düzleminden ayrı tutulan
 proxy, tahsis dayanıklılığını \emph{zorlamak} için pozisyon-bağımlı bir
 navigasyon-başarısızlık modeli kullanır;
 başarısızlık oranı, gerçek Gazebo yığınından (Nav2 hedeflere neredeyse her zaman
 ulaşır) kasıtlı olarak yüksektir. Bu nedenle proxy mutlak başarı oranını değil,
 göreli tahsis dayanıklılığını ölçer ve kapalı-çevrim Gazebo sonuçlarının yerine
 değil, yanında raporlanır.
-(x) \textbf{Eksik fiziksel seçici ablasyonu:} Dört-yöntem
-fiziksel kıyaslaması hücre başına $n{=}5$'tir ve seçici dışındaki bileşenleri
-sabit tutmaz. Belirleyici takip deneyi; tam seçici, her sabit paradigma,
-no-override ve no-recovery-boost varyantlarını, önceden belirlenmiş birincil
-metrik, koşul başına en az 20--30 tohum ve birden fazla harita ile ortak
-tohumlarda karşılaştırmalıdır.
-(xi) \textbf{Öncelik maliyette iki kez ifade ediliyor.} Toplamsal $w_pP_\tau$
+(xii) \textbf{Öncelik maliyette iki kez ifade ediliyor.} Toplamsal $w_pP_\tau$
 terimi yüksek öncelikli görevleri ucuzlatırken, Denklem~\eqref{eq:cost}'daki
 $\rho(\pi_\tau)$ çarpanı şekillendirilmiş maliyetin tamamını yeniden ölçekler.
 Tahsis edicinin $2{,}3{\times}10^{4}$ maliyet değerlendirmesi üzerinde yeniden
@@ -1656,16 +1673,7 @@ $p{=}0{,}95$; deadline baskısı $-0{,}06$~yp, $p{=}0{,}76$). Yani artefakt
 maliyet fonksiyonunda ölçülebilir, raporlanan sonuçlarda değildir. Uygulanan
 biçimi raporluyor ve düzeltmeyi, değerlendirilen sistemi sonradan yeniden
 ayarlamak yerine bir revizyona bırakıyoruz.
-(xii) \textbf{Asimetrik geliştirme emeği.} AHE-MRTA bu arenaya ve bu üç
-senaryoya karşı geliştirildi, sabitleri de burada seçildi; her temel yöntem ise
-kaynak tanımından bir kez uygulandı ve burada ayarlanmadı. Bir yöntemin
-çevresinde kurulmuş bir kıyaslama, yapısı gereği o yöntemi kayırır. Seçim
-holdout tohumlarla yapıldı, ama bu tohumlar raporlanan kampanyadan ayrık
-değildir: onarım adımının tolerans ve rezervasyon-aralığı sabitlerini belirleyen
-tarama 401--420 tohumlarını kullandı ve bunlar Bölüm~\ref{sec:results-sim}'de
-raporlanan 1--500 aralığının içindedir. Bu nedenle dört-yöntem kıyaslamasını,
-altta yatan algoritmalar hakkında değil, tek bir yığındaki yapılandırılmış
-politikalar hakkında kanıt olarak okuyoruz.
+
 \section{Sonuç}
 \label{sec:conclusion}
 
