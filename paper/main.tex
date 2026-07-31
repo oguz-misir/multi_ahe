@@ -403,20 +403,6 @@ capacity loss requiring recovery. They are computed from the task pool and
 already published robot-status summaries; the selector therefore adds no inter-robot
 communication burden.
 
-Each paradigm $i\in\{1,\ldots,5\}$ has a designer-defined context prototype
-$V_i\in[0,1]^4$. The prototypes are not learned class centres; they are fixed,
-interpretable priors on which signal combination supports the associated
-behaviour. Compatibility with the current context is
-\begin{equation}
- v_{i,k}=\frac{V_i^\top c_k}{\|V_i\|_2\,\|c_k\|_2}
- \quad\text{and}\quad \mathbf v_k=[v_{1,k},\ldots,v_{5,k}]^\top,
- \label{eq:context-compatibility}
-\end{equation}
-with zero compatibility if either vector has zero norm.
-Table~\ref{tab:hormones-proto} gives the prototypes.
-
-\input{table/proto_vectors.tex}
-
 \subsection{Context-override cascade}
 \label{sec:dispatch}
 
@@ -456,6 +442,20 @@ regimes.
 \subsection{Cost weights and the dominance fallback}
 \label{sec:dominance}
 
+Each paradigm $i\in\{1,\ldots,5\}$ has a designer-defined context prototype
+$V_i\in[0,1]^4$. The prototypes are not learned class centres; they are fixed,
+interpretable priors on which signal combination supports the associated
+behaviour. Compatibility with the current context is
+\begin{equation}
+ v_{i,k}=\frac{V_i^\top c_k}{\|V_i\|_2\,\|c_k\|_2}
+ \quad\text{and}\quad \mathbf v_k=[v_{1,k},\ldots,v_{5,k}]^\top,
+ \label{eq:context-compatibility}
+\end{equation}
+with zero compatibility if either vector has zero norm.
+Table~\ref{tab:hormones-proto} gives the prototypes.
+
+\input{table/proto_vectors.tex}
+
 \paragraph{Dominance fallback.} When neither override fires, the third branch
 of Eq.~\eqref{eq:dispatch} reads a five-dimensional dominance vector $D_k$,
 initialized uniformly and kept on the probability simplex at every event
@@ -477,16 +477,16 @@ support $\mathbf b_k=c_{4,k}[-0.3,0,0,0.4,0.6]^\top$ that lifts H\_RECOV and
 H\_STAB while damping the purely spatial behaviour
 \cite{peng2023competition}. Here $\operatorname{Proj}_{\Delta^4}$ is the
 implementation's non-negative $\ell_1$ normalization with a uniform fallback,
-not an iterative Euclidean projection; the sparse $A$ and $S$ are given in
-Table~\ref{tab:as-matrices}. Functionally this is a fixed, low-dimensional
+not an iterative Euclidean projection. The interaction matrices are nearly
+empty: $A$ has two nonzero entries (H\_CRIT supports H\_TEMP and H\_STAB
+supports H\_RECOV, both $0.20$) and $S$ has one (H\_TEMP suppresses
+H\_SPATIAL at $0.30$); every other entry is zero. Functionally this is a fixed, low-dimensional
 smoothing of paradigm preference that supplies learning-free hysteresis. It is
 not an online learned model, carries no optimality guarantee, and---as
 Section~\ref{sec:limitations} quantifies---changes the selected paradigm in
 three of the $9{,}989$ replayed states. We report it because the system runs
 it, not because the evidence supports it as a contributor. The same vector
 does carry weight generation below, which is load-bearing.
-
-\input{table/as_matrices.tex}
 
 \paragraph{Weight generation.} The selector also produces the seven weights of the
 common cost function. The channels correspond, in order, to travel time,
@@ -590,9 +590,7 @@ interpretation of the results.
   active paradigm. The selected paradigm and cost weights produce
   robot-specific queues through feasibility-masked assignment over the cached
   geodesic-ETA cost oracle, followed by the terminal bounded load repair. The
-  cooperation and suppression matrices $A$ and $S$ are given in
-  Table~\ref{tab:as-matrices} and the fixed coefficients in
-  Section~\ref{sec:method-config}.}
+  fixed coefficients are listed in Section~\ref{sec:method-config}.}
   \label{fig:mechanism}
 \end{figure}
 

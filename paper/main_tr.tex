@@ -397,20 +397,6 @@ toparlanma gerektiren kapasite kaybını temsil eder. Bu sinyaller görev
 havuzundan ve zaten yayımlanan robot durum özetlerinden hesaplanır; dolayısıyla
 Seçici ek robotlar-arası haberleşme yükü getirmez.
 
-Her paradigma $i\in\{1,\ldots,5\}$ için tasarımcı-tanımlı bir bağlam
-prototipi $V_i\in[0,1]^4$ vardır. Prototipler öğrenilmiş sınıf merkezleri
-değil, hangi sinyal bileşiminin ilgili davranışı desteklediğine ilişkin sabit
-yorumlanabilir öncüllerdir. Güncel bağlamla uyumluluk
-\begin{equation}
- v_{i,k}=\frac{V_i^\top c_k}{\|V_i\|_2\,\|c_k\|_2}
- \quad\text{ve}\quad \mathbf v_k=[v_{1,k},\ldots,v_{5,k}]^\top
- \label{eq:context-compatibility}
-\end{equation}
-ile hesaplanır; sıfır normlu bir vektör için uyumluluk sıfır alınır.
-Tablo~\ref{tab:hormones-proto} kullanılan prototipleri verir.
-
-\input{table/proto_vectors_tr.tex}
-
 \subsection{Bağlam-geçersiz kılma kaskadı}
 \label{sec:dispatch}
 
@@ -451,6 +437,20 @@ rejimlerdeki ping-pong geçişlerini sınırlar.
 \subsection{Maliyet ağırlıkları ve baskınlık geri düşüşü}
 \label{sec:dominance}
 
+Her paradigma $i\in\{1,\ldots,5\}$ için tasarımcı-tanımlı bir bağlam
+prototipi $V_i\in[0,1]^4$ vardır. Prototipler öğrenilmiş sınıf merkezleri
+değil, hangi sinyal bileşiminin ilgili davranışı desteklediğine ilişkin sabit
+yorumlanabilir öncüllerdir. Güncel bağlamla uyumluluk
+\begin{equation}
+ v_{i,k}=\frac{V_i^\top c_k}{\|V_i\|_2\,\|c_k\|_2}
+ \quad\text{ve}\quad \mathbf v_k=[v_{1,k},\ldots,v_{5,k}]^\top
+ \label{eq:context-compatibility}
+\end{equation}
+ile hesaplanır; sıfır normlu bir vektör için uyumluluk sıfır alınır.
+Tablo~\ref{tab:hormones-proto} kullanılan prototipleri verir.
+
+\input{table/proto_vectors_tr.tex}
+
 \paragraph{Baskınlık geri düşüşü.} İki geçersiz kılma da tetiklenmediğinde
 Denklem~\eqref{eq:dispatch}'in üçüncü dalı beş boyutlu bir baskınlık vektörü
 $D_k$ okur; vektör başlangıçta uniformdur ve her olayda olasılık simpleksinde
@@ -472,16 +472,16 @@ yükseltip salt uzamsal davranışı söndüren arıza desteği
 $\mathbf b_k=c_{4,k}[-0.3,0,0,0.4,0.6]^\top$ ile birleştirir
 \cite{peng2023competition}. Burada $\operatorname{Proj}_{\Delta^4}$,
 uygulamadaki negatif-olmayan $\ell_1$ normalizasyonudur (toplam sıfırsa
-tekdüze fallback), yinelemeli Öklid projeksiyonu değil; seyrek $A$ ve $S$
-Tablo~\ref{tab:as-matrices}'de verilmiştir. İşlevsel olarak bu, paradigma
+tekdüze fallback), yinelemeli Öklid projeksiyonu değil. Etkileşim matrisleri neredeyse boştur:
+$A$'nın iki sıfır-dışı girişi (H\_CRIT, H\_TEMP'i; H\_STAB, H\_RECOV'u
+destekler; ikisi de $0.20$) ve $S$'nin bir girişi (H\_TEMP, H\_SPATIAL'ı
+$0.30$ ile bastırır) vardır; diğer tüm girişler sıfırdır. İşlevsel olarak bu, paradigma
 tercihinin sabit ve düşük-boyutlu bir yumuşatmasıdır ve öğrenmesiz bir
 histerezis sağlar. Öğrenilmiş bir çevrim içi model değildir, optimalite
 garantisi taşımaz ve---Bölüm~\ref{sec:limitations}'in nicelediği gibi---yeniden
 oynatılan $9{,}989$ durumun üçünde seçilen paradigmayı değiştirir. Sistem onu
 koştuğu için raporluyoruz; kanıt onu bir katkı olarak desteklediği için değil.
 Aynı vektör aşağıdaki ağırlık üretimini de besler ve orası yük taşıyor.
-
-\input{table/as_matrices_tr.tex}
 
 \paragraph{Ağırlık üretimi.} Seçici yalnızca paradigma seçmez; ortak maliyet
 fonksiyonunun yedi ağırlığını da üretir. Ağırlık kanalları sırasıyla seyahat
@@ -587,9 +587,8 @@ etkisini tek başına sınamaz. Bu ayrım sonuçların yorumunda korunur.
   histerezisi etkin paradigmayı belirler. Seçilen paradigma ile maliyet
   ağırlıkları, önbelleklenmiş geodezik-ETA maliyet kâhini üzerindeki
   fizibilite maskeli atamayla robot-bazlı kuyruklar üretir; ardından terminal
-  sınırlı yük onarımı gelir. İşbirliği ve baskılama matrisleri $A$ ile $S$
-  Tablo~\ref{tab:as-matrices}'de, sabit katsayılar
-  Bölüm~\ref{sec:method-config}'de verilmiştir.}
+  sınırlı yük onarımı gelir. Sabit katsayılar
+  Bölüm~\ref{sec:method-config}'de listelenmiştir.}
   \label{fig:mechanism}
 \end{figure}
 
