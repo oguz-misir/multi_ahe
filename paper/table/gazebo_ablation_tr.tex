@@ -1,0 +1,34 @@
+% ÜRETİLEN dosya: scripts/analyze_ablation.py -- elle düzenleme.
+% results/raw/gazebo_ablation/ değişince yeniden üret.
+\begin{table}[t]
+\centering
+\caption{Eşleşmiş kapalı-çevrim ablasyonu, birincil 5-robot / 25-görev ölçeği:
+senaryo başına 20 ortak tohumda dört kol; kampanyadan önce kayıt altına
+alındı (\texttt{paper/PREREGISTRATION.md}). Birincil uç nokta, zamanında-etkin
+tamamlama $\mathrm{CR}\times(1-\mathrm{DVR})$ (\textit{deadline\_pressure}
+senaryosunda); $p$, \emph{full}'e karşı eşli Wilcoxon işaretli-sıra testidir ve
+senaryo ailesi içinde Bonferroni ile düzeltilmiştir; $\delta$ bootstrap \%95
+GA'lı Cliff deltasıdır. Diğer iki senaryo betimleyicidir.}
+\label{tab:gazebo-ablation}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l cccc}
+\toprule
+& \textbf{full} & \textbf{no-override} & \textbf{fixed-EDF} & \textbf{fixed-orphan} \\
+\midrule
+
+\multicolumn{5}{l}{\textit{deadline\_pressure} -- birincil uç nokta} \\
+\quad zamanında-etkin tamamlama & 0.650 & 0.641 & 0.556 & 0.540 \\
+\quad $p$ (Bonferroni) & -- & 1.000 & $<$0.005 & $<$0.005 \\
+\quad Cliff $\delta$ (full'e karşı) & -- & +0.06 & +0.57 & +0.62 \\
+\midrule
+\multicolumn{5}{l}{\textit{robot\_failure} -- betimleyici} \\
+\quad zamanında-etkin tamamlama & 0.986 & 0.998 & 0.846 & 0.850 \\
+\quad tamamlama oranı & 1.000 & 1.000 & 0.998 & 1.000 \\
+\quad toparlanma süresi (s) & 83.7 & 63.3 & 88.5 & 56.6 \\
+\midrule
+\multicolumn{5}{l}{\textit{mixed\_stress} -- betimleyici} \\
+\quad zamanında-etkin tamamlama & 0.616 & 0.606 & 0.590 & 0.601 \\
+\bottomrule
+\end{tabular}
+\end{table}

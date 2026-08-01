@@ -122,4 +122,26 @@ serbesttir (ilerleme takibi), ancak **ara sonuca dayanarak kol eklenmez,
 *(Kampanya sırasında plandan her sapma, gerekçesiyle birlikte buraya tarihli
 olarak eklenir. Boşsa sapma olmamıştır.)*
 
-- —
+- **2026-08-01 — düşen tohum yok.** Dört kolun tamamı 60/60 tamamlandı,
+  hiçbir koşu `STARTUP FAILED` vermedi, dolayısıyla üç senaryonun her birinde
+  20 tohumun tamamı eşleşti. Eşleştirme kuralı hiç devreye girmedi.
+
+- **2026-08-01 — ikincil uç nokta ayırt edemedi (plan değiştirilmedi).**
+  `robot_failure` için kaydettiğimiz iki ikincil ölçütten tamamlama oranı dört
+  kolda da tavanda çıktı (full 1.000, no-override 1.000, fixed-EDF 0.998,
+  fixed-orphan 1.000) ve hiçbir şeyi ayırt edemedi; toparlanma süresi
+  düzeltmeden sonra anlamlı çıkmadı (p_bonf 0.064–0.158). O senaryoda gerçekte
+  ayıran ölçüt zamanında-etkin tamamlamaydı (0.986 / 0.998 / 0.846 / 0.850)
+  ama onu yalnız birincil senaryo için kaydetmiştik.
+  **Uç noktayı sonradan değiştirmedik.** Zamanında-etkin tamamlama
+  `robot_failure`'da betimleyici olarak raporlanıyor, test olarak değil.
+  Ders: tavan etkisi olası olan bir ölçütü ikincil uç nokta seçmemeli.
+
+- **2026-08-01 — sonuç, öngörülen üç senaryonun ikisinin bileşimi çıktı.**
+  Plan "seçici önde / fark yok / sabit paradigma önde" diye üç dal yazmıştı.
+  Gerçekleşen: sabit paradigma kollarına karşı **full anlamlı önde**
+  (birinci dal), `no-override` koluna karşı **fark yok** (ikinci dal).
+  Bu post-hoc bir okuma değil — kollar tam olarak bu iki soruyu ayırmak için
+  tasarlanmıştı; plan yalnız ikisinin aynı anda çıkabileceğini yazmamıştı.
+  Yazıya giren iddia buna göre daraltıldı: portföy + çevrim içi değiştirme
+  savunuluyor, belirli seçici mekanizması savunulmuyor.

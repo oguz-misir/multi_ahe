@@ -51,30 +51,27 @@ load repair, not the biomimetic metaphor the acronym originally referred to.}}
 %==============================================================================
 \begin{abstract}
 A robot team is rarely handed all of its work up front: work appears,
-expires, and changes hands while the fleet moves. Online
-multi-robot task allocation must therefore stay sound as tasks arrive,
-deadlines tighten, and robots fail mid-execution; no fixed rule serves
-every regime. We present AHE-MRTA, which reacts to regime change through
-three mechanisms: a deterministic override cascade that switches behaviour
-when observed failure rate or deadline pressure crosses a threshold, a
-geodesic-ETA oracle that costs assignments by map distance, not
-straight-line distance, and a bounded terminal load repair that rebalances
-only the closing schedule. A dominance dynamic over five interpretable
-behaviours is the fallback when neither override fires; we measure its
-influence rather than assume it: replacing it with a constant changes 3 of
-9989 decisions. We evaluate
-on three layers of realism: allocation-only, a
-stochastic navigation proxy (500 seeds), and closed-loop Gazebo/ROS\,2 Nav2
-with 3, 5, and 10 TurtleBot3 robots (300 runs). The first two do
-not separate the leaders---AHE-MRTA and Consensus-DBTA co-lead the
-proxy ($+0.007$ under mixed stress, $p{=}0.042$)---but physical execution does.
-AHE-MRTA completes every task under robot failure at 3 and 5 robots and leads
-effective on-time completion under deadline pressure ($0.79$ at 5 robots,
-$0.76$ at 10, against at most $0.66$ and $0.52$), cutting the strongest
-baseline's deadline-violation rate by $38\%$ and $49\%$ while deciding in
-$0.5$--$3.4$~ms, paying with longer routes and lower workload balance. With
-five seeds per physical cell these are descriptive patterns, not corrected
-rankings, and the selector is not isolated from other stack differences.
+expires, and changes hands while the fleet moves. Online multi-robot task
+allocation must therefore stay sound as tasks arrive, deadlines tighten, and
+robots fail mid-execution; no fixed rule serves every regime. We present
+AHE-MRTA, which selects online among five interpretable allocation behaviours
+using a two-level rule---deterministic context overrides on failure and
+deadline pressure, over a dominance dynamic---and prices assignments with a
+geodesic-ETA oracle and a bounded terminal load repair. We evaluate on three
+layers of realism: allocation-only, a stochastic navigation proxy (500 seeds),
+and closed-loop Gazebo/ROS\,2 Nav2 with 3, 5, and 10 TurtleBot3 robots
+(300 runs). Under deadline pressure AHE-MRTA leads effective on-time
+completion ($0.79$ at 5 robots, $0.76$ at 10, against at most $0.66$ and
+$0.52$), cutting the strongest baseline's deadline-violation rate by $38\%$
+and $49\%$ while deciding in $0.5$--$3.4$~ms. A pre-registered matched
+ablation (240 further runs, four arms, 20 common seeds) then separates what
+carries that result from what does not: pinning the allocator to a fixed
+paradigm costs $9$--$11$ percentage points of effective on-time completion
+(large effect, corrected $p<0.005$), whereas removing the override cascade
+changes nothing measurable. We therefore claim online switching over a fixed
+portfolio, and explicitly not the particular selector we implemented---a
+distinction the navigation proxy, where no variant separates, is structurally
+unable to draw.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -149,15 +146,20 @@ geodesic-ETA oracle that prices an assignment by traversable map distance,
 and a bounded terminal load repair that rebalances the closing schedule under
 a remaining-makespan non-regression guard.
 
-We state at the outset what our own measurements support. The override
-cascade, the geodesic ETA, and the terminal repair are load-bearing. The
-dominance dynamic beneath them is not: a replay of 9989 recorded decisions
-shows that freezing it at a constant changes three of them, two of the five
-behaviours are never selected, and eight allocation-only ablation variants
-fall within 0.9 percentage points of one another. We therefore present the
-switching layer as a mechanism we implemented and measured, not as a
-demonstrated source of the performance we report, and we say where the
-evidence for it is missing (Section~\ref{sec:limitations}).
+We state at the outset what our own measurements support, including where
+they contradicted our expectations. A matched closed-loop ablation
+(Section~\ref{sec:gazebo-ablation}), pre-registered before it was run, shows
+that the \emph{portfolio} is load-bearing---pinning the allocator to a single
+fixed paradigm costs $9$--$11$ percentage points of effective on-time
+completion under deadline pressure, with large corrected effects---while the
+two-level selector's upper layer is not: deleting the override cascade and
+falling back to $\arg\max_i D_i$ changes nothing measurable. The two levels are
+substitutes, not a mechanism and its ornament. We therefore claim online
+switching over a fixed portfolio and not the specific rule that performs it,
+and we mark clearly where the evidence stops
+(Section~\ref{sec:limitations}). The allocation-only ablation, in which no
+variant separates at all, cannot draw this distinction: it does not reproduce
+the navigation delays under which a switch pays off.
 
 The paper makes four bounded contributions:
 \begin{enumerate}
@@ -169,9 +171,10 @@ The paper makes four bounded contributions:
   \item It evaluates the policy across robot-team scales, in a
   navigation-independent simulator and in a ROS~2/Gazebo stack.
   \item It reports allocation-only, stochastic navigation-proxy, and
-  closed-loop Gazebo evidence separately, and states the boundary that keeps
-  map-aware ETA and recovery effects distinct from a causal claim about the
-  switching layer.
+  closed-loop Gazebo evidence separately, and shows the three do not agree:
+  a pre-registered matched ablation in the closed loop separates the portfolio
+  (load-bearing) from the selector rule (not), where the proxy separates
+  nothing.
 \end{enumerate}
 
 The three layers differ only in how navigation is modelled---deterministic
@@ -1526,12 +1529,60 @@ the overrides or the recovery boost leaves proxy fitness essentially
 unchanged. This proxy
 ablation establishes only that the tested selector variants do not separate
 on this navigation-proxy metric. It neither establishes a benefit of the selector in
-the physical stack nor rules one out. The four-method Gazebo comparison also
-cannot fill that gap because its policies differ in more than the selector.
-Thus, physical differences reported here must be attributed to the evaluated
-full configurations, not to the selector alone. A causal test requires matched Gazebo
-runs of the full configuration against fixed-paradigm, no-override, and
-no-recovery-boost variants on common seeds and at least one additional map.
+the physical stack nor rules one out, because the proxy does not reproduce the
+navigation delays, congestion, and recovery latencies under which a switch
+would pay off. The matched closed-loop experiment below was run for exactly
+that reason, and it does not agree with this table.
+
+\subsection{Matched closed-loop ablation}
+\label{sec:gazebo-ablation}
+The proxy result above cannot separate a selector that does nothing from a
+selector whose effect the proxy cannot see. We therefore repeated the ablation
+in the closed loop, holding every non-selector component fixed: four arms
+---\emph{full}, \emph{no-override} ($\arg\max_i D_i$ only), and the two fixed
+paradigms the selector actually reaches---over three scenarios and 20 common
+seeds at 5 robots / 25 tasks, 240 runs. Hypotheses, arms, endpoints and the
+statistical plan were registered before the campaign started and are archived
+with the artifact; the analysis code was written and committed while one arm
+was still empty. No seed was lost, so all 20 pair in every arm.
+
+\input{table/gazebo_ablation.tex}
+
+Table~\ref{tab:gazebo-ablation} splits the question in two, and the two halves
+answer differently.
+
+\textbf{Being able to switch matters.} Pinning the allocator to either fixed
+paradigm costs $9$--$11$ percentage points of effective on-time completion
+under deadline pressure ($0.650$ against $0.556$ and $0.540$), with large
+effect sizes ($\delta=0.57$ and $0.62$) that survive Bonferroni correction
+($p<0.005$). The same ordering appears under robot failure, where the two
+switching arms reach $0.99$ and the two fixed arms $0.85$. This is the
+opposite of what the navigation proxy reported, and it is the result the proxy
+was structurally unable to produce.
+
+\textbf{Which mechanism does the switching does not matter.} Removing the
+context-override cascade entirely changes nothing measurable: $0.641$ against
+$0.650$, $p=1.000$ after correction, $\delta=0.06$ (negligible). Under robot
+failure the no-override arm is if anything slightly ahead ($0.998$ versus
+$0.986$, and 63~s versus 84~s to recover, neither surviving correction). The
+overrides and the dominance dynamic are therefore substitutes rather than a
+load-bearing layer and its ornament: either route reaches an adequate paradigm,
+and the cost of having neither is large.
+
+We read this as evidence for the paradigm portfolio and for online switching
+per se, not for the particular selector we implemented. A simpler allocator
+that switched by any adequate rule would likely recover most of the margin
+reported here; what it could not do is run a single fixed paradigm. That is a
+narrower claim than this paper originally made, and it is the one the
+measurement supports.
+
+Two limits of this experiment are worth stating with the result. The secondary
+endpoint we registered for \textit{robot\_failure}, completion rate, turned out
+to be at ceiling in all four arms ($\geq0.998$) and so could not discriminate;
+effective on-time completion does discriminate there, but we had registered it
+for the primary scenario only, so it is reported above as descriptive rather
+than promoted after the fact. And the campaign uses one arena: it closes the
+matched-ablation gap, not the single-map gap.
 
 \subsection{Communication footprint}
 AHE-MRTA publishes only per-robot optimized task queues; the
@@ -1600,12 +1651,18 @@ overrides or the recovery boost, and replacing the selector with any single
 fixed paradigm, all leave navigation-proxy fitness within $0.8$~pp of the selector.
 This proxy observation must not be extrapolated into a closed-loop
 claim: no matched closed-loop selector ablation is yet available.
-(iii) \textbf{Missing physical selector ablation:} The four-method
-physical benchmark compares different policies but has $n{=}5$ per cell and
-does not hold every non-selector component fixed. A decisive follow-up is a
-common-seed Gazebo experiment of the selector, each fixed paradigm, no-override, and
-no-recovery-boost variants, with a pre-specified primary metric, at least
-20--30 seeds per condition, and more than one map.
+(iii) \textbf{What the closed-loop ablation does and does not settle:} The
+matched experiment of Section~\ref{sec:gazebo-ablation} closes the causal gap
+this paper previously listed as open---it holds every non-selector component
+fixed over 20 common seeds---but it settles the portfolio question, not the
+mechanism question. Switching beats being pinned to a fixed paradigm by a
+large, corrected margin; the specific selector we propose is
+\emph{indistinguishable} from the plainer $\arg\max_i D_i$ rule it sits on top
+of. We therefore claim online switching over a fixed portfolio, and explicitly
+do not claim that the override cascade is the reason it works. Establishing
+which switching rules suffice, and whether any is better than the rest, needs a
+sweep over rules rather than the two points we measured. The experiment also
+uses a single arena, so it does not close the generalisation gap of item~(vi).
 (iv) \textbf{Asymmetric development effort.} AHE-MRTA was developed, and its
 fixed constants selected, against this arena and these three scenarios, whereas
 each baseline was implemented once from its source description and not tuned

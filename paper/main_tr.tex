@@ -58,26 +58,24 @@ hâlindeyken yeni işler doğar, dolan deadline'larla kaybolur ve robotlar
 arasında el değiştirir. Bu nedenle çevrim içi çoklu robot görev atama, görevler
 gelirken, deadline'lar sıkışırken ve robotlar yürütmenin ortasında
 arızalanırken sağlam kalmalıdır; tek bir sabit kural her rejime hizmet edemez.
-Rejim değişimine üç açık mekanizmayla tepki veren AHE-MRTA'yı sunuyoruz:
-gözlenen arıza oranı veya deadline baskısı bir eşiği aştığında davranışı
-değiştiren belirlenimci geçersiz kılma kaskadı, atamaları kuş uçuşu değil
-harita mesafesiyle fiyatlayan geodezik-ETA kâhini ve yalnız kapanış çizelgesini
-dengeleyen sınırlı terminal yük onarımı. İki geçersiz kılma da tetiklenmediğinde
-kararı, beş yorumlanabilir davranış üzerindeki bir baskınlık dinamiği verir;
-bu katmanın etkisini varsaymak yerine ölçüyoruz: sabitle değiştirmek 9989
-kararın 3'ünü değiştiriyor. Değerlendirmeyi gerçekçiliği
-artan üç katmanda yapıyoruz: allocation-only kampanya, stokastik navigasyon
-vekili (500 tohum) ve 3, 5, 10 TurtleBot3 ile kapalı-çevrim Gazebo/ROS\,2 Nav2
-deneyleri (300 koşu). İlk ikisi liderleri ayırmaz---vekilde AHE-MRTA ile
-Consensus-DBTA eş-liderdir (karışık streste $+0.007$, $p{=}0.042$)---fiziksel
-yürütme ise ayırır. AHE-MRTA 3 ve 5 robotta robot arızası altında her görevi
-tamamlar ve deadline baskısı altında zamanında-etkin tamamlamada öndedir
-(5 robotta $0.79$, 10 robotta $0.76$; temel yöntemlerde en çok $0.66$ ve
-$0.52$); en güçlü temel yöntemin deadline ihlal oranını \%$38$ ve \%$49$
-düşürüp $0.5$--$3.4$~ms'de karar verir, bedeli daha uzun rotalar ve daha düşük
-iş yükü dengesidir. Fiziksel hücre başına beş tohumla bunlar düzeltilmiş
-sıralamalar değil betimleyici örüntülerdir ve seçici, yürütme yığınındaki diğer
-farklılıklardan yalıtılmış değildir.
+Beş yorumlanabilir tahsis davranışı arasından çevrim içi seçim yapan
+AHE-MRTA'yı sunuyoruz; seçim iki katmanlı bir kuralla yapılır --- arıza ve
+deadline baskısında belirlenimci bağlam-geçersiz kılmaları, altında bir
+baskınlık dinamiği --- ve atamalar geodezik-ETA kâhini ile sınırlı terminal
+yük onarımıyla fiyatlanır. Değerlendirmeyi gerçekçiliği artan üç katmanda
+yapıyoruz: allocation-only, stokastik navigasyon vekili (500 tohum) ve 3, 5,
+10 TurtleBot3 ile kapalı-çevrim Gazebo/ROS\,2 Nav2 (300 koşu). Deadline
+baskısı altında AHE-MRTA zamanında-etkin tamamlamada öndedir (5 robotta
+$0.79$, 10 robotta $0.76$; temel yöntemlerde en çok $0.66$ ve $0.52$); en güçlü
+temel yöntemin deadline ihlal oranını \%$38$ ve \%$49$ düşürüp
+$0.5$--$3.4$~ms'de karar verir. Önceden kayıt altına alınmış eşleşmiş bir
+ablasyon (240 ek koşu, dört kol, 20 ortak tohum) bu sonucu neyin taşıdığını
+neyin taşımadığından ayırır: tahsis ediciyi sabit bir paradigmaya kilitlemek
+zamanında-etkin tamamlamadan $9$--$11$ yüzde puanı götürürken (büyük etki,
+düzeltilmiş $p<0.005$), geçersiz kılma kaskadını kaldırmak ölçülebilir hiçbir
+şeyi değiştirmez. Bu nedenle sabit bir portföy üzerinde çevrim içi değiştirmeyi
+iddia ediyoruz, uyguladığımız belirli seçiciyi değil --- hiçbir varyantın
+ayrışmadığı navigasyon vekilinin yapısal olarak kuramayacağı bir ayrım.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -153,15 +151,20 @@ harita mesafesiyle fiyatlayan geodezik-ETA kâhini ve kapanış çizelgesini
 kalan-makespan geriletmeme koruması altında dengeleyen sınırlı terminal yük
 onarımı.
 
-Kendi ölçümlerimizin neyi desteklediğini baştan söylüyoruz. Geçersiz kılma
-kaskadı, geodezik ETA ve terminal onarım yük taşıyor. Altlarındaki baskınlık
-dinamiği taşımıyor: kayıtlı 9989 kararın yeniden oynatılması, dinamiği bir
-sabitte dondurmanın bunların üçünü değiştirdiğini, beş davranıştan ikisinin
-hiç seçilmediğini ve allocation-only ablasyonundaki sekiz varyantın birbirinin
-0.9 yüzde puanı içinde kaldığını gösteriyor. Bu nedenle değiştirme katmanını,
-raporladığımız başarımın gösterilmiş kaynağı olarak değil, uyguladığımız ve
-ölçtüğümüz bir mekanizma olarak sunuyoruz ve kanıtın nerede eksik olduğunu
-söylüyoruz (Bölüm~\ref{sec:limitations}).
+Kendi ölçümlerimizin neyi desteklediğini, beklentimizi nerede çürüttüğü de
+dahil, baştan söylüyoruz. Koşulmadan önce kayıt altına alınmış eşleşmiş bir
+kapalı-çevrim ablasyonu (Bölüm~\ref{sec:gazebo-ablation}), yük taşıyan şeyin
+\emph{portföy} olduğunu gösteriyor: tahsis ediciyi tek bir sabit paradigmaya
+kilitlemek, deadline baskısı altında zamanında-etkin tamamlamadan $9$--$11$
+yüzde puanı götürüyor ve etkiler düzeltme sonrası büyük. İki katmanlı
+seçicinin üst katmanı ise yük taşımıyor: geçersiz kılma kaskadını silip
+$\arg\max_i D_i$'ye düşmek ölçülebilir hiçbir şeyi değiştirmiyor. İki katman
+bir mekanizma ve onun süsü değil, birbirinin ikamesi. Bu nedenle sabit bir
+portföy üzerinde çevrim içi değiştirmeyi iddia ediyoruz, onu gerçekleştiren
+belirli kuralı değil; kanıtın nerede bittiğini de açıkça işaretliyoruz
+(Bölüm~\ref{sec:limitations}). Hiçbir varyantın ayrışmadığı allocation-only
+ablasyonu bu ayrımı kuramaz: bir paradigma değişiminin karşılığını vereceği
+navigasyon gecikmelerini üretmez.
 
 \textbf{Makalenin sınırlı katkıları:}
 \begin{enumerate}
@@ -1544,13 +1547,60 @@ Sekiz varyant yalnız $[0.469,0.479]$ ortalama-uygunluk aralığına yayılıyor
 recovery boost'u kaldırmak vekil uygunluğunu neredeyse değiştirmiyor.
 Bu vekil ablasyonu yalnız test edilen
 seçici varyantlarının bu navigation-proxy metriğinde ayrışmadığını gösterir.
-Ne fiziksel yığında seçicinin yararını kurar ne de onu dışlar. Dört-yöntem Gazebo
-kıyaslaması da politikalar seçiciden daha fazla bileşende farklılaştığı için
-bu boşluğu doldurmaz. Bu nedenle fiziksel farklar seçiciye değil,
-değerlendirilen tam konfigürasyonlara atfedilmelidir. Nedensel test için tam
-konfigürasyonun sabit-paradigma, no-override ve no-recovery-boost
-varyantlarıyla ortak tohumlarda, en az bir ek haritada eşleşmiş Gazebo
-çalışması gerekir.
+Ne fiziksel yığında seçicinin yararını kurar ne de onu dışlar; çünkü vekil,
+bir paradigma değişiminin karşılığını vereceği navigasyon gecikmelerini,
+sıkışmayı ve toparlanma gecikmelerini üretmez. Aşağıdaki eşleşmiş kapalı-çevrim
+deneyi tam bu nedenle koşuldu ve bu tabloyla aynı fikirde değil.
+
+\subsection{Eşleşmiş kapalı-çevrim ablasyonu}
+\label{sec:gazebo-ablation}
+Yukarıdaki vekil sonucu, hiçbir şey yapmayan bir seçiciyi, etkisini vekilin
+göremediği bir seçiciden ayıramaz. Bu yüzden ablasyonu kapalı çevrimde,
+seçici dışındaki her bileşeni sabit tutarak tekrarladık: dört kol
+---\emph{full}, \emph{no-override} (yalnız $\arg\max_i D_i$) ve seçicinin
+gerçekte ulaştığı iki sabit paradigma--- üç senaryo ve 20 ortak tohumda,
+5 robot / 25 görev ölçeğinde, 240 koşu. Hipotezler, kollar, uç noktalar ve
+istatistik planı kampanya başlamadan önce kayıt altına alındı ve artefaktla
+birlikte arşivleniyor; analiz kodu bir kol henüz boşken yazılıp commit edildi.
+Hiçbir tohum kaybedilmedi, dolayısıyla 20'sinin tamamı her kolda eşleşiyor.
+
+\input{table/gazebo_ablation_tr.tex}
+
+Tablo~\ref{tab:gazebo-ablation} soruyu ikiye ayırıyor ve iki yarı farklı
+cevap veriyor.
+
+\textbf{Paradigma değiştirebilmek önemli.} Tahsis ediciyi iki sabit
+paradigmadan birine kilitlemek, deadline baskısı altında zamanında-etkin
+tamamlamadan $9$--$11$ yüzde puanı götürüyor ($0.650$'ye karşı $0.556$ ve
+$0.540$); etki büyüklükleri büyük ($\delta=0.57$ ve $0.62$) ve Bonferroni
+düzeltmesini geçiyor ($p<0.005$). Aynı sıralama robot arızasında da görünüyor:
+iki değiştiren kol $0.99$'a, iki sabit kol $0.85$'e ulaşıyor. Bu, navigasyon
+vekilinin raporladığının tersidir ve vekilin yapısal olarak üretemeyeceği
+sonuçtur.
+
+\textbf{Değiştirmeyi hangi mekanizmanın yaptığı önemli değil.}
+Bağlam-geçersiz kılma kaskadını tamamen kaldırmak ölçülebilir hiçbir şeyi
+değiştirmiyor: $0.650$'ye karşı $0.641$, düzeltme sonrası $p=1.000$,
+$\delta=0.06$ (ihmal edilebilir). Robot arızasında no-override kolu varsa bile
+hafifçe önde ($0.986$'ya karşı $0.998$; toparlanma 84~s'ye karşı 63~s, ikisi de
+düzeltmeyi geçmiyor). Dolayısıyla geçersiz kılmalar ile baskınlık dinamiği,
+bir yük taşıyan katman ve onun süsü değil, birbirinin \emph{ikamesi}: her iki
+yol da yeterli bir paradigmaya ulaşıyor ve asıl maliyet ikisinin de olmaması.
+
+Bunu, uyguladığımız belirli seçicinin değil, paradigma portföyünün ve çevrim
+içi değiştirmenin kendisinin lehine kanıt olarak okuyoruz. Yeterli herhangi bir
+kuralla değiştiren daha basit bir tahsis edici, burada raporlanan farkın
+büyük kısmını muhtemelen yakalardı; yapamayacağı şey tek bir sabit paradigma
+koşmaktı. Bu, makalenin başlangıçta öne sürdüğünden dar bir iddiadır ve
+ölçümün desteklediği iddia budur.
+
+Bu deneyin iki sınırını sonuçla birlikte söylemek gerekir.
+\textit{robot\_failure} için kaydettiğimiz ikincil uç nokta olan tamamlama
+oranı dört kolda da tavanda çıktı ($\geq0.998$) ve hiçbir şeyi ayırt edemedi;
+orada ayırt eden ölçüt zamanında-etkin tamamlama, ancak onu yalnız birincil
+senaryo için kaydetmiştik, bu yüzden yukarıda sonradan terfi ettirilmiş bir
+test olarak değil betimleyici olarak raporlanıyor. Ayrıca kampanya tek arena
+kullanıyor: eşleşmiş-ablasyon boşluğunu kapatır, tek-harita boşluğunu değil.
 
 \subsection{Haberleşme ayak izi}
 AHE-MRTA yalnızca robot başına optimize görev kuyrukları yayınlar; baskınlık
@@ -1619,12 +1669,19 @@ override'ları veya recovery boost'u kaldırmak ve seçiciyi herhangi bir tek-sa
 paradigmayla değiştirmek, vekil uygunluğunu seçicinin $0.8$~pp içinde bırakır.
 Bu vekil bulgusu kapalı-çevrim iddiasına taşınmamalıdır: henüz
 eşleşmiş kapalı-çevrim seçici ablasyonu yoktur.
-(iii) \textbf{Eksik fiziksel seçici ablasyonu:} Dört-yöntem
-fiziksel kıyaslaması hücre başına $n{=}5$'tir ve seçici dışındaki bileşenleri
-sabit tutmaz. Belirleyici takip deneyi; tam seçici, her sabit paradigma,
-no-override ve no-recovery-boost varyantlarını, önceden belirlenmiş birincil
-metrik, koşul başına en az 20--30 tohum ve birden fazla harita ile ortak
-tohumlarda karşılaştırmalıdır.
+(iii) \textbf{Kapalı-çevrim ablasyonunun neyi çözdüğü ve neyi çözmediği:}
+Bölüm~\ref{sec:gazebo-ablation}'deki eşleşmiş deney, makalenin daha önce açık
+olarak listelediği nedensellik boşluğunu kapatır --- seçici dışındaki her
+bileşeni 20 ortak tohum boyunca sabit tutar --- ancak portföy sorusunu çözer,
+mekanizma sorusunu değil. Değiştirmek, sabit bir paradigmaya kilitlenmeye
+karşı büyük ve düzeltilmiş bir farkla üstündür; önerdiğimiz belirli seçici ise
+üzerine oturduğu daha yalın $\arg\max_i D_i$ kuralından
+\emph{ayırt edilemez}. Bu nedenle sabit bir portföy üzerinde çevrim içi
+değiştirmeyi iddia ediyor, geçersiz kılma kaskadının bunun sebebi olduğunu
+açıkça iddia etmiyoruz. Hangi değiştirme kurallarının yettiğini ve birinin
+diğerlerinden iyi olup olmadığını kurmak için ölçtüğümüz iki nokta değil,
+kurallar üzerinde bir tarama gerekir. Deney ayrıca tek arena kullanır, bu
+yüzden (vi) maddesindeki genelleme boşluğunu kapatmaz.
 (iv) \textbf{Asimetrik geliştirme emeği.} AHE-MRTA bu arenaya ve bu üç
 senaryoya karşı geliştirildi, sabitleri de burada seçildi; her temel yöntem ise
 kaynak tanımından bir kez uygulandı ve burada ayarlanmadı. Bir yöntemin
