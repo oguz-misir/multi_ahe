@@ -22,6 +22,8 @@ edilmiş bir kampanyanın türetilmiş dosyalarından beslendi ve metinle sessiz
 | `stats/descriptive_stats.csv`, `stats/stat_tests.csv`, `stats/stat_summary.txt` | 5r birincil ölçek betimleyici + Mann–Whitney |
 | `stats/f58_allocation_only{,_3r15t,_10r50t}/` | Yalnız-tahsis kampanyası → `tab:allocation` |
 | `raw/gazebo_benchmark_f58/` | **Makalenin ham kanıtı**: 300 koşunun per-run CSV + konsol logları |
+| `raw/gazebo_ablation/` | **Eşleşmiş kapalı-çevrim ablasyonu (B4)**: beş kol × 5r/25g. Ablasyon `full` / `no-override` / `fixed-EDF` / `fixed-orphan` (her biri 3 senaryo × 20 tohum = 60 koşu, toplam 240) → `tab:gazebo-ablation`; ayrıca `baselines-n20` (3 baseline × 3 senaryo × 20 tohum = 180) → dört-yöntem kıyaslamasını n=20'ye çıkarır. |
+| `ablation_analysis.txt` | Yukarıdakinin ön-kayıtlı analiz çıktısı (`scripts/analyze_ablation.py`) |
 
 Ham loglar silinmemelidir: deneyin gerçekte ne yaptığı (ör. arıza enjeksiyon anı)
 yalnız oradan doğrulanabilir — makale metnindeki senaryo tanımı bir kez tam da bu
@@ -77,7 +79,44 @@ python3 scripts/plot_results.py --processed-dir results/processed \
 python3 scripts/make_extra_tables.py
 ```
 
+### Eşleşmiş kapalı-çevrim ablasyonu (B4 → `tab:gazebo-ablation`)
+
+Kolu belirleyen şey **env bayrağıdır**, kod değil; çözülmüş bayraklar her koşunun
+`metadata.yaml: allocator_env` alanına yazılır, yani bir koşunun hangi kola ait
+olduğu sonuç dosyasından okunur. Kampanya ve analiz:
+
+```bash
+nohup bash run_ablation_campaign.sh > results/ablation_campaign.log 2>&1 &
+python3 scripts/analyze_ablation.py > results/ablation_analysis.txt
+```
+
+Analiz `paper/PREREGISTRATION.md`'yi uygular (birincil uç nokta, eşli Wilcoxon,
+Cliff δ, senaryo ailesi içinde Bonferroni) ve **iki dildeki tabloyu tek veri
+geçişinden üretir** → `paper/table/gazebo_ablation{,_tr}.tex`. Bu tablolar
+**elle düzenlenmez**; aşağıdaki elle-bakım listesine dâhil değildirler.
+
+Kollar tamamlanmadan koşulursa analiz ara-sonuç uyarısı basar ve boş kol üzerinden
+eşleştirme yapmayı reddeder. `DONE` dosyası olmayan koşu hiç okunmaz — düşmüş bir
+bring-up kısmi satır katkısı yapamaz.
+
+> **Kampanya başlatma kuralı:** `MAX_LOAD=5` (sürücü export ediyor) ve koşarken
+> ağır iş yapma. Varsayılan eşik 10, 5 robotluk bring-up için fazla gevşek —
+> 2026-07-31'de iki koşu bu yüzden `STARTUP FAILED: 0/5 Nav2 hazır` verdi.
+> Ayrıntı: `CLAUDE.md`.
+
 ### Simülatör düzlemleri (Gazebo gerektirmez)
+
+> **🔴 BAYAT (2026-08-01 itibarıyla açık).** `9aaeb46` senaryo tanımlarını tek bir
+> paylaşılan modüle (`m_ahe_task_allocator/scenarios.py`) taşıdı ve **vekil
+> düzlemi makaledeki tanımlarla hizaladı**. Öncesinde vekilin `mixed_stress`'ini
+> `robot_failure`'dan ayıran tek şey bataryaydı — dalga programı ve yarılanmış
+> deadline bütçesi yoktu; `deadline_pressure` da U[200,400] kullanıyordu, makalenin
+> yazdığı U[36,120] değil. Aşağıdaki üç çıktı (`sim_fitness`, `sim_scalability`,
+> `ablation_edps_*`) **hizalama öncesi** üretildi ve artık koda karşılık gelmiyor.
+> Yeniden üretilmeleri gerekiyor; Gazebo kampanyası makineyi bıraktığında yapılacak.
+> Yeniden üretim `tab:fitness`, `tab:scalability`, `tab:ablation` ve özetteki
+> mixed-stress iddiasını değiştirecek. Sürüklenmenin tekrarını
+> `tests/test_scenario_parity.py` engelliyor.
 
 **Bu env bayrakları olmadan sim Öklid mesafeye düşer ve makaleyle uyuşmayan
 sayılar üretir.** Kaynak: `scripts/run_f58_benchmark_until_complete.sh`.
@@ -105,7 +144,14 @@ yukarıdaki çıktılardan elle taşınır. Bayatlama riski buradadır:
 | `fitness{,_tr}.tex` | `processed/sim_fitness.csv` |
 | `scalability{,_tr}.tex` | `processed/sim_scalability.csv` |
 | `ablation{,_tr}.tex` | `processed/ablation_edps_100_geodesic.txt` |
-| `scales`, `proto_vectors`, `as_matrices`, `hormones` | Statik yapılandırma (veri değil) |
+| `scales`, `proto_vectors`, `hormones` | Statik yapılandırma (veri değil) |
+
+**Script üretimi olanlar — elle DÜZENLEME:** `gazebo_ablation{,_tr}.tex`
+(`analyze_ablation.py`), `allocation_only{,_tr}.tex` (`make_allocation_table.py`),
+`latex_{main,deadline}_table.tex` (`statistical_analysis.py`),
+`latex_{efficiency,effectsize}_table{,_tr}.tex` (`make_extra_tables.py`).
+(`as_matrices{,_tr}.tex` **silindi** — üç sıfır-dışı giriş için float harcıyordu,
+artık metinde bir cümle.)
 
 Bu dosyalardan birine dokunulduğunda kaynağıyla birebir karşılaştır. `ablation.tex`
 tam olarak bu adım atlandığı için aylarca `sim_scalability.csv` ile çelişti.
