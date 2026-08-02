@@ -242,6 +242,20 @@ def _best_set(sub, methods, col, dec):
     return {m for m, v in vals.items() if v == tgt}
 
 
+def _n_phrase(sub):
+    """Seed count for a caption, read off the data rather than hard-coded.
+
+    Cells are meant to be balanced; if a rerun ever leaves them ragged the
+    caption says so instead of quietly claiming a count no cell has.
+    """
+    ns = sorted(set(int(x) for x in sub["n"].dropna())) if "n" in sub.columns else []
+    if len(ns) == 1:
+        return f"$n{{=}}{ns[0]}$ runs (seeds) per cell"
+    if not ns:
+        return "seed count per cell unavailable"
+    return f"$n{{=}}{ns[0]}$--${ns[-1]}$ runs (seeds) per cell"
+
+
 def build_main_table(desc, tests):
     metrics_show = [
         ("task_completion_rate",   "CR$\\uparrow$",    3),
@@ -253,7 +267,7 @@ def build_main_table(desc, tests):
     methods_g2 = [PROPOSED] + G2_BASELINES
     col_hdrs = [m[1] for m in metrics_show]
     caption = (
-        "Main comparison at the primary 5-robot / 25-task scale; $n{=}5$ runs (seeds) per cell. "
+        f"Main comparison at the primary 5-robot / 25-task scale; {_n_phrase(desc)}. "
         "Best value per column (within scenario) in \\textbf{bold}. "
         "Significance vs AHE-MRTA*: $^{*}p{<}0.05$, $^{**}p{<}0.01$, "
         "$^{***}p{<}0.001$ (Mann--Whitney U, Bonferroni-corrected within each scenario family of 21 tests)."
@@ -308,7 +322,7 @@ def build_deadline_table(desc, tests):
     sub = desc[desc["scenario"] == scenario]
     col_hdrs = [m[1] for m in metrics_show]
     caption = (
-        "Deadline scenario results (deadline\\_pressure) at the primary 5-robot / 25-task scale; $n{=}5$ runs (seeds) per cell. "
+        f"Deadline scenario results (deadline\\_pressure) at the primary 5-robot / 25-task scale; {_n_phrase(sub)}. "
         "DVR: deadline violation rate. Best value per column in \\textbf{bold}. "
         "Significance vs AHE-MRTA* (Bonferroni-corrected Mann-Whitney U)."
     )

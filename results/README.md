@@ -14,16 +14,17 @@ edilmiş bir kampanyanın türetilmiş dosyalarından beslendi ve metinle sessiz
 
 | Dosya | İçerik |
 |---|---|
-| `processed/all_summary.csv` | **300 Gazebo koşusunun tamamı** (3r×3 yoğunluk, 5r, 10r × 4 yöntem × 3 senaryo × 5 tohum). Ölçek ayrımı `robot_count` / `target_count` **kolonlarıyla filtrelenir** — ayrı ölçek dizini YOKTUR. |
-| `processed/all_{task_events,allocation_events,ecosystem_metrics,communication,robot_workload,runtime}.csv` | Aynı 300 koşunun olay/zaman serisi ayrıntısı |
+| `processed/all_summary.csv` | **480 Gazebo koşusunun tamamı**: 3r×3 yoğunluk ve 10r × 4 yöntem × 3 senaryo × **5 tohum**, 5r × 4 yöntem × 3 senaryo × **20 tohum** (D2). Ölçek ayrımı `robot_count` / `target_count` **kolonlarıyla filtrelenir** — ayrı ölçek dizini YOKTUR. |
+| `processed/all_{task_events,allocation_events,ecosystem_metrics,communication,robot_workload,runtime}.csv` | Aynı 480 koşunun olay/zaman serisi ayrıntısı |
 | `processed/sim_fitness.csv` | Navigasyon vekili, 5r/25g, **500 tohum** → `tab:fitness` |
 | `processed/sim_scalability.csv` | Vekil ölçeklenebilirlik, N∈{3,5,10}, 100 tohum → `tab:scalability` |
 | `processed/ablation_edps_100_geodesic.txt` | EDPS ablasyonu, 5r/25g, 100 tohum, geodezik → `tab:ablation` |
 | `stats/descriptive_stats.csv`, `stats/stat_tests.csv`, `stats/stat_summary.txt` | 5r birincil ölçek betimleyici + Mann–Whitney |
-| `stats/f58_allocation_only{,_3r15t,_10r50t}/` | Yalnız-tahsis kampanyası → `tab:allocation` |
-| `raw/gazebo_benchmark_f58/` | **Makalenin ham kanıtı**: 300 koşunun per-run CSV + konsol logları |
+| `stats/f58_allocation_only{,_3r15t,_10r50t}/` | Yalnız-tahsis kampanyası → `tab:allocation`. ⚠️ **BAYAT (2026-06-29):** düzeltme öncesi senaryo parametreleriyle koşuldu (deadline bütçesi U[200,400] s). Her hücrede fitness 1.000 / DVR 0.000 veriyor; aynı düzlemi yeniden üreten `sim_fitness.csv` kusursuz-nav kolonu 5r/25g deadline'da 0.840 diyor. Yeniden koşulmalı. |
+| `raw/gazebo_benchmark_f58/` | **Makalenin ham kanıtı**: 3r/10r koşularının per-run CSV + konsol logları (5r için bkz. `raw/gazebo_ablation/baselines-n20` ve `full`) |
 | `raw/gazebo_ablation/` | **Eşleşmiş kapalı-çevrim ablasyonu (B4)**: beş kol × 5r/25g. Ablasyon `full` / `no-override` / `fixed-EDF` / `fixed-orphan` (her biri 3 senaryo × 20 tohum = 60 koşu, toplam 240) → `tab:gazebo-ablation`; ayrıca `baselines-n20` (3 baseline × 3 senaryo × 20 tohum = 180) → dört-yöntem kıyaslamasını n=20'ye çıkarır. |
 | `ablation_analysis.txt` | Yukarıdakinin ön-kayıtlı analiz çıktısı (`scripts/analyze_ablation.py`) |
+| `processed/ab_prio_{on,off}{,_seedwise}.csv` | Öncelik çarpanı $\rho$ eşli A/B, 500 tohum → Sınırlılık (xii). ⚠️ **BAYAT (2026-07-30):** senaryo düzeltmesinden önce koşuldu; `tab:allocation` ile aynı sebeple yeniden koşulmalı. |
 
 Ham loglar silinmemelidir: deneyin gerçekte ne yaptığı (ör. arıza enjeksiyon anı)
 yalnız oradan doğrulanabilir — makale metnindeki senaryo tanımı bir kez tam da bu
