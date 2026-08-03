@@ -54,35 +54,37 @@ başlangıçta atıfta bulunduğu biyomimetik metafor değil.}}
 %==============================================================================
 \begin{abstract}
 Bir robot ekibine işinin tamamı nadiren baştan verilir: filo hareket
-hâlindeyken yeni işler doğar, dolan deadline'larla kaybolur ve robotlar
-arasında el değiştirir. Bu nedenle çevrim içi çoklu robot görev atama, görevler
-gelirken, deadline'lar sıkışırken ve robotlar yürütmenin ortasında
-arızalanırken sağlam kalmalıdır; tek bir sabit kural her rejime hizmet edemez.
-Beş yorumlanabilir tahsis davranışı arasından çevrim içi seçim yapan
-AHE-MRTA'yı sunuyoruz; seçim iki katmanlı bir kuralla yapılır --- arıza ve
-deadline baskısında belirlenimci bağlam-geçersiz kılmaları, altında bir
-baskınlık dinamiği --- ve atamalar geodezik-ETA kâhini ile sınırlı terminal
-yük onarımıyla fiyatlanır. Değerlendirmeyi gerçekçiliği artan üç katmanda
+hâlindeyken yeni işler doğar, deadline'ı dolanlar düşer, kalanlar robotlar
+arasında el değiştirir. Bu yüzden çevrim içi çoklu robot görev atama; görevler
+gelirken, deadline'lar sıkışırken ve robotlar iş üstünde arızalanırken sağlam
+kalmak zorunda. Tek bir sabit kural da her rejime yetmiyor.
+Bu çalışmada AHE-MRTA'yı sunuyoruz: beş yorumlanabilir tahsis davranışı
+arasından çevrim içi seçim yapan, olay-tetiklemeli bir tahsis edici. Seçimi iki
+katmanlı bir kural veriyor: arıza ve deadline baskısında belirlenimci bağlam
+geçersiz kılmaları devreye giriyor, hiçbiri tetiklenmezse kararı bir baskınlık
+dinamiği veriyor. Atamayı iki ek mekanizma fiyatlıyor: geodezik-ETA kâhini ve
+sınırlı terminal yük onarımı. Değerlendirmeyi gerçekçiliği artan üç katmanda
 yapıyoruz: allocation-only, stokastik navigasyon vekili (500 tohum) ve 3, 5,
 10 TurtleBot3 ile kapalı-çevrim Gazebo/ROS\,2 Nav2 (480 koşu; birincil ölçekte
-hücre başına 20 tohum). AHE-MRTA üç katmanın hepsinde her senaryoda öndedir.
-Deadline baskısı altında zamanında-etkin tamamlamada öndedir (5 robotta
-$0.650$'ye karşı $0.578$, 10 robotta $0.764$'e karşı $0.524$); en güçlü
-temel yöntemin deadline ihlal oranını \%$17$ ve \%$49$ düşürüp
-$0.5$--$3.4$~ms'de karar verir; birincil ölçekte 63 yöntemler-arası
-karşılaştırmanın 20'si Bonferroni düzeltmesinden geçer, 15'i AHE-MRTA
-lehinedir. Önceden kayıt altına alınmış eşleşmiş bir
-ablasyon (240 ek koşu, dört kol, 20 ortak tohum) bu sonucu neyin taşıdığını
-neyin taşımadığından ayırır: tahsis ediciyi bağlamın çağırmadığı bir
-paradigmaya kilitlemek zamanında-etkin tamamlamadan $9$--$11$ yüzde puanı
-götürürken (büyük etki, düzeltilmiş $p<0.005$), geçersiz kılma kaskadını
-kaldırmak ölçülebilir hiçbir şeyi değiştirmez. Kayıt dışı beşinci bir kol
-sınırı daha da keskinleştirir: seçicinin geri düşüşünün neredeyse her zaman
-döndürdüğü tek paradigmaya kilitlendiğinde tahsis edici onunla başabaş kalır
-($0.650$'ye karşı $0.638$, $p=0.43$). Bu nedenle portföyün rejime uygun bir
-paradigma barındırması ve tahsis edicinin ondan uzağa kilitlenmemesi gerektiğini
-iddia ediyoruz; ne uyguladığımız belirli seçiciyi ne de onun bu geri düşüşe
-üstünlüğünü.
+hücre başına 20 tohum). AHE-MRTA üç katmanın hepsinde, her senaryoda önde
+bitiriyor. Deadline baskısı altında zamanında-etkin tamamlamada 5 robotta
+$0.650$, 10 robotta $0.764$ değerine ulaşıyor; en güçlü temel yöntem aynı
+hücrelerde $0.578$ ve $0.524$'te kalıyor. O yöntemin deadline ihlal oranını
+\%$17$ ve \%$49$ azaltıyor, kararlarını da $0.8$--$3.4$~ms içinde veriyor.
+Birincil ölçekte yöntemler arası 63 karşılaştırmanın 20'si Bonferroni
+düzeltmesini geçiyor: 15'i AHE-MRTA'nın lehine, beşi aleyhine.
+Önceden kayıt altına alınmış eşleşmiş bir ablasyon (240 ek koşu, dört kol,
+20 ortak tohum) bu sonucu neyin taşıdığını, neyin taşımadığından ayırıyor.
+Tahsis ediciyi bağlamın çağırmadığı bir paradigmaya kilitlemek,
+zamanında-etkin tamamlamadan $9$--$11$ yüzde puanı götürüyor (büyük etki,
+düzeltilmiş $p<0.005$). Geçersiz kılma kaskadını kaldırmak ise ölçülebilir
+hiçbir şeyi değiştirmiyor. Kayıt dışı beşinci bir kol iddiayı daha da
+daraltıyor: tahsis ediciyi, geri düşüşün neredeyse her zaman döndürdüğü tek
+paradigmaya kilitlediğimizde onunla yalnızca başabaş kalıyor
+($0.650$'ye karşı $0.638$, $p=0.43$). Dolayısıyla iddiamız şu: portföy rejime
+uygun bir paradigma barındırmalı ve tahsis edici ondan uzağa kilitlenmemeli.
+Uyguladığımız seçicinin kendisini de, onun bu geri düşüşe üstünlüğünü de
+iddia etmiyoruz.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -108,32 +110,34 @@ tahsisçi, durum ayağının altında değişirken yararlı kararları korumalı
 
 Bu koşulların hepsinde tek bir strateji en iyi değildir; çünkü bir rejimde
 işe yarayan seçim başka bir rejimde zarar verir. Üç gerilim yinelenir.
-Birincisi çözüm kalitesine karşı tepki maliyeti: küresel durum bilgisi varsa
-merkezi formülasyonlar tahsis ve rotayı birlikte eniyiler ve zamanlama, iş
-yükü, mesafe, enerji ve deadline terimlerini tek bir programa katar
-\cite{lei2023convex}; ancak bu bağlaşık problemi her olayda yeniden çözmek
-maliyetlidir ve yürütmenin uygulamaya başladığı bir planı bozabilir. İkincisi
-küresel eniyiliğe karşı koordinasyon maliyeti: dağıtık ve piyasa-tabanlı
-yöntemler küresel çözümü yerel kararlar ve açık mesajlaşmayla değiştirir---
-grup-tabanlı açık artırmalar zaman penceresiyle zamanla gelen teslimat
-isteklerini karşılar \cite{bai2023group}, uzlaşma-tabanlı tahsis ise bir
-miktar eniyilikten vazgeçerek yerel koordinasyon, hız ve daha düşük enerji
-sağlar \cite{mahato2023consensus}---fakat iletişimi sınırlayan yerellik,
-küresel yapıdan ne kadar yararlanabileceklerini de sınırlar. Üçüncüsü
-tepkiselliğe karşı kararlılık: agresif biçimde yeniden eniyileyen bir politika,
-bir robot arızalandığında veya deadline kaçtığında hızla toparlanır ama yürüyen
-görevleri keser ve fizibil rotaları bozar; commit-once bir politika ise ucuz
-ve kararlıdır ancak arızalanan robotun görevlerini sahipsiz bırakır. Diğer
-çevrim içi yöntemler bu eksenlerde sabit konumlar alır---oyun-kuramı tabanlı
+Birincisi, çözüm kalitesine karşı tepki maliyeti. Küresel durum bilgisi varsa
+merkezi formülasyonlar tahsisle rotayı birlikte eniyiler; zamanlama, iş yükü,
+mesafe, enerji ve deadline terimlerini tek bir programda toplar
+\cite{lei2023convex}. Ne var ki bu bağlaşık problemi her olayda yeniden çözmek
+pahalıdır ve yürütmenin uygulamaya başladığı bir planı bozabilir.
+İkincisi, küresel eniyiliğe karşı koordinasyon maliyeti. Dağıtık ve
+piyasa-tabanlı yöntemler küresel çözümün yerine yerel kararları ve açık
+mesajlaşmayı koyar: grup-tabanlı açık artırmalar, zaman penceresiyle birlikte
+zamana yayılan teslimat isteklerini karşılar \cite{bai2023group};
+uzlaşma-tabanlı tahsis ise bir miktar eniyilikten vazgeçip yerel koordinasyon,
+hız ve daha düşük enerji kazanır \cite{mahato2023consensus}. Ama iletişimlerini
+sınırlayan yerellik, küresel yapıdan ne kadar yararlanabileceklerini de
+sınırlar.
+Üçüncüsü, tepkiselliğe karşı kararlılık. Agresif biçimde yeniden eniyileyen bir
+politika, bir robot arızalandığında ya da deadline kaçtığında hızla toparlanır;
+buna karşılık yürüyen görevleri keser ve fizibil rotaları bozar. Commit-once
+bir politika ucuz ve kararlıdır; ama arızalanan robotun görevlerini sahipsiz
+bırakır.
+Diğer çevrim içi yöntemler bu eksenlerde sabit konum alır: oyun-kuramı tabanlı
 kümeleme görev gruplamayı tahsisle birleştirir \cite{garciamartin2023clustering},
 öz-uyarlanır yöntemler problem yapısındaki değişimlere tepki verir
 \cite{rostam2024selfadaptive}, merkeziyetsiz enerji-duyarlı politikalar güç
-çekişini ağırlıklandırır \cite{bagchi2024energyaware}---fakat her biri konumunu
-önceden sabitler. Görev gelişi patlamaları, robot arızaları ve deadline
-baskısının her biri farklı bir konumu ödüllendirdiğinden, bir rejime göre
-ayarlanmış strateji başka bir rejimde açık verir. Bu, tahsis davranışının
-kendisini sabit bir tasarım tercihi değil, çevrim içi bir karar olarak ele
-almayı gerektirir.
+çekişini ağırlıklandırır \cite{bagchi2024energyaware}. Her biri konumunu
+önceden sabitler. Oysa görev gelişi patlamaları, robot arızaları ve deadline
+baskısının her biri farklı bir konumu ödüllendiriyor; bir rejime göre
+ayarlanmış strateji başka bir rejimde açık veriyor. Biz de bu yüzden tahsis
+davranışının kendisini sabit bir tasarım tercihi olarak değil, çevrim içi
+verilen bir karar olarak ele alıyoruz.
 
 Bu makale, görev gelişi, robot arızası, karışık stres ve deadline baskısı
 altında çevrim içi tek-görev-robot tahsisini ele alır. Tahsisçi görev gelişi, arıza, deadline alarmı veya yeniden planlama olayında,
@@ -159,25 +163,26 @@ kalan-makespan geriletmeme koruması altında dengeleyen sınırlı terminal yü
 onarımı.
 
 Kendi ölçümlerimizin neyi desteklediğini, beklentimizi nerede çürüttüğü de
-dahil, baştan söylüyoruz. Koşulmadan önce kayıt altına alınmış eşleşmiş bir
-kapalı-çevrim ablasyonu (Bölüm~\ref{sec:gazebo-ablation}), yük taşıyan şeyin
-\emph{portföy} olduğunu gösteriyor: tahsis ediciyi bağlamın çağırmadığı bir
-paradigmaya kilitlemek, deadline baskısı altında zamanında-etkin tamamlamadan
-$9$--$11$ yüzde puanı götürüyor ve etkiler düzeltme sonrası büyük. İki katmanlı
-seçicinin üst katmanı ise yük taşımıyor: geçersiz kılma kaskadını silip
-$\arg\max_i D_i$'ye düşmek ölçülebilir hiçbir şeyi değiştirmiyor. İki katman
-bir mekanizma ve onun süsü değil, birbirinin ikamesi. Kayıttan sonra eklenen ve
-keşifsel olarak raporlanan beşinci bir kol, iddianın öteki kenarını çiziyor:
-uzamsal-açgözlüye --- geri düşüşün karara bağladığı durumların \%$99.9$'unda
-döndürdüğü paradigma --- kilitlendiğinde tahsis edici tam seçici gibi
-davranıyor. Bu nedenle sabit bir
+dahil, baştan söylüyoruz. Eşleşmiş bir kapalı-çevrim ablasyonunu
+(Bölüm~\ref{sec:gazebo-ablation}) koşmadan önce kayıt altına aldık. Bu deney,
+yükü \emph{portföyün} taşıdığını gösteriyor: tahsis ediciyi bağlamın
+çağırmadığı bir paradigmaya kilitlemek, deadline baskısı altında
+zamanında-etkin tamamlamadan $9$--$11$ yüzde puanı götürüyor ve etkiler
+düzeltme sonrası büyük çıkıyor. Aynı deney, seçicinin üst katmanının yük
+taşımadığını da gösteriyor: geçersiz kılma kaskadını silip
+$\arg\max_i D_i$'ye düşmek ölçülebilir hiçbir şeyi değiştirmiyor. Yani iki
+katman, bir mekanizma ve onun süsü değil; birbirinin ikamesi. Kayıttan sonra
+eklenen ve keşifsel olarak raporladığımız beşinci bir kol, iddianın öteki
+kenarını çiziyor. Geri düşüş, karara bağladığı durumların \%$99.9$'unda
+uzamsal-açgözlüyü döndürüyor; tahsis ediciyi doğrudan o paradigmaya
+kilitlediğimizde tam seçici gibi davranıyor. Bu yüzden sabit bir
 portföy üzerinde çevrim içi değiştirmeyi iddia ediyoruz, onu gerçekleştiren
 belirli kuralı değil; kanıtın nerede bittiğini de açıkça işaretliyoruz
-(Bölüm~\ref{sec:limitations}). Allocation-only ablasyonu da varyantları
-ayrıştırıyor ve kayıtlı kollarla değil beşinci kolla aynı fikirde: sabit
-uzamsal-açgözlüyü tam seçicinin önüne koyuyor. Bu düzlem ne tıkanıklığı ne de
-toparlanma gecikmesini ücretlendiriyor; kapalı-çevrim deneyinin eklediği tam
-olarak bunlar.
+(Bölüm~\ref{sec:limitations}). Navigasyon-vekili ablasyonu da varyantları
+ayrıştırıyor ve kayıtlı kollarla değil, beşinci kolla aynı yöne işaret ediyor:
+sabit uzamsal-açgözlüyü tam seçicinin önüne koyuyor. Ne var ki bu düzlem ne
+tıkanıklığı ne de toparlanma gecikmesini hesaba katıyor; kapalı-çevrim
+deneyinin getirdiği tam olarak bunlar.
 
 \textbf{Makalenin sınırlı katkıları:}
 \begin{enumerate}
@@ -189,10 +194,12 @@ olarak bunlar.
   \item Navigation-independent simülatör ve ROS~2/Gazebo yığınında çoklu
   filo ölçeğinde değerlendirme.
   \item Allocation-only, stokastik navigasyon-vekili ve kapalı-çevrim Gazebo
-  kanıtının ayrı ayrı raporlanması ve nerede uyuştuklarının, nerede
-  uyuşmadıklarının gösterilmesi: üçü de yöntemleri aynı sıralıyor, ama
-  portföyü (yük taşıyan) seçici kuralından (taşımayan) yalnız kapalı çevrim
-  ayırıyor.
+  kanıtlarının ayrı ayrı raporlanması; nerede uyuşup nerede ayrıştıklarının
+  gösterilmesi. Üçü de AHE-MRTA'yı her senaryoda birinci sıraya koyuyor, ama
+  temel yöntemlerin kendi \emph{aralarındaki} sıralaması düzlemden düzleme
+  değişiyor: commit-once BiG-MRTA vekilde hep ikinciyken üç Gazebo
+  senaryosunun ikisinde sonuncu. Portföyü (yük taşıyan) seçici kuralından
+  (taşımayan) ayıran tek düzlem de kapalı çevrim.
 \end{enumerate}
 
 Üç katman yalnızca navigasyonun nasıl modellendiğinde ayrışır: belirlenimci
@@ -320,13 +327,14 @@ yapışkanlığını, yeniden atama cezasını ve kapasite cezasını toplar. B�
 saniye cinsinden değerlerle normalize özellikler doğrudan toplanmaz. Seçici
 $w$'yu üretir; etkin paradigma görev sırasını ve uygunluğu da şekillendirir.
 Güvenli mevcut görev taban aciliyette kalırken atanmamış veya riskli görev
-doğrusal olmayan aciliyet artışı alır. $\rho$ çarpanı acil işe bir indirim
-olarak yazılmıştır ve köşeli parantez pozitifken öyle davranır. Değerlendirilen
-yapılandırmada pozitif değildir: $\Psi_{r\tau}^k$ içindeki deadline-yetenek
-bonusu ağırlıklı öznitelikleri bastırdığından uygun çiftlerde parantez
-negatiftir ve $\rho$ o durumda öncelik-3 görevini aynı durumdaki öncelik-1
-görevinden \emph{daha pahalı} kılar. Amaçlanan biçimi değil uygulanan biçimi
-raporluyoruz; etkisini Bölüm~\ref{sec:limitations}'de niceliklendiriyoruz.
+doğrusal olmayan aciliyet artışı alır. $\rho$ çarpanını acil işe indirim olarak
+tasarladık ve köşeli parantez pozitif olduğu sürece öyle de davranıyor. Ne var
+ki değerlendirilen yapılandırmada parantez negatif: $\Psi_{r\tau}^k$ içindeki
+deadline-yetenek bonusu ağırlıklı öznitelikleri bastırıyor. Negatif bir
+parantezi $\rho$ ile çarpmak amacı tersine çeviriyor; sonuçta $\rho$, öncelik-3
+görevini aynı durumdaki öncelik-1 görevinden \emph{daha pahalı} hâle getiriyor.
+Amaçlanan biçimi değil, uygulanan biçimi raporluyoruz; etkisini
+Bölüm~\ref{sec:limitations}'de niceliklendiriyoruz.
 
 \textbf{Koşu düzeyinde sonuçlar ve zamanlama sözleşmesi.} Koşu düzeyi amaç,
 bitmeyen görevleri gizlemeden tamamlanmayı artırmak ve deadline ihlalini
@@ -349,7 +357,10 @@ görev gecikme için $T_{\max}$'da sağdan sansürlenir ve DVR için deadline
 kaçırma sayılır (Bölüm~\ref{sec:metrics}).
 
 Konuşlandırılmış AHE çevrimi için karar-zamanı sözleşmesi
-$\ell_k=t_k^{\rm publish}-t_k\leq50$~ms'dir. Temel yöntemlerin karar
+$\ell_k=t_k^{\rm publish}-t_k\leq50$~ms'dir. Bu sınır ortalamada değil, olay
+başına tutuyor: birincil ölçekteki 60 AHE-MRTA koşusunda kaydedilen 1{,}628
+tahsis kararının en yavaşı $4.35$~ms sürdü; hiçbiri bütçeyi aşmadı. Temel
+yöntemlerin karar
 gecikmeleri, bu AHE hizmet hedefinde sessizce kırpılmak yerine ölçülen
 karşılaştırma sonuçları olarak raporlanır. Bu ayrım, gerçek-zaman gereksinimini
 korurken gecikme takaslarını görünür yapar.
@@ -394,13 +405,17 @@ vektörüne sıkıştırılır:
   \label{eq:context-vector}
 \end{equation}
 $n=|\mathcal R|$ filo büyüklüğü ve $m_k=|\mathcal T(t_k)|$ açık görev sayısı
-olsun. Çalışan, navigasyonda sıkışmamış ve kuyruk kapasitesi bulunan robotlar
-$\mathcal R^{\rm av}_k$; arızalı ya da sıkışmış robotlar ise
-$\mathcal R^{\rm f}_k$ ile gösterilsin. Bağlam bileşenleri
+olsun. Ne arızalı ne de navigasyonda sıkışmış robotların kümesini
+$\mathcal R^{\rm alive}_k$, bunun tümleyenini $\mathcal R^{\rm f}_k$ ile
+gösterelim. Kuyruk doluluğu $c_{2,k}$'ye girmez, çünkü bağlamı kuran ekosistem
+yöneticisi robotların yayımladığı durum özetlerini okur; o özetlerde sağlık ve
+navigasyon durumu vardır, kuyruk uzunluğu yoktur. Bu yüzden
+$\mathcal R^{\rm alive}_k$, Bölüm~\ref{sec:problem}'deki tahsis edici tarafının
+kullandığı $\mathcal R^{\rm av}_k$'den daha geniş bir kümedir. Bağlam bileşenleri
 \begin{align}
  c_{1,k} &= \min\!\left(1,\frac{m_k}{\max(1,n)}\right),
  &&\text{görev yoğunluğu},\label{eq:ctx-start}\\
- c_{2,k} &= \frac{|\mathcal R^{\rm av}_k|}{\max(1,n)},
+ c_{2,k} &= \frac{|\mathcal R^{\rm alive}_k|}{\max(1,n)},
  &&\text{robot uygunluğu},\\
  c_{3,k} &= \frac{\left|\left\{\tau\in\mathcal T(t_k):
                 d_\tau-t_k\leq\Delta_d\right\}\right|}{\max(1,m_k)},
@@ -435,18 +450,21 @@ Dolayısıyla aynı olayda hem arıza hem deadline baskısı varsa toparlanma
 varsayılan H\_TEMP'tir. Üçüncü dal bir geri düşüştür ve
 Bölüm~\ref{sec:dominance}'te anlatılır.
 
-Bu sıralama bir sunum tercihi değil, kararların gerçekte nerede verildiğidir.
-Seçici, kıyaslama kampanyasının kayıtlı $15{,}058$ durumu üzerinde yeniden
-oynatıldığında arıza geçersiz kılması olayların \%$49.2$'sini, deadline
-geçersiz kılması \%$25.3$'ünü karara bağlıyor; geriye kalan \%$25.5$ geri
-düşüşe kalıyor (Bölüm~\ref{sec:limitations} onun bu paylaşımla ne yaptığını
-raporluyor). Yöntemin işleyen içeriği bu iki eşiktir.
+Bu sıralama bir sunum tercihi değil; kararların gerçekte nerede verildiğini
+gösteriyor. Seçiciyi kıyaslama kampanyasının kayıtlı $15{,}058$ durumu
+üzerinde yeniden oynattığımızda arıza geçersiz kılması olayların
+\%$49.2$'sini, deadline geçersiz kılması \%$25.3$'ünü karara bağlıyor; kalan
+\%$25.5$'te karar geri düşüşe kalıyor (geri düşüşün bu payla ne yaptığını
+Bölüm~\ref{sec:limitations} anlatıyor). Yöntemin asıl işleyen içeriği bu iki
+eşik.
 
 Ham seçim tek başına hızlı geçişlere yol açabileceğinden, H\_RECOV dışındaki
 paradigma değişimleri dört tahsis olayı boyunca ertelenir. Daha açık olarak,
 son kabul edilen paradigma $p_{k-1}$'den farklı bir $\tilde p_k$ önerildiğinde
 ve bekleme sayacı pozitif olduğunda dağıtıcı $p_k=p_{k-1}$ döndürür ve sayacı
-bir azaltır. Değişim kabul edildiğinde sayaç $\rho=4$'e kurulur. H\_RECOV bu
+bir azaltır. Değişim kabul edildiğinde sayaç $K_{\rm dwell}=4$'e kurulur.
+Burada ayrı bir sembol kullanıyoruz, çünkü $\rho$ zaten
+Denklem~\eqref{eq:cost}'daki öncelik çarpanını gösteriyor. H\_RECOV bu
 beklemeyi atlar; arıza algılandıktan sonra kurtarma geçişi bir sonraki olaya
 ertelenmez. Bu mekanizma, bağlam override'ının reaktifliğini korurken normal
 rejimlerdeki ping-pong geçişlerini sınırlar.
@@ -529,11 +547,14 @@ ve $T_w=0.3$'tür. Arıza modu etkin olduğunda bu vektör ek olarak
 $w_{\rm rec}$ yönünde
 $\theta_k=\min(0.80,0.50+0.60c_{4,k})$ oranında harmanlanır. Deadline
 baskısı $0.5$'i aşıp arıza modu etkin değilse aciliyet kanalı $1.5$ ile
-çarpılır. Bu ağırlıklar, Bölüm~\ref{sec:problem}'deki ortak maliyetin
+çarpılır ve $1$'de kırpılır. Bu ağırlıklar,
+Bölüm~\ref{sec:problem}'deki ortak maliyetin
 bağlama duyarlı kısmıdır. Değerlendirilen yürütme yığınında batarya modeli
-bulunmadığından batarya kanalı raporlanan tüm koşularda sıfır ağırlık taşır;
-aynı ağırlık haritasının batarya-duyarlı konuşlandırmalara değişmeden
-aktarılabilmesi için bu kanal maliyet vektöründe korunur.
+bulunmuyor; dolayısıyla batarya \emph{özniteliği} raporlanan bütün koşularda
+sıfıra eşittir ve kanal hiçbir maliyete katkı vermez. Ağırlığı $w_b$ ise sıfır
+değildir (Bölüm~\ref{sec:method-config}); kanalı da ağırlığını da maliyet
+vektöründe tutuyoruz ki aynı ağırlık haritası batarya-duyarlı bir
+konuşlandırmaya değişmeden aktarılabilsin.
 
 \paragraph{Fizibilite ve kararlılık.} Her paradigma, Denklem~
 \eqref{eq:admission-gate}'deki sert kabul kapısını ve tek-sahiplik/in-flight
@@ -541,8 +562,11 @@ kısıtlarını uygular. Deadline bütçesinin $0.7$'sinden fazlasını tüketen
 atanmamış ya da risk altındaki görevlerde aciliyet cezası doğrusal olmayan
 biçimde yükseltilir. Buna karşılık, mevcut sahibinde deadline'ına zamanında
 ulaşması beklenen bir görev bu yükseltmeden muaftır. Önceki bir sahibin
-değişmesi için tahmini varışta en az $10\%$ iyileşme aranır; yetim veya
-kurtarma görevi bu marj kuralının dışındadır. Bu korumalar, olay-tetiklemeli
+değişmesi için tahmini varışta en az $10\%$ iyileşme aranır. Üç görev sınıfı bu
+marj kuralının dışında tutulur: önceki sahibi artık sağlıklı olmayan yetimler,
+kurtarma görevleri ve acil ufka girmiş görevler. Böylece kapı, arızadan
+etkilenen ya da süresi dolmak üzere olan işi hiçbir zaman bekletmez.
+Bu korumalar, olay-tetiklemeli
 yeniden planlamanın gereksiz görev taşımasına dönüşmesini önler.
 
 \subsection{Geodezik ETA ve sınırlı yük onarımı}
@@ -563,8 +587,11 @@ ETA vekili
 \label{eq:eta}
 \end{equation}
 ile bulunur. Burada $s_\tau$ adayın servis süresi, $h=22$~s ise kuyruktaki
-her görev için sabit navigasyon payıdır. Bu ucuz vekil ara kuyruk
-kenarlarının tamamını yeniden kurduğunu iddia etmez. Aynı son-nokta mesafe
+her görev için sabit navigasyon payıdır. Buradaki $v_r=0.22$~m/s, platformun
+Bölüm~\ref{sec:hardware}'de verilen azami hızı $v_{\max}=0.26$~m/s
+\emph{değildir}; planlama ve ivmelenme payını da içine alan \emph{efektif}
+seyir hızıdır ve uygulamanın gerçekte böldüğü değer budur. Bu ucuz vekil,
+ara kuyruk kenarlarının tamamını yeniden kurduğu iddiasında değildir. Aynı son-nokta mesafe
 kâhini kabul kapısında, paradigma maliyetinde ve onarım yükü hesabında kullanılır.
 
 Sınırlı yük onarım adımı, birincil plan $x^0$ üretildikten sonra yalnız yeni
@@ -600,12 +627,23 @@ etkisini tek başına sınamaz. Bu ayrım sonuçların yorumunda korunur.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{fig1.pdf}
-  \caption{İki katmanlı bağlam-geçersiz kılma seçimi. Olaydaki bağlam $c_k$,
-  baskınlık durumunu günceller; arıza/deadline override'ları ve dwell
-  histerezisi etkin paradigmayı belirler. Seçilen paradigma ile maliyet
-  ağırlıkları, önbelleklenmiş geodezik-ETA maliyet kâhini üzerindeki
-  fizibilite maskeli atamayla robot-bazlı kuyruklar üretir; ardından terminal
-  sınırlı yük onarımı gelir. Sabit katsayılar
+  \caption{Tek bir tahsis olayının baştan sona işleyişi. \textbf{Satır A},
+  olayı \emph{hangi} davranışın ele alacağına karar verir: bağlam algılama (1)
+  sistem durumunu $c(t)$'ye indirger; belirlenimci geçersiz kılma kaskadı (2)
+  gösterilen sırayla denetlenir ve olayların çoğunu tek başına çözer; hiçbir
+  eşik tetiklenmezse seçimi baskınlık geri düşüşü (3) yapar; ardından bekleme
+  histerezisi (4) etkin paradigma $p^\ast$'ı yayımlar. İki katmanın ağırlığı
+  eşit değildir: 120 AHE-MRTA kıyaslama koşusunda kaydedilen $15{,}058$
+  ekosistem durumu üzerinde yeniden oynatıldığında kaskad, olayların
+  \%$74.5$'ini tek başına karara bağlıyor; geri düşüşü sabit bir değerle
+  değiştirmek ise bu seçimlerden yalnız 3'ünü oynatıyor
+  (Bölüm~\ref{sec:limitations}). Geri düşüşü bu yüzden soluk çizdik.
+  \textbf{Satır B}, $p^\ast$'ı kuyruklara dönüştürür: portföy (5) görev
+  sırasını belirler; önbelleklenmiş geodezik-ETA kâhini (6) robot--görev
+  çiftlerini maliyetlendirip uygun olmayanları eler; atama (7) tek-sahiplik ve
+  in-flight kilitleri altında yapılır ve terminal sınırlı yük onarımıyla
+  kapanır; (8) robot başına kuyrukları yayımlar. Yürütme geri beslemesi
+  (1)'e döner. Sabit katsayılar
   Bölüm~\ref{sec:method-config}'de listelenmiştir.}
   \label{fig:mechanism}
 \end{figure}
@@ -705,7 +743,7 @@ $A$, $S$, $V$ ve tam maliyet matrisi yönetici düğümde kalır.
 
 Tüm senaryo ve filo ölçeklerinde aynı seçici ayarları kullanılır:
 $\alpha=0.65$, $\beta=0.40$, $\gamma=0.20$,
-$\eta=\lambda=0.12$, $\delta=0.20$, $T_w=0.3$ ve $\rho=4$.
+$\eta=\lambda=0.12$, $\delta=0.20$, $T_w=0.3$ ve $K_{\rm dwell}=4$.
 Temel maliyet profili
 $w_0=(0.34,0.10,0.04,0.16,0.10,0.22,0.04)$, toparlanma profili ise
 $w_{\rm rec}=(0.55,0.04,0.03,0.22,0.09,0.05,0.02)$'dir; kanal sırası
@@ -726,6 +764,7 @@ kaynaklanır.
 \label{sec:setup}
 
 \subsection{Donanım Platformu}
+\label{sec:hardware}
 Tüm deneyler Intel Core i7-11800H iş istasyonunda çalıştırıldı. Makine
 sekiz fiziksel çekirdeğe, 16 iş parçacığına, 2.30~GHz temel saate, 16~GiB
 DDR4 RAM'e, Ubuntu\,24.04~LTS'e ve Linux\,6.17'ye sahiptir. NVIDIA
@@ -891,17 +930,20 @@ oranlı temel yöntemdir.
 Yeniden teklif turları, arızaya veya hızlı deadline artışına tepkiyi
 yavaşlatabilir.
 
-Dış temel yöntemler seçici ablasyonunun yerine geçmez; AHE'den hem tahsis
-mantığı hem paradigma seçimi bakımından ayrılır. Bölüm~\ref{sec:ablation}'daki
-sabit-paradigma vekil ablasyonu, seçici sorusunu yalnız vekil ortamında ele alır.
+Dış temel yöntemler seçici ablasyonunun yerini tutmaz; AHE'den yalnız
+paradigma seçimiyle değil, tahsis mantığıyla da ayrılırlar. Seçici sorusunu
+doğrudan yanıtlayan iki ayrı ablasyon var: biri vekil düzleminde
+(Bölüm~\ref{sec:ablation}), diğeri kapalı çevrimde yürütülen ve önceden
+kayıt altına alınmış eşleşmiş ablasyon (Bölüm~\ref{sec:gazebo-ablation}).
 
 \paragraph{Karşılaştırmanın kapsamı.} Temel yöntemler aynı olay döngüsünü,
 arayüzleri ve maliyet girdilerini paylaşır. Ancak her kaynak sistemin bağımsız
 yeniden üretimi değildir. Dört-yöntem karşılaştırması, bu uygulamaları ortak
 bir yığında kıyaslar. Atıf verilen algoritmaların evrensel sıralaması olarak
-okunmamalıdır. Kapalı-çevrim farkını seçicinin kendisine atfetmek için sabit
-paradigmalarla eşleşmiş Gazebo seçici ablasyonu gerekir
-(Bölüm~\ref{sec:limitations}).
+okunmamalıdır. Kapalı-çevrim farkını seçicinin kendisine atfedebilmek için
+sabit paradigmalarla kontrollü bir Gazebo ablasyonu gerekir. O deneyi önceden
+kayıt altına alıp koştuk; neyi desteklediğini ve neyi desteklemediğini
+Bölüm~\ref{sec:gazebo-ablation} anlatıyor.
 
 \subsection{Değerlendirme ortamları}
 \label{sec:planes}
@@ -1002,8 +1044,8 @@ yükselir (3 robottan 10 robota, deadline baskısında $0.774\to0.888$ ve karı�
 streste $0.647\to0.782$); değişmeyen görev-başı bütçelere karşı fazladan
 robotun satın aldığı şey budur. İkincisi, bu düzlem politikaları ayırır:
 birincil ölçekte AHE-MRTA her senaryoda öndedir --- $0.994$, $0.727$ ve
-$0.835$'e karşı her birinde en iyi temel yöntem $0.978$, $0.678$ ve $0.738$
-(Tablo~\ref{tab:fitness}, sol). Dolayısıyla belirlenimci navigasyon, lider
+$0.840$'a karşı her birinde en iyi temel yöntem $0.980$, $0.668$ ve $0.733$;
+üçünde de en iyi temel yöntem BiG-MRTA (Tablo~\ref{tab:fitness}, sol). Dolayısıyla belirlenimci navigasyon, lider
 yöntemleri ortak bir tavana oturtmuyor; navigasyon arızasını bir karıştırıcı
 olmaktan çıkarıp ayrıştırma işini tahsise ve kuyruk sırasına bırakıyor.
 
@@ -1098,8 +1140,9 @@ az tohum kullandıkları için vekilin doğrudan doğrulaması değildir.
   \caption{Stokastik navigasyon vekilinde robot sayısına göre
   ölçeklenebilirlik. Değerler üç senaryoda hücre başına 100 tohumun
   ortalamasıdır: (a) uygunluk, (b) tamamlama oranı, (c) toparlanma süresi ve
-  (d) karar gecikmesi. AHE-MRTA, Consensus-DBTA ile eşittir veya sayısal olarak
-  yakındır; küçük vekil farkları ayrışma olarak yorumlanmaz.}
+  (d) karar gecikmesi. AHE-MRTA her ölçekte uygunlukta en yüksektir; $N=3$, $5$
+  ve $10$'da ikinci sıradaki BiG-MRTA'nın sırasıyla $3.3$, $3.6$ ve $2.7$ yüzde
+  puanı önündedir ve fark filo büyüdükçe artmaz.}
   \label{fig:scalability}
 \end{figure}
 
@@ -1151,11 +1194,20 @@ böyle meşgul tutar.
     \includegraphics[width=\linewidth]{grid_r5t25_mixed_stress.png}\\[2pt]
     {\small (b) Yürütülen robot yörüngeleri}
   \end{minipage}
-  \caption{Bir \textit{mixed\_stress} örneğinde (5 robot / 25 görev,
-  tohum 1) dört tahsis yöntemi (AHE-MRTA, Consensus-DBTA, BiG-MRTA,
-  RoSTAM-EA; sol üstten saat yönünde) altında yürütülen robot yörüngeleri.
-  \textbf{(a)} \texttt{obstacle\_map} işgal haritası.
-  \textbf{(b)} AHE-MRTA ve Consensus-DBTA filoyu tüm noktaları kapsayacak şekilde yayar; commit-once BiG-MRTA arenanın daha çoğunu kapsamasız bırakır.}
+  \caption{Deney haritası ve örnek yörüngeler.
+  \textbf{(a)} Statik Nav2 işgal haritası (\texttt{obstacle\_map}) $20\times20$~m,
+  0.05~m hücreli ve orijini $[-10,-10]$. İçinde ayırıcı duvarlar, kare sütunlar
+  ve dört silindirik engel var.
+  \textbf{(b)} Tek bir \textit{mixed\_stress} koşusundan (5 robot, 25 görev,
+  tohum 1) AHE-MRTA, Consensus-DBTA, BiG-MRTA ve RoSTAM-EA yörüngeleri; sol
+  üstten okuma sırasıyla. Bunlar, Tablo~\ref{tab:main_comparison}'daki 5r/25g
+  \textit{mixed\_stress} hücrelerine giren dört koşunun ta kendisi. Kareler
+  spawn konumları, altın yıldızlar örneklenmiş görev noktaları, renkli eğriler
+  ise ground-truth pozlarından yeniden kurulmuş yollar. Zaman serisi her pozu
+  robotun kendi odom çerçevesinde kaydettiği için her yörünge o robotun spawn
+  noktası kadar ötelenmiştir. Eğrisiz bir kare, spawn noktasından hiç ayrılmamış
+  bir robottur; burada Consensus-DBTA'nın robot~1'i böyledir. Bu tek koşuluk
+  figür niteliksel; toplu bir yöntem sıralaması ortaya koymaz.}
   \label{fig:setup-paths}
 \end{figure*}
 
@@ -1209,25 +1261,27 @@ ikisi de zaman payı üzerinde çalışır, bu da payın kıt olduğu rejimdir.
 
 Birincil ölçekte bunlar betimleyici nokta tahminleri değil, düzeltilmiş
 sonuçlardır: hücre başına $n{=}20$ ile 63 çapraz-yöntem karşılaştırmasının
-20'si Bonferroni düzeltmesinden geçer, 15'i AHE-MRTA lehine. Ters yöne giden
-beşi iki ayrı ödünleşimdir ve ikisi de Bölüm~\ref{sec:results-gazebo}'da
-raporlanır: iki commit-once temel yöntemine karşı karar gecikmesi ve robot
-arızasında Consensus-DBTA'ya karşı ortalama görev gecikmesi. 10-robot
-hücreleri hâlâ $n{=}5$ taşır ve betimleyici kalır.
+20'si Bonferroni düzeltmesini geçer, 15'i AHE-MRTA lehinedir. Ters yöne giden
+beşi iki ayrı ödünleşimden kaynaklanır ve ikisi de bu bölümde tek tek
+sayılıyor: üç senaryonun hepsinde commit-once BiG-MRTA'ya, karışık streste ise
+Consensus-DBTA'ya karşı karar gecikmesi; bir de robot arızasında
+Consensus-DBTA'ya karşı ortalama görev gecikmesi. 10-robot hücrelerinde
+$n{=}5$ olduğu için bu hücreler betimleyici kalıyor.
 
 \paragraph{Betimleyici fiziksel örüntüler.}
 Tablo~\ref{tab:main_comparison} birincil ölçekteki \textit{robot\_failure} ve
 \textit{mixed\_stress} hücrelerini, Tablo~\ref{tab:deadline} ise
 \textit{deadline\_pressure} hücresini verir; Şekil~\ref{fig:gazebo-multi}
 aynı ölçeği altı birincil metrik üzerinden gösterir.
-5-robot birincil ölçekte AHE-MRTA raporlanan koşularda tam tamamlamaya ulaşır
-(CR\,=\,1.000); BiG-MRTA'nın deadline baskısı ve karışık stres nokta
-tahminleri daha düşüktür (sırasıyla 0.664 ve 0.656).
+Bu ölçekte AHE-MRTA her senaryoda tam tamamlamaya ulaşıyor
+(CR\,=\,1.000); 10 robotta ulaşamıyor, $0.976$--$0.988$ arasında kalıyor.
+BiG-MRTA'nın deadline baskısı ve karışık stresteki nokta tahminleri daha
+düşük (sırasıyla 0.664 ve 0.656).
 
 Dört-yöntem kıyaslaması, politikalar arasında birden çok bileşen değiştiği
-için fiziksel farkı seçiciye atfedemez. Bu nedenle değerlendirilen yöntem
-deadline baskısında umut verici görünmektedir; paradigma değişimine nedensel
-atıf için sabit-paradigma ve no-override fiziksel ablasyonu gereklidir.
+için fiziksel farkı seçiciye atfedemez. Bu etkenleri ayıran şey
+Bölüm~\ref{sec:gazebo-ablation}'daki eşleşmiş sabit-paradigma ve no-override
+ablasyonudur; o da örüntüyü geçersiz kılma kaskadına değil portföye atfeder.
 
 \paragraph{AHE nerede maliyet getirir.}
 Aynı agresiflik fiziksel maliyet metriklerini ölçülü biçimde yükseltir
@@ -1258,9 +1312,11 @@ başlangıçta bir kez kurulur. AHE-MRTA böylece 5 robotta 0.81--1.33~ms,
 10 robotta 1.9--3.4~ms'de karar verir. Bu, üç senaryonun hepsinde commit-once
 BiG-MRTA'dan (5 robotta 0.14--0.24~ms) düzeltilmiş-anlamlı biçimde yavaş,
 \textit{mixed\_stress}'te Consensus-DBTA'dan da yavaştır; diğer iki senaryoda
-Consensus-DBTA'dan, her yerde RoSTAM-EA'dan bir-iki mertebe hızlıdır. Dördü de
-50~ms bütçesinin çok içinde kalır, dolayısıyla sıralama bir konuşlandırma
-kısıtı değil tahsis edicilerin bir özelliğidir.
+Consensus-DBTA'dan, her yerde RoSTAM-EA'dan bir-iki mertebe hızlıdır. Dördün
+üçü 50~ms bütçesinin çok içinde kalır, dolayısıyla aralarında sıralama bir
+konuşlandırma kısıtı değil tahsis edicilerin bir özelliğidir; RoSTAM-EA ise
+kalmaz (bu ölçekte 49--95~ms) ve onun için sıralama aynı zamanda bir
+konuşlandırma kısıtıdır.
 
 \paragraph{Verimlilik.} Tablo~\ref{tab:efficiency} ikincil verimlilik
 metriklerini 3-robot ölçeğinde, üç yoğunluğun havuzlandığı $n{=}15$'lik
@@ -1383,8 +1439,8 @@ $0.11$, Consensus-DBTA'da $0.30$ yeniden-gönderimdir.
   $\mathrm{CR}{\times}(1{-}\mathrm{DVR})$ (0.587--0.690'a karşı 0.773) öndedir,
   deadline ihlalinde en düşüktür
   (0.224--0.367'ye karşı 0.212); ortalama karar gecikmesi ise commit-once
-  temel yöntemlerin 0.6--1.8~ms'sine ve RoSTAM-EA'nın 69.1~ms'sine karşı
-  2.6~ms'dir. Havuzlama, deadline marjının nereden geldiğini gizler: marj
+  BiG-MRTA'nın 0.6~ms'sine, Consensus-DBTA'nın 1.8~ms'sine ve RoSTAM-EA'nın
+  69.1~ms'sine karşı 2.6~ms'dir. Havuzlama, deadline marjının nereden geldiğini gizler: marj
   \textit{deadline\_pressure}'da yoğunlaşır (0.296--0.504'e karşı DVR 0.220)
   ve metin bunu senaryo bazında raporlar. Senaryo başına $n{=}5$'lik
   çapraz-yöntem hücreleri betimleyicidir, düzeltilmiş bir sıralama kurmaz.}
@@ -1419,10 +1475,10 @@ $0.11$, Consensus-DBTA'da $0.30$ yeniden-gönderimdir.
   çubuk olarak
   yeniden-gönderim olayları --- farklı tohumların kareleri boşlukla
   ayrılır. Bu, metriğin nadir ve kesikli doğasını görünür tutar: 80
-  koşunun 66'sında yeniden-gönderim sıfırdır ve olayı olan her koşuda tam
-  olarak bir olay vardır; bunlar ayrı tohumlara dağılır --- AHE-MRTA'da üç,
-  RoSTAM-EA'da altı (yürütme kesintileri tüm yöntemlerde sıfır olduğundan
-  gösterilmedi). Hiçbir toparlanma-süresi karşılaştırması düzeltmeden sağ
+  koşunun 66'sında yeniden-gönderim sıfırdır; kalan 14'ünün her birinde tam
+  olarak bir olay vardır ve bunlar ayrı tohumlara dağılır --- AHE-MRTA'da üç,
+  BiG-MRTA'da iki, Consensus-DBTA'da üç, RoSTAM-EA'da altı (yürütme
+  kesintileri tüm yöntemlerde sıfır olduğundan gösterilmedi). Hiçbir toparlanma-süresi karşılaştırması düzeltmeden sağ
   çıkmaz; en yakını Consensus-DBTA'ya karşıdır: AHE-MRTA'nın 83.7~s'si
   117.9~s'yi ham $p{=}0.017$ ile geçer, düzeltilmiş $p{=}0.35$'tir. Ham
   tamamlama oranı gösterilmiyor,
@@ -1521,9 +1577,10 @@ Consensus-DBTA ile aynı seviyede (0.04--0.13) ve commit-once BiG-MRTA'nın
 
 \subsection{Gözlenen işletim örüntüleri ve nedensellik sınırı}
 
-Aşağıdaki hücre-bazlı örüntüler, değerlendirilen tam konfigürasyonu tanımlar;
-paradigma değişiminin etkisine ilişkin ablasyon-temelli nedensel kestirim
-değildir:
+Aşağıdaki hücre-bazlı örüntüler, değerlendirilen tam konfigürasyonu betimliyor;
+paradigma değişiminin nedensel kestirimi değiller, çünkü dört-yöntem
+karşılaştırmasında aynı anda birden çok bileşen değişiyor. Seçiciyi yalıtan
+şey, Bölüm~\ref{sec:gazebo-ablation}'daki eşleşmiş ablasyon.
 
 \begin{itemize}
   \item \textbf{Deadline-uyumu örüntüsü.}
@@ -1623,6 +1680,25 @@ iki sabit paradigma için çürütüyor --- onlar kapalı çevrimde belirgin bi�
 daha kötü. Bu tablonun öne çıkardığı sabit uzamsal-açgözlü kolu ise kayıtlı
 tasarımın parçası değildi; Bölüm~\ref{sec:gazebo-ablation} onu ayrıca,
 keşifsel bir kol olarak raporluyor.
+
+\paragraph{Geodezik ETA ne katıyor?}
+Yukarıdaki kolların hepsi atamaları geodezik-ETA kâhiniyle fiyatlıyor; yani
+hiçbiri kâhinin kendisi hakkında bir şey söylemiyor. Onu aynı düzlemde ikinci
+bir eşli A/B ile yalıtıyoruz. Tahsis edicinin \emph{maliyet} kâhini 500 ortak
+tohum boyunca geodezik ETA ile Öklid referansı arasında değiştiriliyor;
+\emph{yürütme} kâhini ise iki kolda da geodezik kalıyor, böylece iki kol da
+aynı ground truth'a göre puanlanıyor. Üç temel yöntem kollar arasında birebir
+aynı çıkıyor --- çıkmak zorunda, çünkü bayrağı hiçbir temel yöntem okumuyor.
+Geodezik kol ayrıca Tablo~\ref{tab:fitness}'te yayımlanan kampanyayı dokuz
+ondalık basamağa kadar yeniden üretiyor; dolayısıyla karşılaştırma, makalenin
+gerçekten raporladığı yapılandırmaya karşı yapılıyor. Kâhin her senaryoda
+yardımcı oluyor: robot arızasında $+2.13$~yp, karışık streste $+1.83$~yp,
+deadline baskısında $+4.10$~yp; 500 çift üzerinde üçünde de $p<10^{-4}$.
+Etki büyüklükleri ise mütevazı. Cliff $\delta$'sı ilk iki senaryoda ihmal
+edilebilir ($0.131$ ve $0.128$), üçüncüsünde küçük ($0.275$). Sıralama
+mekanizmanın öngördüğü sıralama --- doğru varış tahmini en çok zaman payının
+kıt olduğu yerde işe yarıyor. Bu yüzden kâhini tutarlı ama küçük bir kazanç
+olarak raporluyoruz; sonucu taşıyan ana unsur olarak değil.
 
 \subsection{Eşleşmiş kapalı-çevrim ablasyonu}
 \label{sec:gazebo-ablation}
@@ -1807,25 +1883,31 @@ $0.215$~ms'de karar verir ve uygunluğu filo büyüdükçe bozulmak yerine
 \emph{yükselir} (Tablo~\ref{tab:allocation}). Bu, tahsis ediciyi sınırlar;
 içinde koşturulduğu yığını değil --- daha büyük bir Nav2 filosunun ne
 yapacağı hakkında bir şey söylemez.
-(vi) \textbf{Arena genelliği:} Tüm deneyler tek bir yerleşim kullanır;
-ortamlar-arası genelleme gösterilmemiştir. Arena, yerleştirme modülünde sabit kodludur; ikinci bir düzen yöntemi yeniden ayarlamayı değil o modülü parametrelemeyi gerektirir. Deney tanımlı ve maliyeti çıkarılmış durumda, ancak burada koşulmadı.
-(vii) \textbf{Tek-tip robot yeteneği:} Tüm robotlar özdeştir (ST-SR);
-heterojen-yetenekli filolar değerlendirilmemiştir. Maliyet fonksiyonu zaten bir yetenek terimi taşıyor ve kabul kapısı yeteneksiz eşleşmeleri reddediyor; dolayısıyla genişletme bir yöntem değişikliği değil senaryo değişikliğidir. Ölçülene kadar iddia etmiyoruz.
-(viii) \textbf{Ground-truth yerelleştirme:} Fiziksel kıyaslama, pozu
-başlangıç pozuna sabitlenmiş statik bir \texttt{map}$\to$\texttt{odom}
-dönüşümüyle sağlar ve tahsis kalitesini yerelleştirme hatasından kasıtlı
-olarak yalıtır. Gerçek konuşlandırmalarda yerelleştirme kayması olur;
-katkı tahsis politikası olduğundan ve her yöntem aynı ground-truth pozu
-paylaştığından kıyaslama adil kalır, ancak yerelleştirme gürültüsüne
-(örn. AMCL) dayanıklılığın ölçülmesi gelecek çalışmaya bırakılır.
+(vi) \textbf{Arena genelliği:} Tüm deneyler tek bir yerleşim kullanıyor;
+ortamlar arası genelleme gösterilmiş değil. Arena, yerleştirme modülünde
+sabit kodlu. Bu yüzden ikinci bir düzen, yöntemi yeniden ayarlamayı değil o
+modülü parametrelemeyi gerektiriyor. Deneyi tanımlayıp maliyetini çıkardık,
+ama burada koşmadık.
+(vii) \textbf{Tek-tip robot yeteneği:} Tüm robotlar özdeş (ST-SR);
+heterojen yetenekli filoları değerlendirmedik. Maliyet fonksiyonu zaten bir
+yetenek terimi taşıyor, kabul kapısı da yeteneksiz eşleşmeleri reddediyor.
+Dolayısıyla bu genişletme bir yöntem değişikliği değil, senaryo değişikliği.
+Ölçmeden iddia etmiyoruz.
+(viii) \textbf{Ground-truth yerelleştirme:} Fiziksel kıyaslamada poz, başlangıç
+pozuna sabitlenmiş statik bir \texttt{map}$\to$\texttt{odom} dönüşümünden
+geliyor; böylece tahsis kalitesini yerelleştirme hatasından bilerek yalıtıyoruz.
+Gerçek konuşlandırmalarda yerelleştirme kayması olur. Buradaki kıyaslama yine
+de adil, çünkü katkı tahsis politikasında ve her yöntem aynı ground-truth pozu
+paylaşıyor. Ama yerelleştirme gürültüsüne (örn.\ AMCL) dayanıklılığı ölçmeyi
+gelecek çalışmaya bırakıyoruz.
 
 \paragraph{Model ve uygulama artefaktları}
-(ix) \textbf{Toparlanma süresi varyansı:} \textit{mixed\_stress}
-toparlanma süresi yüksek varyans taşır (3r, AHE-MRTA: 0--263~s'ye yayılan
-koşularda $67\pm78$~s) çünkü bazı tohumlarda pencere içinde arıza
-toparlanması kaydedilmez---3 robotta 60 koşunun 6'sı, 5 robotta 80'in
-3'ü; garanti pencere-içi arızalı
-\textit{robot\_failure} senaryosu daha temiz toparlanma ölçüsüdür.
+(ix) \textbf{Toparlanma süresi varyansı:} \textit{mixed\_stress}'te toparlanma
+süresinin varyansı yüksek (3r, AHE-MRTA: 0--263~s'ye yayılan koşularda
+$67\pm78$~s). Sebebi, bazı tohumlarda pencere içinde hiç arıza toparlanması
+kaydedilmemesi: 3 robotta 60 koşunun 6'sında, 5 robotta 80'in 3'ünde.
+\textit{robot\_failure} senaryosu pencere içinde arızayı garanti ettiği için
+daha temiz bir toparlanma ölçüsü.
 (x) \textbf{Sabit hormon-paradigma eşlemesi:} $A$, $S$ ve $V$ matrisleri
 tasarımcı-tanımlıdır; bunları veriden öğrenmek gelecek çalışmaya
 bırakılmıştır.
@@ -1857,6 +1939,13 @@ biçimi raporluyor ve düzeltmeyi, değerlendirilen sistemi sonradan yeniden
 ayarlamak yerine bir revizyona bırakıyoruz; düzeltilmiş bir $\rho$'nun bu
 makaledeki sayıları bir yüzde puanının altında iyileştirmesi, hiçbir sıralamayı
 değiştirmemesi beklenir.
+(xiii) \textbf{Geodezik ETA yalnız vekilde ablasyona tabi tutuldu.} Kayıtlı
+dört kapalı-çevrim kolunun ve keşifsel beşincinin hepsi geodezik kâhin açıkken
+koştu; dolayısıyla kâhinin katkısı yalnızca navigasyon vekilinde
+niceliklendirilmiş durumda (Bölüm~\ref{sec:ablation}). O düzlem ne tıkanıklığı
+ne de toparlanma gecikmesini ücretlendirdiği için oradaki $+1.8$--$+4.1$~yp bir
+kapalı-çevrim kestirimi değil. Meseleyi çözecek deney, kâhin kapalıyken
+koşulan eşleşmiş bir Gazebo kolu; tanımlı ama burada koşulmadı.
 
 \section{Sonuç}
 \label{sec:conclusion}
@@ -1864,36 +1953,40 @@ değiştirmemesi beklenir.
 AHE-MRTA'yı, sabit ve bağlam-güdümlü paradigma seçimi, geodezik-ETA
 maliyet-kâhini ve terminal, sınırlı bir yük onarım adımı kullanan
 olay-tetiklemeli bir MRTA çerçevesi olarak sunduk. Üç değerlendirme katmanı da
-artık yöntemleri aynı sıralıyor. 500-tohumlu navigasyon-vekili düzlemlerinde
-AHE-MRTA her senaryoda öndedir ve bir temel yönteme karşı yapılan dokuz eşli
-karşılaştırmanın sekizi anlamlıdır; istisna, robot arızasında commit-once
-BiG-MRTA ile eşitliktir.
+AHE-MRTA'yı her senaryoda birinci sıraya koyuyor; altındaki sıralamada ise
+anlaşmıyorlar: commit-once BiG-MRTA her iki simülatör düzleminde de ikinci
+sıradayken, üç kapalı-çevrim senaryosunun ikisinde sonuncu oluyor.
+500-tohumlu navigasyon-vekili düzlemlerinde AHE-MRTA her senaryoda önde ve bir
+temel yönteme karşı yapılan dokuz eşli karşılaştırmanın sekizi anlamlı; tek
+istisna, robot arızasında commit-once BiG-MRTA ile başabaş kalması.
 
-Birincil 5-robot Gazebo ölçeğinde hücre başına 20 tohum düzeltilmiş çıkarımı
-destekler: 63 çapraz-yöntem karşılaştırmasının 20'si Bonferroni düzeltmesinden
-geçer, 15'i AHE-MRTA lehinedir. Test edilen harita ve Nav2 yığınında AHE-MRTA,
-3 ve 5 robotta robot arızası altında tam tamamlamaya ve deadline baskısı
-altında en yüksek zamanında-etkin tamamlamaya ulaşır---en güçlü temel yöntemin
-yaklaşık \%$12$ (5 robot) ve \%$46$ (10 robot) üzerinde, ve o yöntemin
-deadline-ihlal oranını da \%$17$ ve \%$49$ düşürerek---bunun bedeli daha uzun
-rotalar, daha düşük iş yükü dengesi ve commit-once temel yöntemlerin üstünde
-bir karar gecikmesidir. 10-robot hücreleri beş tohumla betimleyici kalır.
+Birincil 5-robot Gazebo ölçeğinde hücre başına 20 tohum, düzeltilmiş çıkarım
+yapmaya yetiyor: yöntemler arası 63 karşılaştırmanın 20'si Bonferroni
+düzeltmesini geçiyor, 15'i AHE-MRTA'nın lehine. Test edilen harita ve Nav2
+yığınında AHE-MRTA, 3 ve 5 robotta robot arızası altında tam tamamlamaya
+ulaşıyor; deadline baskısı altında da zamanında-etkin tamamlamada en yüksek
+değeri alıyor --- en güçlü temel yöntemin yaklaşık \%$12$ (5 robot) ve \%$46$
+(10 robot) üzerinde, üstelik o yöntemin deadline-ihlal oranını \%$17$ ve
+\%$49$ azaltarak. Bedeli ise daha uzun rotalar, daha düşük iş yükü dengesi ve
+commit-once temel yöntemlerin üstünde bir karar gecikmesi. 10-robot hücreleri
+beş tohumla betimleyici kalıyor.
 
-Mekanizmanın yerini eşleşmiş kapalı-çevrim ablasyonu belirler ve onu iki
-yandan birden sınırlar. Tahsis ediciyi bağlamın çağırmadığı bir paradigmaya
+Mekanizmanın yerini eşleşmiş kapalı-çevrim ablasyonu belirliyor ve onu iki
+yandan birden sınırlıyor. Tahsis ediciyi bağlamın çağırmadığı bir paradigmaya
 kilitlemek deadline baskısı altında zamanında-etkin
 tamamlamadan $9$--$11$ yüzde puanı götürür (düzeltilmiş $p<0.005$, büyük etki);
 geçersiz kılma kaskadını kaldırmak ise ölçülebilir hiçbir şeyi değiştirmez
-($0.650$'ye karşı $0.641$, $p{=}1.000$); geri düşüşün neredeyse her zaman
+($0.650$'ye karşı $0.641$; ham $p{=}0.59$, düzeltme sonrası $p{=}1.000$);
+geri düşüşün neredeyse her zaman
 döndürdüğü paradigmaya kilitlenen keşifsel beşinci kol da tam seçiciyle
-başabaş kalır ($0.638$, $p{=}0.43$). Bu nedenle portföyün rejime uygun bir
-paradigma barındırması ve tahsis edicinin ondan uzağa kilitlenmemesi
-gerektiğini iddia ediyoruz --- uyguladığımız belirli seçici kuralını değil, onun
-kendi baskın davranışına üstünlüğünü de değil. Mevcut kanıtın hâlâ kapsamadığı
-üç şey var: ikinci bir arena---buradaki
-her kapalı-çevrim sayısı tek bir haritadan geliyor---düzeltmeyi taşıyacak
-büyüklükte bir 10-robot tohum bütçesi, ve uzamsal-açgözlünün yanlış cevap
-olduğu bir rejim; üçü de doğal sonraki deneylerdir.
+başabaş kalıyor ($0.638$, $p{=}0.43$). Dolayısıyla iddiamız şu: portföy rejime
+uygun bir paradigma barındırmalı ve tahsis edici ondan uzağa kilitlenmemeli.
+Uyguladığımız seçici kuralının kendisini de, onun kendi baskın davranışına
+üstünlüğünü de iddia etmiyoruz. Mevcut kanıtın kapsamadığı üç şey kalıyor:
+ikinci bir arena --- buradaki her kapalı-çevrim sayısı tek bir haritadan
+geliyor ---, düzeltmeyi taşıyacak büyüklükte bir 10-robot tohum bütçesi ve
+uzamsal-açgözlünün yanlış cevap olduğu bir rejim. Üçü de sıradaki doğal
+deneyler.
 
 \FloatBarrier
 %==============================================================================

@@ -20,11 +20,12 @@ edilmiş bir kampanyanın türetilmiş dosyalarından beslendi ve metinle sessiz
 | `processed/sim_scalability.csv` | Vekil ölçeklenebilirlik, N∈{3,5,10}, 100 tohum → `tab:scalability` |
 | `processed/ablation_edps_100_geodesic.txt` | EDPS ablasyonu, 5r/25g, 100 tohum, geodezik → `tab:ablation` |
 | `stats/descriptive_stats.csv`, `stats/stat_tests.csv`, `stats/stat_summary.txt` | 5r birincil ölçek betimleyici + Mann–Whitney |
-| `stats/f58_allocation_only{,_3r15t,_10r50t}/` | Yalnız-tahsis kampanyası → `tab:allocation`. ⚠️ **BAYAT (2026-06-29):** düzeltme öncesi senaryo parametreleriyle koşuldu (deadline bütçesi U[200,400] s). Her hücrede fitness 1.000 / DVR 0.000 veriyor; aynı düzlemi yeniden üreten `sim_fitness.csv` kusursuz-nav kolonu 5r/25g deadline'da 0.840 diyor. Yeniden koşulmalı. |
+| `stats/f58_allocation_only{,_3r15t,_10r50t}/` | Yalnız-tahsis kampanyası → `tab:allocation`. ✅ **2026-08-02 18:13–18:15'te düzeltilmiş senaryo parametreleriyle YENİDEN KOŞULDU** (`run_alloc_only_rebuild.sh`, log: `alloc_rebuild.log`). Artık hücreye göre değişiyor (CR 1.000, DVR 0.000–0.353); eski "her hücre fitness 1.000 / DVR 0.000" çıktısı gitti. |
 | `raw/gazebo_benchmark_f58/` | **Makalenin ham kanıtı**: 3r/10r koşularının per-run CSV + konsol logları (5r için bkz. `raw/gazebo_ablation/baselines-n20` ve `full`) |
 | `raw/gazebo_ablation/` | **Eşleşmiş kapalı-çevrim ablasyonu (B4)**: beş kol × 5r/25g. Ablasyon `full` / `no-override` / `fixed-EDF` / `fixed-orphan` (her biri 3 senaryo × 20 tohum = 60 koşu, toplam 240) → `tab:gazebo-ablation`; ayrıca `baselines-n20` (3 baseline × 3 senaryo × 20 tohum = 180) → dört-yöntem kıyaslamasını n=20'ye çıkarır. |
 | `ablation_analysis.txt` | Yukarıdakinin ön-kayıtlı analiz çıktısı (`scripts/analyze_ablation.py`) |
-| `processed/ab_prio_{on,off}{,_seedwise}.csv` | Öncelik çarpanı $\rho$ eşli A/B, 500 tohum → Sınırlılık (xii). ⚠️ **BAYAT (2026-07-30):** senaryo düzeltmesinden önce koşuldu; `tab:allocation` ile aynı sebeple yeniden koşulmalı. |
+| `processed/ab_geodesic_{on,off}{,_seedwise}.csv` | Geodezik-ETA kâhini eşli A/B, 500 tohum, 5r/25g → §VII-D "What the geodesic ETA contributes" ve Sınırlılık (xiii). Üretici: `scripts/validate_geodesic_eta_ab.py`, log: `geodesic_ab.log`. **Tasarım:** yürütme kâhini iki kolda da geodezik (`AHE_SIM_GEODESIC_EXECUTION=1`), yalnız tahsis edicinin maliyet kâhini değişiyor (`AHE_F58_GEODESIC` 1↔0). Doğrulama: üç temel yöntem kollar arası birebir, ve "on" kolu `sim_fitness.csv`'yi 12 hücrede birebir (fark 0.000000) yeniden üretiyor. |
+| `processed/ab_prio_{on,off}{,_seedwise}.csv` | Öncelik çarpanı $\rho$ eşli A/B, 500 tohum → Sınırlılık (xii). ✅ **2026-08-02 19:02'de hizalanmış senaryolarla YENİDEN KOŞULDU** (`run_prio_ab_when_ready.sh`, sonuç: `prio_ab_result.txt`). En büyük \|delta\| = 0.77 yp → Sınırlılık (xii)'nin "ölçülemez" iddiası ayakta, iki dilde de güncel. |
 
 Ham loglar silinmemelidir: deneyin gerçekte ne yaptığı (ör. arıza enjeksiyon anı)
 yalnız oradan doğrulanabilir — makale metnindeki senaryo tanımı bir kez tam da bu
@@ -34,7 +35,7 @@ yolla yanlış bulundu.
 
 | Dizin | Ne |
 |---|---|
-| `raw/gazebo/` | **F58 öncesi** kampanya ham verisi (~2026-06-28). Makale artık bu veriyi raporlamıyor. |
+| `raw/gazebo/` | **F58 öncesi** kampanya ham verisi (~2026-06-28). Makale artık bu veriyi raporlamıyor. Şekil 7(b) 2026-08-03'e kadar buradan besleniyordu; artık `scripts/make_path_grid.py` ile kanonik ablasyon koşularından üretiliyor. |
 | `raw/gazebo_f58_*_validation/`, `raw/_f58_pooled_s1_10/` | F58 geliştirme turlarının (p1b…p1r, scale3/scale10) doğrulama koşuları |
 | `stats/gazebo_f58_*`, `processed/gazebo_f58_*` | Yukarıdakilerin türetilmiş özetleri |
 | `_depo_archive/` | Eski `processed`/`stats` yedekleri ve `old_raw` |
@@ -107,17 +108,25 @@ bring-up kısmi satır katkısı yapamaz.
 
 ### Simülatör düzlemleri (Gazebo gerektirmez)
 
-> **🔴 BAYAT (2026-08-01 itibarıyla açık).** `9aaeb46` senaryo tanımlarını tek bir
+> **✅ ÇÖZÜLDÜ (2026-08-02).** `9aaeb46` senaryo tanımlarını tek bir
 > paylaşılan modüle (`m_ahe_task_allocator/scenarios.py`) taşıdı ve **vekil
 > düzlemi makaledeki tanımlarla hizaladı**. Öncesinde vekilin `mixed_stress`'ini
 > `robot_failure`'dan ayıran tek şey bataryaydı — dalga programı ve yarılanmış
 > deadline bütçesi yoktu; `deadline_pressure` da U[200,400] kullanıyordu, makalenin
-> yazdığı U[36,120] değil. Aşağıdaki üç çıktı (`sim_fitness`, `sim_scalability`,
-> `ablation_edps_*`) **hizalama öncesi** üretildi ve artık koda karşılık gelmiyor.
-> Yeniden üretilmeleri gerekiyor; Gazebo kampanyası makineyi bıraktığında yapılacak.
-> Yeniden üretim `tab:fitness`, `tab:scalability`, `tab:ablation` ve özetteki
-> mixed-stress iddiasını değiştirecek. Sürüklenmenin tekrarını
-> `tests/test_scenario_parity.py` engelliyor.
+> yazdığı U[36,120] değil. Üç çıktı da (`sim_fitness` 10:17, `sim_scalability`
+> 10:40, `ablation_edps_*` 10:43) hizalanmış senaryolarla yeniden üretildi ve
+> `tab:fitness` / `tab:scalability` / `tab:ablation` 11:14'te onlardan yeniden
+> kuruldu. Sürüklenmenin tekrarını `tests/test_scenario_parity.py` engelliyor.
+>
+> **🔴 BUNUN BIRAKTIĞI TUZAK (2026-08-03'te yakalandı).** Yeniden üretim
+> tabloları güncelledi ama **figürleri güncellemedi**: `plot_results.py` o gün
+> 09:59–10:00'da, yani yeni CSV'ler yazılmadan ÖNCE koşmuştu.
+> `fitness_comparison.png` ve `scalability_panel.png` hizalama öncesi sayıları
+> çizmeye devam etti — üstelik geri çekilmiş anlatıyı (deadline'da AHE geride,
+> ölçeklenebilirlikte AHE≈Cons-DBTA eş-lider) — ve kendi tablolarıyla
+> çeliştiler. **Kural: `processed/sim_*.csv` her değiştiğinde `plot_results.py`
+> SONRASINDA koşmalı; doğrulaması `--output-dir` ile geçici dizine üretip
+> `cmp` ile `paper/figure/` altındakiyle karşılaştırmaktır.**
 
 **Bu env bayrakları olmadan sim Öklid mesafeye düşer ve makaleyle uyuşmayan
 sayılar üretir.** Kaynak: `scripts/run_f58_benchmark_until_complete.sh`.

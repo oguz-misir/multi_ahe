@@ -59,6 +59,10 @@ results/processed/*
 # Öncelik-çarpanı A/B'sinin özetleri (Limitasyon xi'deki sayıların kaynağı).
 !results/processed/ab_prio_on.csv
 !results/processed/ab_prio_off.csv
+# Geodezik-ETA A/B'sinin özetleri (§VII-D ve Sınırlılık xiii'teki sayıların
+# kaynağı). Seedwise dosyaları 400 KB, izlenmez; özetler 1 KB.
+!results/processed/ab_geodesic_on.csv
+!results/processed/ab_geodesic_off.csv
 # Ham veri izlenmez AMA kampanyanın hangi yapılandırmayla üretildiği izlenir:
 # bayraklar koşu artefaktlarında yoktu, bu not olmadan veri yorumlanamaz.
 !results/raw/
