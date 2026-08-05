@@ -1,18 +1,19 @@
 \begin{table}[t]
 \centering
-\caption{Beş hormon, beş tahsis paradigması.}
+\caption{Beş durum kanalı ve bunlarla eşlenen tahsis politikaları. Politika
+adları uygulamadaki tanımlayıcılarla aynıdır.}
 \label{tab:hormones}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{llp{2.8cm}}
+\begin{tabular}{llp{7.5cm}}
 \toprule
-\textbf{Hormon} & \textbf{Paradigma} & \textbf{İç mekanizma} \\
+\textbf{Kanal} & \textbf{Politika} & \textbf{Tahsis mekanizması} \\
 \midrule
-H\_SPATIAL & spatial\_greedy   & en-yakın-uygun + reddet \\
-H\_CRIT    & priority\_first   & öncelik-katmanlı LSA \\
-H\_TEMP    & edf\_strict       & EDF bipartit (çok-fazlı) \\
-H\_STAB    & commit\_once      & sert yapışkan, yeniden-atama yok \\
-H\_RECOV   & orphan\_first     & yetim kurtarma + bipartit \\
+H\_SPATIAL & spatial\_greedy   & en yakın uygulanabilir görev ve ret denetimi \\
+H\_CRIT    & priority\_first   & öncelik katmanlı LSA \\
+H\_TEMP    & edf\_strict       & çok aşamalı EDF eşlemesi \\
+H\_STAB    & commit\_once      & atamayı koruma, yeniden atama yok \\
+H\_RECOV   & orphan\_first     & sahipsiz görev kurtarma ve iki parçalı eşleme \\
 \bottomrule
 \end{tabular}
 \end{table}

@@ -34,6 +34,7 @@ METHODS = [(AHE, r'\textbf{AHE-MRTA*}'), ('big_mrta', 'BiG-MRTA'),
            ('rostam_ea', 'RoSTAM-EA'), ('consensus_dbta', 'Cons-DBTA')]
 SCEN = ['robot_failure', 'mixed_stress', 'deadline_pressure']
 SCEN_SHORT = ['RF', 'MS', 'DP']
+SCEN_SHORT_TR = ['RA', 'KS', 'STB']
 
 
 def read_fitness(name):
@@ -86,12 +87,14 @@ def table_fitness(lang):
         r'\textbf{Bold} marks the best per column.')
     cap_tr = (
         rf'Tahsis uygunluğu (öncelik-ağırlıklı zamanında tamamlama), {n} tohum, '
-        r'5 robot / 25 görev. \textbf{Sol:} mükemmel-navigasyon düzlemi, tahsis '
-        r'kalitesini yalıtır. \textbf{Sağ:} stokastik navigasyon vekili; burada '
-        r'Nav2 hedef arızası da bir göreve mal olabilir. AHE-MRTA her iki düzlemde '
-        r've her senaryoda öndedir; temel yöntemlere karşı eşli Wilcoxon '
-        r'karşılaştırmalarının biri dışında hepsi anlamlıdır (arıza senaryosunda '
-        r'AHE--BiG beraberedir). \textbf{Kalın} sütun en iyisidir.')
+        r'5 robot / 25 görev. Sol grup, navigasyon arızasının bulunmadığı düzeyde '
+        r'tahsis kalitesini ölçer. Sağ grup, Nav2 hedef arızalarını içeren '
+        r'stokastik navigasyon vekilini gösterir. AHE-MRTA her iki düzeyde ve her '
+        r'senaryoda en yüksek ortalamaya ulaşır. Temel yöntemlerle yapılan eşli '
+        r'Wilcoxon karşılaştırmalarının biri dışında tamamı anlamlıdır. İstisna, '
+        r'robot arızasında AHE-MRTA ile BiG-MRTA karşılaştırmasıdır. RA robot '
+        r'arızasını, KS karışık stresi ve STB son teslim baskısını gösterir. Her '
+        r'sütunun en iyi değeri \textbf{kalın} verilmiştir.')
     rows = []
     for m, label in METHODS:
         cells = []
@@ -101,12 +104,12 @@ def table_fitness(lang):
                 cells.append(fmt(src[(s, m)], best))
         rows.append(f'{label} & ' + ' & '.join(cells) + r' \\')
     head = (r'\textbf{Method} & ' if lang == 'en' else r'\textbf{Yöntem} & ') + \
-        ' & '.join(SCEN_SHORT * 2) + r' \\'
+        ' & '.join((SCEN_SHORT if lang == 'en' else SCEN_SHORT_TR) * 2) + r' \\'
     grp = ((r'& \multicolumn{3}{c}{\textbf{Perfect nav (alloc.\ quality)}} & '
             r'\multicolumn{3}{c}{\textbf{Stochastic nav (resil.)}} \\')
            if lang == 'en' else
-           (r'& \multicolumn{3}{c}{\textbf{Mükemmel nav (tahsis kalitesi)}} & '
-            r'\multicolumn{3}{c}{\textbf{Stokastik nav (dayanıklılık)}} \\'))
+           (r'& \multicolumn{3}{c}{\textbf{Navigasyon arızası yok}} & '
+            r'\multicolumn{3}{c}{\textbf{Stokastik navigasyon}} \\'))
     return wrap('tab:fitness', cap_en if lang == 'en' else cap_tr,
                 'l ccc ccc', [grp, r'\cmidrule(lr){2-4}\cmidrule(lr){5-7}', head,
                               r'\midrule'] + rows)
@@ -127,10 +130,11 @@ def table_scalability(lang):
               r'Best per scale \textbf{bold}. Physical Gazebo validation: 3r, '
               r'5r, and 10r confirmed.')
     cap_tr = (r'Ölçeklenebilirlik (stokastik navigasyon vekili, geodezik yürütme '
-              r'kâhini, 100 tohum, sabit yoğunluk 5 görev/robot, senaryolar '
-              r'üzerinden ortalama). Uygunluk $\uparrow$, gecikme (ms) '
-              r'$\downarrow$. Ölçek başına en iyi \textbf{kalın}. Fiziksel '
-              r'Gazebo doğrulaması: 3r, 5r ve 10r.')
+              r'modeli, 100 tohum ve sabit yoğunluk 5 görev/robot). Değerler '
+              r'senaryoların ortalamasıdır. Uygunluk $\uparrow$, gecikme (ms) '
+              r'$\downarrow$. Her ölçekte en iyi değer \textbf{kalın} '
+              r'gösterilmiştir. Kapalı çevrim Gazebo deneyleri 3, 5 ve 10 '
+              r'robotlu filoları kapsamaktadır.')
     rows = []
     for m, label in METHODS:
         cells = []
@@ -143,12 +147,14 @@ def table_scalability(lang):
                      for mm, _ in METHODS)
             cells += [fmt(fv, bf), fmt(lv, bl, 2)]
         rows.append(f'{label} & ' + ' & '.join(cells) + r' \\')
-    grp = '& ' + ' & '.join(rf'\multicolumn{{2}}{{c}}{{\textbf{{{n} robots}}}}'
+    unit = 'robots' if lang == 'en' else 'robot'
+    grp = '& ' + ' & '.join(rf'\multicolumn{{2}}{{c}}{{\textbf{{{n} {unit}}}}}'
                             for n in scales) + r' \\'
     mid = ''.join(rf'\cmidrule(lr){{{2 + 2 * i}-{3 + 2 * i}}}'
                   for i in range(len(scales)))
+    metrics = 'Fit. & Lat.' if lang == 'en' else 'Uyg. & Gec.'
     head = (r'\textbf{Method} & ' if lang == 'en' else r'\textbf{Yöntem} & ') + \
-        ' & '.join(['Fit. & Lat.'] * len(scales)) + r' \\'
+        ' & '.join([metrics] * len(scales)) + r' \\'
     return wrap('tab:scalability', cap_en if lang == 'en' else cap_tr,
                 'l ' + 'cc ' * len(scales), [grp, mid, head, r'\midrule'] + rows)
 
@@ -177,19 +183,30 @@ def table_ablation(lang):
               r'plane---the closed-loop ablation '
               r'(Section~\ref{sec:gazebo-ablation}) tests both observations.')
     cap_tr = (r'Seçici ablasyonu (stokastik navigasyon vekili, geodezik yürütme '
-              r'kâhini, 5r/25g, 100 tohum). Düzeltilmiş senaryo parametreleriyle '
+              r'modeli, 5r/25g ve 100 tohum). Düzeltilmiş senaryo parametreleriyle '
               rf'varyantlar ortalama uygunlukta {spread:.3f} aralığa yayılır. '
-              r'Bağlam geçersiz kılmalarını kaldırmak seçiciyi neredeyse hiç '
-              r'değiştirmez ve bu düzlemde sabit spatial-greedy onun önündedir; '
-              r'her iki gözlem de kapalı-çevrim ablasyonunda '
+              r'Bağlam geçersiz kılmalarının kaldırılması sınırlı bir fark '
+              r'oluşturur. Sabit uzamsal-açgözlü politika bu değerlendirme '
+              r'düzeyinde daha yüksek ortalamaya ulaşır. Her iki gözlem de kapalı '
+              r'çevrim ablasyonunda '
               r'(Bölüm~\ref{sec:gazebo-ablation}) sınanır.')
     head = ((r'\textbf{Variant} & \textbf{Rob.\ fail.} & \textbf{Deadline} & '
              r'\textbf{Mix.\ stress} & \textbf{Mean} \\') if lang == 'en' else
-            (r'\textbf{Varyant} & \textbf{Arıza} & \textbf{Deadline} & '
+            (r'\textbf{Varyant} & \textbf{Arıza} & \textbf{Son teslim} & '
              r'\textbf{Karışık} & \textbf{Ortalama} \\'))
     body = []
     for name, rf_, dp, ms, mean in rows:
-        lbl = name.replace('_', r'\_')
+        labels_tr = {
+            'Full EDPS': 'Tam seçici',
+            'fixed: spatial': 'Sabit: uzamsal',
+            'fixed: priority': 'Sabit: öncelik',
+            'fixed: edf': 'Sabit: EDF',
+            'fixed: commit': 'Sabit: tek-atama',
+            'fixed: orphan': 'Sabit: sahipsiz-önce',
+            'no-override': 'Geçersiz-kılma yok',
+            'no-recovery-boost': 'Toparlanma artışı yok',
+        }
+        lbl = (labels_tr.get(name, name) if lang == 'tr' else name).replace('_', r'\_')
         if name.lower().startswith('full'):
             lbl = rf'\textbf{{{lbl}}}'
         body.append(f'{lbl} & {rf_:.3f} & {dp:.3f} & {ms:.3f} & '
@@ -197,7 +214,7 @@ def table_ablation(lang):
     note = ((rf'\multicolumn{{5}}{{l}}{{\footnotesize Full selector mean '
              rf'{full:.3f}; best variant {best:.3f}.}} \\') if lang == 'en' else
             (rf'\multicolumn{{5}}{{l}}{{\footnotesize Tam seçici ortalaması '
-             rf'{full:.3f}; en iyi varyant {best:.3f}.}} \\'))
+             rf'{full:.3f}. En iyi varyant {best:.3f}.}} \\'))
     return wrap('tab:ablation', cap_en if lang == 'en' else cap_tr,
                 'lcccc', [head, r'\midrule'] + body + [r'\midrule', note])
 

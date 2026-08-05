@@ -1,0 +1,21 @@
+\begin{table*}[t]
+\centering
+\caption{Birincil 5-robot/25-görev ölçeğindeki son teslim baskısı
+(\textit{deadline\_pressure}) sonuçları. Her hücre $n{=}20$ koşu içerir. DVR,
+son teslim ihlal oranını gösterir. Her sütunun en iyi değeri \textbf{kalın}
+verilmiştir. AHE-MRTA* ile karşılaştırmada Bonferroni düzeltmeli
+Mann--Whitney U testi kullanılmıştır.}
+\label{tab:deadline}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Yöntem} & \textbf{CR$\uparrow$} & \textbf{Gecikme$\downarrow$(s)} & \textbf{DVR$\downarrow$} & \textbf{Kesinti$\downarrow$} \\
+\midrule
+\textbf{AHE-MRTA*} & \textbf{1.000 $\pm$ 0.000} & 78.5 $\pm$ 7.7 & \textbf{0.350 $\pm$ 0.090} & 0.00 $\pm$ 0.00 \\
+BiG-MRTA & 0.664$^{***}$ $\pm$ 0.059 & 327.0$^{***}$ $\pm$ 46.5 & 0.402 $\pm$ 0.073 & 0.00 $\pm$ 0.00 \\
+RoSTAM-EA & \textbf{1.000 $\pm$ 0.000} & 77.8 $\pm$ 7.3 & 0.498$^{***}$ $\pm$ 0.073 & 0.00 $\pm$ 0.00 \\
+Cons-DBTA & \textbf{1.000 $\pm$ 0.000} & \textbf{72.6 $\pm$ 9.3} & 0.422 $\pm$ 0.107 & 0.00 $\pm$ 0.00 \\
+\bottomrule
+\end{tabular}
+\end{table*}

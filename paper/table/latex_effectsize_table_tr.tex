@@ -1,30 +1,36 @@
 \begin{table}[t]
 \centering
-\caption{Etki b\"uy\"ukl\"ukleri (Cliff $\delta$): AHE-MRTA* vs her temel y\"ontem, birincil metrikler. $\delta>0$ AHE-MRTA* lehine. $^{*}p{<}0.05$ (d\"uzeltilmemi\c{s} Mann-Whitney U).}
+\caption{AHE-MRTA* ile her temel yöntem arasındaki birincil ölçütler için Cliff
+$\delta$ etki büyüklükleri. Pozitif $\delta$, AHE-MRTA* lehine farkı gösterir.
+Anlamlılık düzeyleri $^{*}p{<}0.05$, $^{**}p{<}0.01$ ve
+$^{***}p{<}0.001$'dir. Değerler Bonferroni düzeltmeli Mann--Whitney U
+testlerine dayanır.
+CR tamamlama oranını, DVR son teslim ihlal oranını, RecT toparlanma süresini ve
+Yen.at. görev başına uygulanan yeniden atama sayısını gösterir.}
 \label{tab:effectsize}
 \small
 \begin{tabular}{llrrr}
 \toprule
-\textbf{Metric} & \textbf{vs} & \textbf{BiG} & \textbf{RoSTAM} & \textbf{Cons-DBTA} \\
+\textbf{Ölçüt} & \textbf{Etki} & \textbf{BiG} & \textbf{RoSTAM} & \textbf{Cons-DBTA} \\
 \midrule
 \multicolumn{5}{l}{\textit{Senaryo: robot\_failure}} \\
 CR & $\delta$ & +0.70*** & +0.00 & +0.00 \\
 DVR & $\delta$ & +0.83*** & +0.86*** & +0.85*** \\
 RecT & $\delta$ & -0.08 & -0.09 & +0.45 \\
-Churn & $\delta$ & -0.04 & +0.15 & -0.00 \\
+Yen.at. & $\delta$ & -0.04 & +0.15 & -0.00 \\
 \midrule
 \multicolumn{5}{l}{\textit{Senaryo: mixed\_stress}} \\
 CR & $\delta$ & +1.00*** & +0.00 & +0.05 \\
 DVR & $\delta$ & -0.03 & +0.47 & +0.65** \\
 RecT & $\delta$ & -0.50 & +0.49 & +0.18 \\
-Churn & $\delta$ & +0.06 & -0.30 & -0.03 \\
+Yen.at. & $\delta$ & +0.06 & -0.30 & -0.03 \\
 \midrule
 \multicolumn{5}{l}{\textit{Senaryo: deadline\_pressure}} \\
 CR & $\delta$ & +1.00*** & +0.00 & +0.00 \\
 DVR & $\delta$ & +0.34 & +0.81*** & +0.39 \\
 RecT & $\delta$ & -0.00 & -0.00 & -0.00 \\
-Churn & $\delta$ & -0.00 & -0.00 & -0.00 \\
+Yen.at. & $\delta$ & -0.00 & -0.00 & -0.00 \\
 \bottomrule
 \end{tabular}
-\\[2pt]\footnotesize Pozitif $\delta$ = AHE-MRTA* daha iyi; $|\delta|{>}0.47$ = b\"uy\"uk etki.
+\\[2pt]\footnotesize $|\delta|{>}0.47$ büyük etkiyi gösterir.
 \end{table}

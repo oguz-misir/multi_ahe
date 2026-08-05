@@ -35,7 +35,7 @@ SOURCES = [
 SCENARIOS = [
     ('robot_failure', 'Robot failure', 'Robot arızası'),
     ('mixed_stress', 'Mixed stress', 'Karışık stres'),
-    ('deadline_pressure', 'Deadline pressure', 'Deadline baskısı'),
+    ('deadline_pressure', 'Deadline pressure', 'Son teslim baskısı'),
 ]
 
 CAPTION_EN = (
@@ -43,15 +43,15 @@ CAPTION_EN = (
     'cell). Navigation succeeds deterministically; distance is the geodesic '
     'path length on the shared inflated occupancy map.')
 CAPTION_TR = (
-    "AHE-MRTA navigasyon-ba\\u{g}\\i ms\\i z allocation-only sonu\\c{c}lar\\i "
-    "(h\\\"ucre ba\\c{s}\\i na 100 tohum). Navigasyon belirlenimci olarak "
-    "ba\\c{s}ar\\i l\\i d\\i r; mesafe, payla\\c{s}\\i lan \\c{s}i\\c{s}irilmi\\c{s} "
-    "doluluk haritas\\i \\\"uzerindeki geodezik yol uzunlu\\u{g}udur.")
+    'AHE-MRTA navigasyondan bağımsız yalnız-tahsis sonuçları '
+    '(hücre başına 100 tohum). Navigasyon belirlenimci biçimde başarılı kabul '
+    'edilir. Mesafe, paylaşılan şişirilmiş doluluk haritası üzerindeki geodezik '
+    'yol uzunluğudur.')
 
 HEAD_EN = (r'\textbf{Scale} & \textbf{Scenario} & \textbf{Fit.} & \textbf{CR} & '
            r'\textbf{DVR} & \textbf{Jain$_{active}$} & \textbf{Jain$_{dist}$} & '
            r'\textbf{Delay (s)} & \textbf{Distance} & \textbf{Decision (ms)} \\')
-HEAD_TR = (r'\textbf{\"Ol\c{c}ek} & \textbf{Senaryo} & \textbf{Uyg.} & \textbf{CR} & '
+HEAD_TR = (r'\textbf{Ölçek} & \textbf{Senaryo} & \textbf{Uyg.} & \textbf{CR} & '
            r'\textbf{DVR} & \textbf{Jain$_{aktif}$} & \textbf{Jain$_{mesafe}$} & '
            r'\textbf{Gecikme (s)} & \textbf{Mesafe} & \textbf{Karar (ms)} \\')
 

@@ -2,19 +2,23 @@
 % results/raw/gazebo_ablation/ değişince yeniden üret.
 \begin{table}[t]
 \centering
-\caption{Eşleşmiş kapalı-çevrim ablasyonu, birincil 5-robot / 25-görev ölçeği:
-senaryo başına 20 ortak tohumda dört kol; kampanyadan önce kayıt altına
-alındı (\texttt{paper/PREREGISTRATION.md}). Birincil uç nokta, zamanında-etkin
-tamamlama $\mathrm{CR}\times(1-\mathrm{DVR})$ (\textit{deadline\_pressure}
-senaryosunda); $p$, \emph{full}'e karşı eşli Wilcoxon işaretli-sıra testidir ve
-senaryo ailesi içinde Bonferroni ile düzeltilmiştir; $\delta$ bootstrap \%95
-GA'lı Cliff deltasıdır. Diğer iki senaryo betimleyicidir.}
+\caption{Birincil 5-robot/25-görev ölçeğindeki eşleşmiş kapalı çevrim
+ablasyonu. Dört yapılandırma, senaryo başına 20 ortak tohumla değerlendirilmiş
+ve deney tasarımı kampanya öncesinde kayıt altına alınmıştır. Birincil uç nokta,
+\textit{deadline\_pressure} senaryosundaki zamanında etkin tamamlamadır
+$\mathrm{CR}\times(1-\mathrm{DVR})$. $p$ değerleri, \emph{full}
+yapılandırmasına karşı eşli Wilcoxon işaretli sıra testinden elde edilmiş ve
+senaryo ailesi içinde Bonferroni yöntemiyle düzeltilmiştir. Cliff $\delta$ için
+önyükleme tabanlı \%95 güven aralığı kullanılmıştır. Diğer iki senaryo
+betimleyici olarak raporlanmıştır. Sütunlar sırasıyla \emph{full},
+\emph{no-override}, \emph{fixed-EDF} ve \emph{fixed-orphan} uygulama
+yapılandırmalarına karşılık gelir.}
 \label{tab:gazebo-ablation}
 \small
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{l cccc}
 \toprule
-& \textbf{full} & \textbf{no-override} & \textbf{fixed-EDF} & \textbf{fixed-orphan} \\
+& \textbf{Tam} & \textbf{Zincirsiz} & \textbf{Sabit EDF} & \textbf{Sabit sahipsiz} \\
 \midrule
 
 \multicolumn{5}{l}{\textit{deadline\_pressure} -- birincil uç nokta} \\
