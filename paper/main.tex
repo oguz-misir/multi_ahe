@@ -101,9 +101,9 @@ search broad assignment spaces, whereas matching, greedy, auction, and
 consensus methods emphasize different combinations of speed, distribution, and
 coordination cost \cite{chakraa2023review,bai2023group,
 rostam2024selfadaptive}. No single family is uniformly appropriate when task
-urgency, robot availability, and workload change during execution. The
-comparative implications of these method families are examined in
-Section~\ref{sec:related}.
+urgency, robot availability, and workload change during execution. These
+families balance solution quality, latency, communication, stability, and
+interpretability differently.
 
 Dynamic MRTA research addresses task arrivals, temporal constraints, execution
 uncertainty, and robot failures \cite{ghassemi2022bigmrta,
@@ -170,55 +170,12 @@ The contributions of this paper are as follows:
 \end{enumerate}
 
 The remainder of the paper is organized as follows.
-Section~\ref{sec:related} reviews dynamic MRTA and adaptive allocation.
 Section~\ref{sec:problem} formulates the online problem, and
 Section~\ref{sec:method} presents the proposed method.
 Section~\ref{sec:setup} describes the experimental methodology.
 Section~\ref{sec:results} reports all simulation, closed-loop, scalability, and
 ablation results. Section~\ref{sec:discussion} interprets the evidence and
 states its limitations. Section~\ref{sec:conclusion} concludes the paper.
-
-%==============================================================================
-\section{Related Work}
-\label{sec:related}
-
-Optimization-based allocation and joint allocation--routing models express
-constraints explicitly and optimize mission objectives. This broad scope is
-useful for tightly coupled problems, but solving such models at every online
-event can become costly as the numbers of tasks and robots increase
-\cite{chakraa2023review,lei2023convex}. Bipartite matching and greedy methods
-provide deterministic, low-latency decisions. Their behavior is easy to
-inspect, but a fixed objective may not respond adequately to changing urgency,
-failures, or workload
-\cite{gerkey2004formal,ghassemi2022bigmrta}.
-
-Market, auction, and consensus methods distribute coordination through bids
-and local agreement. They reduce reliance on a central optimizer, but
-communication, rebidding, and convergence add delay
-\cite{bai2023group,choi2009consensus,mahato2023consensus}. Evolutionary and
-self-adaptive methods explore broader assignment spaces, but generally require
-more computation and may produce run-dependent solutions when stochastic
-search is used \cite{rostam2024selfadaptive,athira2024systematic}. Thus, these
-method families balance solution quality, latency, communication, stability,
-and interpretability differently.
-
-Online MRTA methods address dynamic task arrivals, temporal constraints,
-execution uncertainty, robot failures, and changing communication through
-matching, adaptive grouping, or self-adaptation
-\cite{ghassemi2022bigmrta,chen2019critical,choudhury2021dynamic,
-rostam2024selfadaptive}. Most retain one allocation mechanism and update its
-parameters or repeat its decisions as the state changes. Comparisons between
-adaptive and fixed methods may therefore also change the travel model, queue
-discipline, or post-assignment repair.
-
-Mechanism selection offers a complementary approach. Schneider et al. used
-spatial features to choose between two auction mechanisms before static
-exploration runs \cite{schneider2017mechanism}. In contrast, this study
-examines event-level selection as deadline and failure conditions change. This
-study does not claim to introduce the first MRTA portfolio or a new solver for
-each policy. Its contribution is an auditable online pipeline and a matched
-comparison of selector components and fixed policies under common safeguards,
-travel estimates, and repair procedures.
 
 %==============================================================================
 \section{Problem Formulation}

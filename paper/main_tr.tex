@@ -126,8 +126,8 @@ artırma ve uzlaşma yöntemleri hız ile dağıtık koordinasyona farklı ölç
 öncelik verir \cite{chakraa2023review,bai2023group,
 rostam2024selfadaptive}. Görev aciliyeti, robot kullanılabilirliği ve iş yükü
 yürütme sırasında değiştiği için tek bir yöntem ailesinin bütün koşullarda en
-uygun olduğu söylenemez. Bu yöntemlerin karşılaştırmalı değerlendirmesi
-Bölüm~\ref{sec:related}'de sunulmaktadır.
+uygun olduğu söylenemez. Bu aileler çözüm kalitesi, gecikme, haberleşme,
+kararlılık ve yorumlanabilirlik arasında farklı dengeler kurar.
 
 Dinamik MRTA araştırmaları görev gelişini, zamansal kısıtları, yürütme
 belirsizliğini ve robot arızalarını ele almaktadır. Buna rağmen, değişen görev
@@ -192,54 +192,13 @@ kontrollü ablasyonlarla değerlendirmesidir.
 \end{enumerate}
 
 Makalenin geri kalanı şu şekilde düzenlenmiştir.
-Bölüm~\ref{sec:related} dinamik ve uyarlanır MRTA çalışmalarını
-incelemektedir. Bölüm~\ref{sec:problem} çevrim içi tahsis problemini
+Bölüm~\ref{sec:problem} çevrim içi tahsis problemini
 biçimselleştirmekte, Bölüm~\ref{sec:method} önerilen yöntemi sunmaktadır.
 Bölüm~\ref{sec:setup} deneysel yöntemi açıklamaktadır. Bütün benzetim, kapalı
 çevrim, ölçeklenebilirlik ve ablasyon bulguları Bölüm~\ref{sec:results}'de
 birlikte raporlanmaktadır. Bölüm~\ref{sec:discussion} bulguları yorumlamakta ve
 çalışmanın sınırlılıklarını açıklamaktadır. Çalışma,
 Bölüm~\ref{sec:conclusion}'daki sonuçlarla tamamlanmaktadır.
-
-%==============================================================================
-\section{İlgili Çalışmalar}
-\label{sec:related}
-
-Optimizasyon tabanlı görev atama ve bütünleşik atama--rota planlama modelleri,
-kısıtları doğrudan temsil eder ve birden çok amacı birlikte eniyileyebilir.
-Ancak bu modellerin her çevrim içi olayda yeniden çözülmesi, robot ve görev
-sayısı arttıkça hesaplama yükünü önemli ölçüde artırabilir
-\cite{chakraa2023review,lei2023convex}. İki parçalı eşleme ve açgözlü yöntemler
-ise düşük gecikmeli ve belirlenimci kararlar üretir. Buna karşılık sabit bir
-amaç işlevi, görev aciliyeti, robot arızası ve iş yükü dağılımındaki değişimleri
-her durumda yeterince temsil edemeyebilir
-\cite{gerkey2004formal,ghassemi2022bigmrta}.
-
-Piyasa, açık artırma ve uzlaşma yöntemleri koordinasyonu teklifler ve yerel
-kararlar üzerinden dağıtır. Bu yapı, merkezi bir çözücüye bağımlılığı
-azaltırken haberleşme, yeniden teklif verme ve uzlaşma için ek süre gerektirir
-\cite{bai2023group,choi2009consensus,mahato2023consensus}. Evrimsel ve
-öz-uyarlanır yöntemler daha geniş bir atama uzayını araştırabilir. Olay başına
-daha fazla hesaplama gerektirmeleri ve stokastik arama nedeniyle aynı koşullar
-altında farklı çözümler üretebilmeleri bu yöntemlerin temel sınırlılıklarıdır
-\cite{rostam2024selfadaptive,athira2024systematic}.
-
-Dinamik görev atama çalışmaları, görev gelişlerini, zamansal kısıtları,
-yürütme belirsizliğini, robot arızalarını ve değişen haberleşme koşullarını
-çevrim içi eşleme, uyarlanır gruplama veya öz-uyarlama yoluyla ele almaktadır
-\cite{ghassemi2022bigmrta,chen2019critical,choudhury2021dynamic,
-rostam2024selfadaptive}. Bu yaklaşımların çoğu tek bir tahsis mekanizmasını
-korur. Sistem durumu değiştiğinde aynı mekanizmanın parametreleri veya karar
-süreci güncellenir.
-
-Mekanizma seçimi tamamlayıcı bir araştırma yönüdür. Schneider ve arkadaşları,
-statik tahsisli keşif koşularından önce iki açık artırma mekanizması arasında
-seçim yapmak için uzamsal senaryo özelliklerini kullanmıştır
-\cite{schneider2017mechanism}. Bu çalışma ise değişen son teslim ve arıza
-koşulları altında olay düzeyinde politika seçimini incelemektedir. Amaç, yeni
-bir çözücü ailesi önermek değildir. Bunun yerine seyahat kestirimi, kuyruk
-kuralları ve seçim sonrası güvenlik bileşenleri sabit tutularak çevrim içi
-seçicinin ek etkisi kontrollü karşılaştırmalarla ölçülmektedir.
 
 %==============================================================================
 \section{Problem Tanımı}
