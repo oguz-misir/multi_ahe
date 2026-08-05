@@ -5,7 +5,7 @@
 % Taxonomy / Foundational MRTA
 % -------------------------------------------------------
 @article{gerkey2004formal,
-  author    = {Brian P. Gerkey and Maja J. Mataric},
+  author    = {Brian P. Gerkey and Maja J. Matari{\'c}},
   title     = {A Formal Analysis and Taxonomy of Task Allocation in Multi-Robot Systems},
   journal   = {The International Journal of Robotics Research},
   volume    = {23},
@@ -27,7 +27,7 @@
 }
 
 @article{chakraa2023review,
-  author    = {Hamza Chakraa and F. Gu{\'e}rin and Edouard Leclercq},
+  author    = {Hamza Chakraa and Fran{\c{c}}ois Gu{\'e}rin and Edouard Leclercq and Dimitri Lefebvre},
   title     = {Optimization Techniques for Multi-Robot Task Allocation Problems: Review on the State-of-the-Art},
   journal   = {Robotics and Autonomous Systems},
   volume    = {168},
@@ -37,18 +37,19 @@
 }
 
 @article{athira2024systematic,
-  author    = {Athira, K. A. and Udayan, J. Divya and Subramaniam, Umashankar},
+  author    = {K. A. Athira and J. Divya Udayan and Umashankar Subramaniam},
   title     = {A Systematic Literature Review on Multi-Robot Task Allocation},
   journal   = {ACM Computing Surveys},
   volume    = {57},
   number    = {3},
   pages     = {1--28},
-  year      = {2024},
+  year      = {2025},
+  note      = {Art. no. 68},
   doi       = {10.1145/3700591}
 }
 
 @article{bai2023group,
-  author    = {Bai, Xiaoshan and Fielbaum, Andr{\'e}s and Kronm{\"u}ller, Maximilian},
+  author    = {Xiaoshan Bai and Andr{\'e}s Fielbaum and Maximilian Kronm{\"u}ller and Luzia Knoedler and Javier Alonso-Mora},
   title     = {Group-Based Distributed Auction Algorithms for Multi-Robot Task Assignment},
   journal   = {IEEE Transactions on Automation Science and Engineering},
   volume    = {20},
@@ -111,7 +112,7 @@
 % Online / Dynamic MRTA
 % -------------------------------------------------------
 @article{chen2019critical,
-  author    = {Xinye Chen and Ping Zhang and Guanglong Du},
+  author    = {Xinye Chen and Ping Zhang and Guanglong Du and Fang Li},
   title     = {A Distributed Method for Dynamic Multi-Robot Task Allocation Problems with Critical Time Constraints},
   journal   = {Robotics and Autonomous Systems},
   volume    = {118},
@@ -154,26 +155,6 @@
 % -------------------------------------------------------
 % Learning-Based / RL MRTA
 % -------------------------------------------------------
-@article{wang2022reinforcement,
-  author    = {Wang, Ruohan and Hu, Yifeng and Zhang, Weinan},
-  title     = {Heterogeneous Graph Attention Network for Multi-Robot Task Allocation with Workload Balance},
-  journal   = {IEEE Robotics and Automation Letters},
-  volume    = {7},
-  number    = {4},
-  pages     = {9512--9519},
-  year      = {2022},
-  doi       = {10.1109/LRA.2022.3191507}
-}
-
-@inproceedings{sykora2020marlas,
-  author    = {Sykora, Quentin and Rajiva, Aditya and Gurney, Sean and Bak, Adam and Pereira, Alberto},
-  title     = {{MARLAS}: Multi-Agent Reinforcement Learning for Autonomous Scalable Multi-Robot Task Allocation},
-  booktitle = {Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
-  year      = {2020},
-  pages     = {5219--5226},
-  doi       = {10.1109/IROS45743.2020.9341661}
-}
-
 % -------------------------------------------------------
 % Failure-Aware / Robust MRTA
 % -------------------------------------------------------
@@ -188,16 +169,6 @@
   doi       = {10.3233/IDT-180044}
 }
 
-@article{santos2021resilient,
-  author    = {Santos, Victor A. and Sarcinelli-Filho, Mario and Carelli, Ricardo},
-  title     = {Resilient Task Allocation for Mobile Robot Teams with Fault Tolerance via Hybrid Auction-Based Mechanism},
-  journal   = {Robotics and Autonomous Systems},
-  volume    = {145},
-  pages     = {103868},
-  year      = {2021},
-  doi       = {10.1016/j.robot.2021.103868}
-}
-
 % -------------------------------------------------------
 % Hyper-Heuristics
 % -------------------------------------------------------
@@ -205,10 +176,12 @@
   author    = {Edmund K. Burke and Matthew Hyde and Graham Kendall and Gabriela Ochoa and Ender Özcan and John R. Woodward},
   title     = {A Classification of Hyper-Heuristic Approaches: Revisited},
   booktitle = {Handbook of Metaheuristics},
-  year      = {2013},
-  pages     = {449--474},
+  series    = {International Series in Operations Research \& Management Science},
+  volume    = {272},
+  year      = {2019},
+  pages     = {453--477},
   publisher = {Springer},
-  doi       = {10.1007/978-1-4614-6940-7_16}
+  doi       = {10.1007/978-3-319-91086-4_14}
 }
 
 % -------------------------------------------------------
@@ -303,8 +276,20 @@
 % -------------------------------------------------------
 % Context-Aware / Adaptive Allocation
 % -------------------------------------------------------
+@inproceedings{schneider2017mechanism,
+  author    = {Eric Schneider and Elizabeth I. Sklar and Simon Parsons},
+  title     = {Mechanism Selection for Multi-Robot Task Allocation},
+  booktitle = {Towards Autonomous Robotic Systems},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {10454},
+  pages     = {421--435},
+  year      = {2017},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-319-64107-2_33}
+}
+
 @article{nunes2017taxonomy,
-  author    = {Nunes, Ernesto and Manner, Mark and Mitiche, Hakim and Gini, Maria},
+  author    = {Ernesto Nunes and Marie Manner and Hakim Mitiche and Maria Gini},
   title     = {A Taxonomy for Task Allocation Problems with Temporal and Ordering Constraints},
   journal   = {Robotics and Autonomous Systems},
   volume    = {90},
@@ -313,26 +298,15 @@
   doi       = {10.1016/j.robot.2016.10.008}
 }
 
-@article{tang2023contextaware,
-  author    = {Tang, Feilong and Li, Jia and Tang, Ming},
-  title     = {Context-Aware Multi-Robot Task Allocation Using Graph Attention Networks},
-  journal   = {IEEE Transactions on Automation Science and Engineering},
-  volume    = {20},
-  number    = {4},
-  pages     = {2451--2464},
-  year      = {2023},
-  doi       = {10.1109/TASE.2022.3197853}
-}
-
 % --- Scite-verified recent (>=2020) MRTA literature (Introduction) ---
 @article{choudhury2021dynamic,
-  author    = {Choudhury, Shushman and Gupta, Jayesh K. and Kochenderfer, Mykel J.},
+  author    = {Shushman Choudhury and Jayesh K. Gupta and Mykel J. Kochenderfer and Dorsa Sadigh and Jeannette Bohg},
   title     = {Dynamic multi-robot task allocation under uncertainty and temporal constraints},
   journal   = {Autonomous Robots},
   volume    = {46},
   number    = {1},
   pages     = {231--247},
-  year      = {2021},
+  year      = {2022},
   doi       = {10.1007/s10514-021-10022-9}
 }
 
@@ -356,7 +330,7 @@
 }
 
 @article{garciamartin2023clustering,
-  author    = {Javier Garc{\'i}a Mart{\'i}n and Francisco Javier Muros and J. M. Maestre},
+  author    = {Javier Garc{\'i}a Mart{\'i}n and Francisco Javier Muros and J. M. Maestre and Eduardo F. Camacho},
   title     = {Multi-Robot Task Allocation Clustering Based on Game Theory},
   journal   = {Robotics and Autonomous Systems},
   volume    = {161},
@@ -403,7 +377,7 @@
 }
 
 @article{lei2023convex,
-  author    = {Lei, Tingjun and Chintam, Pradeep and Luo, Chaomin},
+  author    = {Tingjun Lei and Pradeep Chintam and Chaomin Luo and Lantao Liu and Gene Eu Jan},
   title     = {A Convex Optimization Approach to Multi-Robot Task Allocation and Path Planning},
   journal   = {Sensors},
   volume    = {23},
