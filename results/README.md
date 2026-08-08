@@ -5,7 +5,7 @@ geliyor ve nasıl yeniden üretilir?**
 
 İki kez, aynı kök sebepten hata yapıldı: bir figür ve bir tablo, süperseded
 edilmiş bir kampanyanın türetilmiş dosyalarından beslendi ve metinle sessizce
-çeliştiler (bkz. `3785ec3`, `d0c0943`). Bu dizinlerin çoğu araştırma tarihidir;
+çeliştiler (bkz. `13c411d`, `ff5709e`). Bu dizinlerin çoğu araştırma tarihidir;
 **üretimde yalnızca aşağıda "KANONİK" işaretli olanlar kullanılır.**
 
 ---
@@ -42,7 +42,7 @@ yolla yanlış bulundu.
 | `figures/`, `paper_figures/`, `demo_videos_mixed/` | Ara/gösterim çıktıları; makale figürleri `paper/figure/` altındadır |
 
 > `processed/gazebo_{3r,5r,10r}/` ve `stats/gazebo_{3r,5r,10r}/` **2026-07-29'da
-> silindi** (`d0c0943`): F58 öncesi türetilmiş snapshot'lardı ve Şekil 9'u yanlış
+> silindi** (`ff5709e`): F58 öncesi türetilmiş snapshot'lardı ve Şekil 9'u yanlış
 > besliyorlardı. Arkalarındaki 299 koşu `raw/gazebo/` altında duruyor; gerekirse
 > `consolidate_results.py` ile yeniden üretilebilir.
 
@@ -108,7 +108,7 @@ bring-up kısmi satır katkısı yapamaz.
 
 ### Simülatör düzlemleri (Gazebo gerektirmez)
 
-> **✅ ÇÖZÜLDÜ (2026-08-02).** `9aaeb46` senaryo tanımlarını tek bir
+> **✅ ÇÖZÜLDÜ (2026-08-02).** `d5f9525` senaryo tanımlarını tek bir
 > paylaşılan modüle (`m_ahe_task_allocator/scenarios.py`) taşıdı ve **vekil
 > düzlemi makaledeki tanımlarla hizaladı**. Öncesinde vekilin `mixed_stress`'ini
 > `robot_failure`'dan ayıran tek şey bataryaydı — dalga programı ve yarılanmış
