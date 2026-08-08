@@ -32,9 +32,8 @@
 
 \begin{document}
 
-\title{The Portfolio, Not the Switching Rule:\\
-       Online Multi-Robot Task Allocation under\\
-       Failures and Deadline Pressure}
+\title{Ecosystem-Driven Heuristic Selection for\\
+  Dynamic Multi-Robot Task Allocation}
 
 \author{}
 
@@ -42,21 +41,25 @@
 
 %==============================================================================
 \begin{abstract}
-Online multi-robot task allocation must react to task arrivals, deadlines, and
-robot failures without excessive reassignment. AHE-MRTA selects among five
-interpretable allocation paradigms through failure and deadline overrides with
-a dominance-based fallback; geodesic arrival-time estimates and bounded
-terminal load repair shape the resulting queues. We evaluate the method in an
-allocation-only simulator, a stochastic navigation proxy, and a closed-loop
-ROS\,2/Nav2 Gazebo benchmark over multiple fleet sizes. In both simulator
-settings and at the primary closed-loop scale, AHE-MRTA gives the highest
-observed completion and deadline performance while satisfying the decision-time
-budget. Matched ablations show
-that fixed EDF and orphan-first configurations degrade the primary endpoint,
-whereas removing the override cascade or fixing the dominant spatial-greedy
-fallback produces no detectable difference. The evidence therefore supports
-maintaining access to a suitable allocation paradigm, but not a performance
-advantage for the implemented switching rule over its dominant fallback.
+Dynamic multi-robot task allocation must accommodate task arrivals, deadline
+pressure, and robot failures while preserving executable assignments. This
+paper presents AHE-MRTA, a centralized event-triggered hyper-heuristic that
+selects among five interpretable allocation paradigms. Failure and deadline
+conditions activate dedicated policies; otherwise, persistent dominance scores
+select the policy. Shared geodesic arrival-time estimates, in-flight goal
+locking, and bounded terminal load repair generate feasible robot queues
+without preempting active goals. We evaluate the complete pipeline in
+allocation-only simulation, a stochastic navigation proxy, and 480 closed-loop
+ROS\,2/Nav2 Gazebo trials. At the primary 5-robot/25-task scale, AHE-MRTA
+completes all tasks in all three scenarios. Under deadline pressure, it obtains
+a composite completion--punctuality score of $0.650$, compared with $0.578$ for
+the strongest baseline, and reduces the deadline-violation rate from $0.422$ to
+$0.350$. Geodesic arrival-time estimation improves proxy fitness by
+$1.83$--$4.10$ percentage points, and closed-loop allocation latency is
+$0.81$--$1.33$~ms. Matched ablations show that fixed EDF and orphan-first
+policies reduce the primary outcome. However, the implemented switching rule
+does not differ detectably from its dominant spatial-greedy fallback, delimiting
+the causal claim to access to an appropriate policy portfolio.
 \end{abstract}
 
 \begin{IEEEkeywords}

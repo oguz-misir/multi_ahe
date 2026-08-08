@@ -50,9 +50,8 @@
 
 \begin{document}
 
-\title{Portföy, Değiştirme Kuralı Değil: Arıza ve\\
-       Son Teslim Baskısı Altında Çevrim İçi\\
-       Çoklu Robot Görev Ataması}
+\title{Dinamik Çok Robotlu Görev Tahsisi için\\
+  Ekosistem Güdümlü Sezgisel Seçimi}
 
 \author{}
 
@@ -60,25 +59,26 @@
 
 %==============================================================================
 \begin{abstract}
-Çevrim içi çoklu robot görev atama, gereksiz yeniden atamaları sınırlarken
-görev gelişlerine, son teslim sürelerine ve robot arızalarına tepki vermelidir.
-Bu çalışmada önerilen AHE-MRTA, beş yorumlanabilir tahsis politikası arasından
-çevrim içi seçim yapan olay tetiklemeli bir çerçevedir. Arıza ve son teslim
-baskısı için tanımlanan belirlenimci kurallar öncelikli seçim sağlar. Bu
-kurallar etkin olmadığında durum bilgisi taşıyan baskınlık tabanlı seçim
-kullanılır. Geodezik varış süresi kestirimi ve sınırlı terminal yük onarımı,
-oluşturulan görev kuyruklarının uygulanabilirliğini destekler. Yöntem, farklı
-filo ölçeklerinde navigasyondan bağımsız benzetim, stokastik navigasyon vekili
-ve kapalı çevrim ROS\,2/Nav2 Gazebo ortamında değerlendirilmiştir. AHE-MRTA,
-iki benzetim düzeyinde ve birincil kapalı çevrim ölçekte en yüksek gözlenen
-tamamlama ve son teslim başarımını elde etmiş, aynı zamanda karar süresi
-bütçesini karşılamıştır. Eşleşmiş ablasyonlar, sabit EDF ve
-sahipsiz-görev-önce yapılandırmalarının birincil ölçütü düşürdüğünü
-göstermiştir. Buna karşılık, öncelikli seçim kurallarının kaldırılması veya
-baskın uzamsal-açgözlü politikanın sabitlenmesi ölçülebilir bir fark
-oluşturmamıştır. Bulgular, portföyde koşula uygun bir tahsis politikasına
-erişimin önemini desteklemekte, ancak uygulanan geçiş kuralının baskın sabit
-politikaya üstün olduğunu göstermemektedir.
+Dinamik çok robotlu görev tahsisi, uygulanabilir atamaları korurken görev
+gelişlerine, son teslim baskısına ve robot arızalarına uyum sağlamalıdır. Bu
+çalışma, beş yorumlanabilir tahsis paradigması arasından seçim yapan merkezi,
+olay tetiklemeli bir hiper-sezgisel olan AHE-MRTA'yı sunar. Arıza ve son teslim
+koşulları kendilerine ayrılmış politikaları etkinleştirir; diğer durumlarda
+kalıcı baskınlık skorları politika seçimini belirler. Ortak geodezik varış
+süresi kestirimleri, yürütülen hedef kilidi ve sınırlı terminal yük onarımı,
+etkin hedefleri kesmeden uygulanabilir robot kuyrukları üretir. Tüm işlem
+hattı, navigasyondan bağımsız benzetim, stokastik navigasyon vekili ve 480
+kapalı çevrim ROS\,2/Nav2 Gazebo koşusunda değerlendirilmiştir. Birincil 5
+robot/25 görev ölçeğinde AHE-MRTA, üç senaryonun tamamında tüm görevleri
+tamamlamıştır. Son teslim baskısında en güçlü taban çizgisinin $0.578$ değerine
+karşı $0.650$ tamamlama--zamanlılık bileşik skoru elde etmiş ve son teslim ihlal
+oranını $0.422$'den $0.350$'ye indirmiştir. Geodezik varış süresi kestirimi,
+vekil uygunluğunu $1.83$--$4.10$ yüzde puan iyileştirmiş; kapalı çevrim tahsis
+gecikmesi $0.81$--$1.33$~ms olmuştur. Eşleşmiş ablasyonlar, sabit EDF ve
+sahipsiz-görev-önce politikalarının birincil sonucu düşürdüğünü göstermiştir.
+Bununla birlikte, uygulanan geçiş kuralı baskın uzamsal-açgözlü geri dönüş
+politikasından ölçülebilir biçimde ayrışmamaktadır; dolayısıyla nedensel iddia,
+uygun politika portföyüne erişimle sınırlıdır.
 \end{abstract}
 
 \begin{IEEEkeywords}
