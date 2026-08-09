@@ -106,7 +106,9 @@ def draw_scene(ax, rgb, extent, grid, n_robots, n_tasks, title):
     ax.set_title(title, fontsize=11, pad=8)
     ax.set_aspect('equal')
     ax.grid(True, alpha=0.25, linewidth=0.4)
-    ax.legend(loc='upper right', fontsize=7, framealpha=0.9)
+    # No in-axes legend: the arena fills the axes at equal aspect, so any box
+    # placed inside covers walls and task goals -- worst at 10r/50g. Callers
+    # put a shared legend below the figure instead.
 
     # 2 m scale bar
     ax.plot([-9.4, -7.4], [-9.6, -9.6], 'k-', lw=2, zorder=7)
@@ -119,11 +121,19 @@ def main():
     rgb, extent = load_map_rgb()
     print(f'Loaded {len(grid)} grid points, map {rgb.shape[1]}x{rgb.shape[0]}')
 
+    # Per-scale counts live in every title ("3r/15g"), so the shared legend
+    # below carries generic labels and stays valid across all three panels.
+    legend_labels = [f'Aday inspection grid ({len(grid)})',
+                     'Görev noktaları', 'Robot başlangıç']
+
     # Individual figures
     for n, m in SCALES:
         fig, ax = plt.subplots(figsize=(5.2, 5.2))
         draw_scene(ax, rgb, extent, grid, n, m,
                    f'Senaryo ölçeği {n}r/{m}g  (~{m/n:.0f} görev/robot)')
+        handles, _ = ax.get_legend_handles_labels()
+        fig.legend(handles, legend_labels, loc='lower center', ncol=3,
+                   fontsize=8, frameon=False, bbox_to_anchor=(0.5, -0.07))
         plt.tight_layout()
         out = os.path.join(OUTDIR, f'scenario_map_{n}r{m}t.png')
         fig.savefig(out, dpi=150, bbox_inches='tight')
@@ -137,6 +147,9 @@ def main():
                    f'{n}r/{m}g  (~{m/n:.0f} görev/robot)')
     fig.suptitle('AHE-MRTA — Ortam senaryo haritaları (robot × görev ölçekleri)',
                  fontsize=13, y=1.02)
+    handles, _ = axes[0].get_legend_handles_labels()
+    fig.legend(handles, legend_labels, loc='lower center', ncol=3, fontsize=10,
+               frameon=False, bbox_to_anchor=(0.5, -0.10))
     plt.tight_layout()
     # The combined panel is the figure the paper uses, so it lives in the
     # canonical paper/figure dir; the per-scale maps above stay in results/.
