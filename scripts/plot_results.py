@@ -575,7 +575,13 @@ def plot_dominance_recovery_panel(df_eco: Optional[pd.DataFrame],
         if fail_t is not None:
             ax_dom.axvline(fail_t, color="black", linestyle=":", alpha=0.8,
                            linewidth=1.2, label="Failure injection")
-        ax_dom.legend(loc="upper right", ncol=2, fontsize=7)
+        # Three columns keeps the six entries to two rows, and the headroom
+        # below is sized so the box clears the spatial series, which peaks just
+        # under the auto-scaled top of the range and used to run under the box.
+        ax_dom.legend(loc="upper right", ncol=3, fontsize=7, framealpha=0.9,
+                      borderpad=0.3, columnspacing=1.0, handlelength=1.6)
+        y_lo, y_hi = ax_dom.get_ylim()
+        ax_dom.set_ylim(y_lo, y_hi + 0.32 * (y_hi - y_lo))
     else:
         ax_dom.text(0.5, 0.5, "No ecosystem data", ha="center", va="center",
                     transform=ax_dom.transAxes)
