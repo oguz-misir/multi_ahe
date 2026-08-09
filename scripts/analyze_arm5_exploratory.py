@@ -14,7 +14,7 @@ value.  Adding 'fixed-spatial' to its ARMS list would silently:
   * make the analysis code no longer predate the data it analyses.
 
 So the registered four-arm analysis stays untouched and this arm is reported
-separately, as run_ablation_arm5.sh says it must be.  The statistics helpers
+separately, as scripts/_campaigns/run_ablation_arm5.sh says it must be.  The statistics helpers
 are imported from analyze_ablation.py rather than copied, so the two analyses
 cannot drift apart in how they compute a delta or pair a seed.
 
@@ -99,7 +99,7 @@ def main():
     if counts[PRIMARY_SCENARIO] < EXPECTED_PER_SCENARIO:
         say('')
         say('*** INTERIM: the primary-endpoint scenario is not complete.')
-        say('*** deadline_pressure runs LAST in run_ablation_arm5.sh, so this')
+        say('*** deadline_pressure runs LAST in scripts/_campaigns/run_ablation_arm5.sh, so this')
         say('*** is expected until the very end of the campaign. Numbers below')
         say('*** are provisional; do not write them into the paper yet.')
 

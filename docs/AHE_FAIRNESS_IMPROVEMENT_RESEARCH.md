@@ -205,10 +205,10 @@ Tekrarlanabilir ve eski sonuçları ezmeyen kampanya sürücüsü eklendi:
 
 ```bash
 # 3r/15g, üç senaryo, tohum 1--3
-bash scripts/run_f53_gazebo_validation.sh pilot
+bash scripts/_campaigns/run_f53_gazebo_validation.sh pilot
 
 # Makaledeki birincil 5r/25g ölçek, üç senaryo, tohum 1--5
-bash scripts/run_f53_gazebo_validation.sh paper
+bash scripts/_campaigns/run_f53_gazebo_validation.sh paper
 ```
 
 Çıktılar `results/raw/gazebo_f53_validation/<ölçek>` altına, birleştirilmiş

@@ -2,7 +2,7 @@
 # HISTORICAL/RETIRED: non-destructive Nav2+Gazebo validation for rejected F53.
 set -euo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO"
 
 PROFILE="${1:-pilot}"
