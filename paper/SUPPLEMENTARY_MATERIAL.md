@@ -123,8 +123,8 @@ warm-up replacement, and communication reconstruction are documented in the
 analysis scripts and `results/raw/gazebo_benchmark_f58/CONFIG.md`.
 
 Preregistration and revision provenance are retained separately in
-`paper/PREREGISTRATION.md`, `paper/REVISION_PLAN.md`,
-`paper/REVISION_STATUS.md`, `SECTION_AUDIT_2026_08_03.md`,
+`paper/PREREGISTRATION.md` and, under `docs/provenance/`,
+`REVISION_PLAN.md`, `REVISION_STATUS.md`, `SECTION_AUDIT_2026_08_03.md`,
 `FIGURE_TABLE_AUDIT.md`, and `STALE_NUMBERS_AUDIT.md`. These files document
 decision history and error correction; they are not part of the inferential
 evidence presented in the main manuscript.

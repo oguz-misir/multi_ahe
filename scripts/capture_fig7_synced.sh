@@ -20,7 +20,7 @@ set -u
 # before creating any X server or ROS node.
 if [[ "${ALLOW_HIGH_LOAD_CAPTURE:-0}" != "1" ]]; then
     echo '[refused] 10-robot dual-GUI capture is disabled by default.' >&2
-    echo 'Use the recorded-state low-load workflow documented in YUK_KONTROL.md.' >&2
+    echo 'Use the recorded-state low-load workflow documented in docs/YUK_KONTROL.md.' >&2
     exit 75
 fi
 LOAD_GUARD_MAX_LOAD="${FIG7_MAX_LOAD_1M:-8.0}" \

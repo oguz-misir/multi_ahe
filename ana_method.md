@@ -589,9 +589,16 @@ Gazebo Classic API varsayma; ros_gz-uyumlu Harmonic entegrasyonu kullan.
 | `m_ahe_robot_interface` | Status summary, queue listener, Nav2 action, STUCK tespiti (`robot_interface_node.py`) |
 | `m_ahe_ecosystem_manager` | Context vector, dominance, A/S, weight (`ecosystem_manager_node.py`) |
 | `m_ahe_task_allocator` | Maliyet matrisi, atama, kuyruk optimizasyonu (EDPS); `experiment_runner_node.py` + `baselines/` |
-| `m_ahe_recovery_manager` | Arıza/erişilemezlik/delay → replan tetikleme |
-| `m_ahe_evaluation` | CSV, metrik, grafik, rapor |
 | `m_ahe_nav2_config` | Robot-bazlı Nav2 parametreleri + `maps/obstacle_map.pgm` |
+
+> Arıza/erişilemezlik/delay → replan tetikleme için ayrı bir paket **yoktur**:
+> STUCK tespiti `robot_interface_node.py`'de, yeniden tahsis kararı
+> `experiment_runner_node.py`'de yaşar. CSV/metrik yazımı da ayrı bir paket
+> değildir — `experiment_runner_node.py` (koşu başına summary) ile
+> `scripts/consolidate_results.py` + `scripts/statistical_analysis.py`
+> (kampanya toplama ve istatistik) bu işi yapar. Daha önce bu tabloda
+> `m_ahe_recovery_manager` ve `m_ahe_evaluation` satırları vardı; iki paket de
+> boş iskeletti (sıfır kod, entry point yok) ve 2026-08-09'da kaldırıldı.
 
 **Önerilen yöntem + baseline kodu:** `m_ahe_task_allocator/.../baselines/`. Strateji
 registry `experiment_runner_node.py` `_STRATEGIES`: `ahe_mrta_v3` →
