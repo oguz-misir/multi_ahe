@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_deadline_pressure_rostam_ea_r5t25_seed15,deadline_pressure,rostam_ea,15,5,robot_1,5,5,0,37.15
+exp_deadline_pressure_rostam_ea_r5t25_seed15,deadline_pressure,rostam_ea,15,5,robot_2,5,5,0,37.65
+exp_deadline_pressure_rostam_ea_r5t25_seed15,deadline_pressure,rostam_ea,15,5,robot_3,3,3,0,22.40
+exp_deadline_pressure_rostam_ea_r5t25_seed15,deadline_pressure,rostam_ea,15,5,robot_4,5,5,0,16.14
+exp_deadline_pressure_rostam_ea_r5t25_seed15,deadline_pressure,rostam_ea,15,5,robot_5,7,7,0,45.07

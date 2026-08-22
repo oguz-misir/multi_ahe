@@ -1,0 +1,5 @@
+timestamp_s,strategy,alloc_num,tasks_in_queues,latency_ms
+30.000,consensus_dbta,1,8,0.65
+60.000,consensus_dbta,2,16,0.52
+75.000,consensus_dbta,3,13,0.24
+90.000,consensus_dbta,4,18,0.66

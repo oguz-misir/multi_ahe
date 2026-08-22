@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_robot_failure_ahe_mrta_v3_r5t25_seed02,robot_failure,ahe_mrta_v3,2,5,robot_1,7,7,0,43.16
+exp_robot_failure_ahe_mrta_v3_r5t25_seed02,robot_failure,ahe_mrta_v3,2,5,robot_2,2,2,0,11.44
+exp_robot_failure_ahe_mrta_v3_r5t25_seed02,robot_failure,ahe_mrta_v3,2,5,robot_3,6,6,0,37.81
+exp_robot_failure_ahe_mrta_v3_r5t25_seed02,robot_failure,ahe_mrta_v3,2,5,robot_4,4,4,0,50.66
+exp_robot_failure_ahe_mrta_v3_r5t25_seed02,robot_failure,ahe_mrta_v3,2,5,robot_5,6,6,0,48.73

@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_robot_failure_consensus_dbta_r5t25_seed05,robot_failure,consensus_dbta,5,5,robot_1,6,6,0,37.00
+exp_robot_failure_consensus_dbta_r5t25_seed05,robot_failure,consensus_dbta,5,5,robot_2,2,2,0,11.69
+exp_robot_failure_consensus_dbta_r5t25_seed05,robot_failure,consensus_dbta,5,5,robot_3,7,7,0,31.56
+exp_robot_failure_consensus_dbta_r5t25_seed05,robot_failure,consensus_dbta,5,5,robot_4,5,5,0,37.84
+exp_robot_failure_consensus_dbta_r5t25_seed05,robot_failure,consensus_dbta,5,5,robot_5,5,5,0,29.50

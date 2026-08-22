@@ -1,0 +1,16 @@
+allocator_env:
+  AHE_F58_FAIR_EXTRA_QUEUE: '1'
+  AHE_F58_FAIR_REPAIR: '1'
+  AHE_F58_FAIR_RESERVATION_GAP: '2'
+  AHE_F58_FAIR_TERMINAL_TASKS_PER_ROBOT: '3'
+  AHE_F58_GEODESIC: '1'
+  AHE_WARMUP: '1'
+experiment_id: exp_mixed_stress_ahe_mrta_v3_r5t25_seed16
+gazebo_startup_delay_sec: 120.0
+robot_count: 5
+scenario: mixed_stress
+seed: 16
+strategy: ahe_mrta_v3
+target_count: 25
+task_count: 25
+timeout_sec: 900.0

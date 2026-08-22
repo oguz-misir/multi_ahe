@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_mixed_stress_ahe_mrta_v3_r5t25_seed09,mixed_stress,ahe_mrta_v3,9,5,robot_1,6,6,0,38.46
+exp_mixed_stress_ahe_mrta_v3_r5t25_seed09,mixed_stress,ahe_mrta_v3,9,5,robot_2,2,2,0,14.46
+exp_mixed_stress_ahe_mrta_v3_r5t25_seed09,mixed_stress,ahe_mrta_v3,9,5,robot_3,5,5,0,34.50
+exp_mixed_stress_ahe_mrta_v3_r5t25_seed09,mixed_stress,ahe_mrta_v3,9,5,robot_4,6,6,0,41.03
+exp_mixed_stress_ahe_mrta_v3_r5t25_seed09,mixed_stress,ahe_mrta_v3,9,5,robot_5,6,6,0,44.32

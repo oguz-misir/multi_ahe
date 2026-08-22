@@ -1,0 +1,17 @@
+timestamp_s,strategy,alloc_num,tasks_in_queues,latency_ms
+30.000,ahe_mrta_v3,1,10,6.81
+35.000,ahe_mrta_v3,2,10,3.38
+40.000,ahe_mrta_v3,3,10,0.28
+45.000,ahe_mrta_v3,4,10,0.25
+50.000,ahe_mrta_v3,5,10,2.97
+55.000,ahe_mrta_v3,6,10,2.93
+60.000,ahe_mrta_v3,7,10,2.05
+65.000,ahe_mrta_v3,8,10,1.76
+70.000,ahe_mrta_v3,9,10,2.55
+75.000,ahe_mrta_v3,10,10,1.49
+80.000,ahe_mrta_v3,11,8,1.91
+85.000,ahe_mrta_v3,12,8,1.10
+90.000,ahe_mrta_v3,13,7,1.14
+95.000,ahe_mrta_v3,14,6,1.48
+100.000,ahe_mrta_v3,15,6,0.74
+105.000,ahe_mrta_v3,16,6,1.13

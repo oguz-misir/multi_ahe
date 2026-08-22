@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_deadline_pressure_consensus_dbta_r5t25_seed12,deadline_pressure,consensus_dbta,12,5,robot_1,5,5,0,45.27
+exp_deadline_pressure_consensus_dbta_r5t25_seed12,deadline_pressure,consensus_dbta,12,5,robot_2,5,5,0,22.53
+exp_deadline_pressure_consensus_dbta_r5t25_seed12,deadline_pressure,consensus_dbta,12,5,robot_3,5,5,0,17.67
+exp_deadline_pressure_consensus_dbta_r5t25_seed12,deadline_pressure,consensus_dbta,12,5,robot_4,5,5,0,19.24
+exp_deadline_pressure_consensus_dbta_r5t25_seed12,deadline_pressure,consensus_dbta,12,5,robot_5,5,5,0,23.63

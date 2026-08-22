@@ -1,0 +1,7 @@
+timestamp_s,event_type,robot_id,task_id,strategy,latency_ms
+75.000,allocation_run,,,consensus_dbta,0.56
+110.003,allocation_run,,,consensus_dbta,0.24
+119.000,robot_failure,robot_2,,consensus_dbta,0.00
+120.000,allocation_run,,,consensus_dbta,0.22
+130.000,allocation_run,,,consensus_dbta,0.13
+140.000,allocation_run,,,consensus_dbta,0.66

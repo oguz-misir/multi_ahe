@@ -1,0 +1,5 @@
+timestamp_s,strategy,alloc_num,tasks_in_queues,latency_ms
+30.000,rostam_ea,1,8,52.46
+60.000,rostam_ea,2,15,59.66
+75.000,rostam_ea,3,11,35.89
+90.001,rostam_ea,4,17,65.98

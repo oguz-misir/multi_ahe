@@ -1,0 +1,3 @@
+timestamp_s,strategy,alloc_num,footprint_bytes
+30.000,big_mrta,1,500
+80.000,big_mrta,2,260

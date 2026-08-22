@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_mixed_stress_consensus_dbta_r5t25_seed04,mixed_stress,consensus_dbta,4,5,robot_1,6,6,0,39.57
+exp_mixed_stress_consensus_dbta_r5t25_seed04,mixed_stress,consensus_dbta,4,5,robot_2,3,3,0,14.35
+exp_mixed_stress_consensus_dbta_r5t25_seed04,mixed_stress,consensus_dbta,4,5,robot_3,5,5,0,35.80
+exp_mixed_stress_consensus_dbta_r5t25_seed04,mixed_stress,consensus_dbta,4,5,robot_4,5,5,0,31.54
+exp_mixed_stress_consensus_dbta_r5t25_seed04,mixed_stress,consensus_dbta,4,5,robot_5,6,6,0,48.07

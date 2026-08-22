@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_robot_failure_rostam_ea_r5t25_seed11,robot_failure,rostam_ea,11,5,robot_1,5,5,0,45.39
+exp_robot_failure_rostam_ea_r5t25_seed11,robot_failure,rostam_ea,11,5,robot_2,3,3,0,20.66
+exp_robot_failure_rostam_ea_r5t25_seed11,robot_failure,rostam_ea,11,5,robot_3,6,6,0,32.78
+exp_robot_failure_rostam_ea_r5t25_seed11,robot_failure,rostam_ea,11,5,robot_4,6,6,0,32.36
+exp_robot_failure_rostam_ea_r5t25_seed11,robot_failure,rostam_ea,11,5,robot_5,5,5,0,23.57

@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_deadline_pressure_ahe_mrta_v3_r5t25_seed08,deadline_pressure,ahe_mrta_v3,8,5,robot_1,5,5,0,26.87
+exp_deadline_pressure_ahe_mrta_v3_r5t25_seed08,deadline_pressure,ahe_mrta_v3,8,5,robot_2,4,4,0,27.67
+exp_deadline_pressure_ahe_mrta_v3_r5t25_seed08,deadline_pressure,ahe_mrta_v3,8,5,robot_3,6,6,0,35.48
+exp_deadline_pressure_ahe_mrta_v3_r5t25_seed08,deadline_pressure,ahe_mrta_v3,8,5,robot_4,5,5,0,26.07
+exp_deadline_pressure_ahe_mrta_v3_r5t25_seed08,deadline_pressure,ahe_mrta_v3,8,5,robot_5,5,5,0,28.67

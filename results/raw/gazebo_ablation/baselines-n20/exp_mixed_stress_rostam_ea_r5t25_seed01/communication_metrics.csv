@@ -1,0 +1,5 @@
+timestamp_s,strategy,alloc_num,footprint_bytes
+30.000,rostam_ea,1,12800
+60.000,rostam_ea,2,12800
+80.000,rostam_ea,3,4800
+90.000,rostam_ea,4,14400

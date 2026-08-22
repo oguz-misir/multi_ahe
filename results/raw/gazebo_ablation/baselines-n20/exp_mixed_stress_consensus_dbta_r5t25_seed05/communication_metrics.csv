@@ -1,0 +1,6 @@
+timestamp_s,strategy,alloc_num,footprint_bytes
+75.000,consensus_dbta,1,880
+110.003,consensus_dbta,2,320
+120.000,consensus_dbta,3,192
+130.000,consensus_dbta,4,64
+140.000,consensus_dbta,5,528

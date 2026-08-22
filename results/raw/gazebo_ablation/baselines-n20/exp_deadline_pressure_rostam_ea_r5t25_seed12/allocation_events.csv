@@ -1,0 +1,2 @@
+timestamp_s,event_type,robot_id,task_id,strategy,latency_ms
+30.000,allocation_run,,,rostam_ea,92.87

@@ -1,0 +1,5 @@
+timestamp_s,strategy,alloc_num,tasks_in_queues,latency_ms
+75.000,big_mrta,1,25,1.49
+125.000,big_mrta,2,16,0.35
+130.000,big_mrta,3,15,0.16
+135.000,big_mrta,4,15,0.20

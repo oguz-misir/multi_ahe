@@ -1,0 +1,115 @@
+==============================================================================
+EXPLORATORY FIFTH ARM -- fixed spatial-greedy (AHE_FORCE_PARADIGM=0)
+NOT pre-registered. Not part of the primary Bonferroni family.
+==============================================================================
+
+Runs with DONE, by scenario (target 20 each):
+  deadline_pressure     20
+  robot_failure         20
+  mixed_stress          20
+  TOTAL                 60 / 60
+
+==============================================================================
+PRIMARY COMPARISON -- Effective on-time (CR x (1-DVR))
+==============================================================================
+
+deadline_pressure (primary endpoint scenario)   n=20 common seeds
+  full          0.650
+  fixed-spatial 0.638
+  difference    +0.012  (full ahead)
+  raw p         0.4287   [x3 would be 1.0000]
+  Cliff's delta +0.087  95% CI [-0.09,+0.28]  (negligible)
+  -> no separation even before correction
+
+robot_failure (descriptive)   n=20 common seeds
+  full          0.986
+  fixed-spatial 0.998
+  difference    -0.012  (fixed-spatial ahead)
+  raw p         0.0143   [x3 would be 0.0429]
+  Cliff's delta -0.300  95% CI [-0.50,-0.10]  (small)
+  -> separates, and would survive a 3-test correction
+
+mixed_stress (descriptive)   n=20 common seeds
+  full          0.616
+  fixed-spatial 0.584
+  difference    +0.032  (full ahead)
+  raw p         0.0383   [x3 would be 0.1150]
+  Cliff's delta +0.200  95% CI [-0.02,+0.43]  (small)
+  -> separates raw, would NOT survive a 3-test correction
+
+==============================================================================
+CONTEXT -- all arms on the primary endpoint, same common seeds
+==============================================================================
+
+deadline_pressure  (n=20 common to all five arms)
+  full            0.650
+  fixed-spatial   0.638
+  fixed-EDF       0.556
+  fixed-orphan    0.540
+  no-override     0.641
+
+robot_failure  (n=20 common to all five arms)
+  full            0.986
+  fixed-spatial   0.998
+  fixed-EDF       0.846
+  fixed-orphan    0.850
+  no-override     0.998
+
+mixed_stress  (n=20 common to all five arms)
+  full            0.616
+  fixed-spatial   0.584
+  fixed-EDF       0.590
+  fixed-orphan    0.601
+  no-override     0.606
+
+==============================================================================
+OTHER METRICS -- full vs fixed-spatial (descriptive, untested)
+==============================================================================
+
+deadline_pressure  (n=20)
+  metric                              full   fixed-spatial
+  Effective on-time (CR x (1-DVR))     0.650           0.638
+  Completion rate                    1.000           1.000
+  Recovery time (censored, s)        0.000           0.000
+  Avg task delay (s)                78.486          79.648
+  Alloc. instability                 0.910           0.881
+  Replanning freq.                   8.215           8.290
+  Workload balance (active)          0.974           0.979
+  Decision latency (ms)              1.333           0.701
+
+robot_failure  (n=20)
+  metric                              full   fixed-spatial
+  Effective on-time (CR x (1-DVR))     0.986           0.998
+  Completion rate                    1.000           1.000
+  Recovery time (censored, s)       83.715          69.587
+  Avg task delay (s)                99.710         109.929
+  Alloc. instability                 1.023           1.131
+  Replanning freq.                   8.114           8.073
+  Workload balance (active)          0.975           0.977
+  Decision latency (ms)              0.810           0.578
+
+mixed_stress  (n=20)
+  metric                              full   fixed-spatial
+  Effective on-time (CR x (1-DVR))     0.616           0.584
+  Completion rate                    1.000           1.000
+  Recovery time (censored, s)       41.900          46.130
+  Avg task delay (s)                65.335          68.200
+  Alloc. instability                 1.121           1.152
+  Replanning freq.                   8.564           8.772
+  Workload balance (active)          0.981           0.980
+  Decision latency (ms)              0.888           0.730
+
+==============================================================================
+HOW TO REPORT THIS
+==============================================================================
+sec:ablation already forward-references this arm in BOTH languages:
+  "Fixed spatial-greedy, which this table promotes, was not part of
+   the registered design; Section~\ref{sec:gazebo-ablation} reports
+   it separately as an exploratory arm."
+That reference is currently dangling. Add a short paragraph at the end
+of sec:gazebo-ablation, in EN and TR, that:
+  - names it exploratory and says why it was added (proxy put it ahead)
+  - gives the primary-endpoint numbers above
+  - says plainly which way it went, including if it went against us
+  - does NOT enter tab:gazebo-ablation, which is the registered four
+Then recompile both PDFs.

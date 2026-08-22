@@ -1,0 +1,6 @@
+experiment_id,scenario,strategy,seed,robot_count,robot_id,assigned_tasks,completed_tasks,failed_tasks,approx_distance_m
+exp_mixed_stress_rostam_ea_r5t25_seed17,mixed_stress,rostam_ea,17,5,robot_1,6,6,0,31.80
+exp_mixed_stress_rostam_ea_r5t25_seed17,mixed_stress,rostam_ea,17,5,robot_2,5,5,0,31.41
+exp_mixed_stress_rostam_ea_r5t25_seed17,mixed_stress,rostam_ea,17,5,robot_3,6,6,0,34.27
+exp_mixed_stress_rostam_ea_r5t25_seed17,mixed_stress,rostam_ea,17,5,robot_4,5,5,0,27.12
+exp_mixed_stress_rostam_ea_r5t25_seed17,mixed_stress,rostam_ea,17,5,robot_5,3,3,0,22.66
